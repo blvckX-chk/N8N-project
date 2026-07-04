@@ -1,0 +1,334 @@
+{
+  "name": "Agent Code Review V5.0 — Détails + SecOps",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "agent-code-review",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -2464,
+        464
+      ],
+      "id": "9df880fa-1817-402f-8454-1475ab698a11",
+      "name": "Webhook",
+      "webhookId": "91f2c258-f58e-4ab5-9753-7f8950099bf2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\nlet code = input.codeconcat || input.code || \"\";\n\nif ((!code || code.trim() === \"\" || code.includes(\"// no code\")) && Array.isArray(input.files)) {\n  code = input.files\n    .map(f => `// FILE: ${f.path || f.name || \"unknown\"}\\n${f.content || \"\"}`)\n    .join(\"\\n\\n\");\n}\n\nif (!input.task_id && !input.taskid) {\n  return [{\n    json: {\n      valid: false,\n      error: \"Champ 'task_id' manquant\",\n      task_id: \"unknown\",\n      language: input.language || \"javascript\"\n    }\n  }];\n}\n\nif (!input.language) {\n  return [{\n    json: {\n      valid: false,\n      error: \"Champ 'language' manquant\",\n      task_id: input.task_id || input.taskid,\n      language: \"unknown\"\n    }\n  }];\n}\n\nif (!code || code.trim() === \"\" || code.trim() === \"// no code\") {\n  return [{\n    json: {\n      valid: false,\n      error: \"Champ 'code' manquant ou vide\",\n      task_id: input.task_id || input.taskid,\n      language: input.language\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    ...input,\n    task_id: input.task_id || input.taskid,\n    code,\n    valid: true\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2176,
+        464
+      ],
+      "id": "bb260878-a861-4962-9713-0f02d7c6590f",
+      "name": "Validate Input"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "PASS",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "c5d18586-85c6-4eb0-b0c6-c9d71d4e6890"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "pass"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "3c024ba6-658e-4fbc-b0e1-efcd1f2924c4",
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "FAIL",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "fail"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "7b6a45e7-f5e0-4c91-928d-8628364165c0",
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "NEEDSIMPROVEMENT",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "review"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "df2e5669-d916-4e75-87a8-692849b29b50",
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "ERROR",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "error"
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {
+          "ignoreCase": true
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -1776,
+        448
+      ],
+      "id": "d8bb2579-f9d2-49ac-ac47-800a7ac9015e",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\n\nlet data = raw;\nif (raw.body !== undefined) {\n  let rawBody = raw.body;\n  if (typeof rawBody === 'string') {\n    rawBody = rawBody.replace(/^=+/, '').trim();\n    try { data = JSON.parse(rawBody); } catch(e) { data = raw; }\n  } else if (typeof rawBody === 'object' && Object.keys(rawBody).length > 0) {\n    data = rawBody;\n  }\n}\n\nreturn [{ json: data }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2336,
+        464
+      ],
+      "id": "1e16aa7f-514a-40cf-a819-eeab3d8bf99b",
+      "name": "Extract Body"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\n// Sécurité : limiter la taille du code analysé (50KB max)\nlet code = input.code || input.codeconcat || \"\";\nconst MAX_SIZE = 50000;\nif (code.length > MAX_SIZE) {\n  code = code.substring(0, MAX_SIZE) + '\\n// ... [tronqué]';\n}\n\nconst task_id  = input.task_id  || \"unknown\";\nconst language = input.language || \"javascript\";\n\nif (input.valid === false) {\n  return [{ json: {\n    agent: \"Agent Code Review\", task_id, status: \"ERROR\",\n    global_score: 0, approved_for_pipeline: false, language,\n    critical_issues: [{ severity: \"high\", category: \"validation\",\n      file: \"?\", description: input.error || \"Validation échouée\",\n      impact: \"Pipeline ne peut pas continuer\",\n      fix: \"Vérifier le payload envoyé à l'agent\" }],\n    warnings: [], recommendations: [\"Corriger le payload d'entrée\"],\n    summary: input.error || \"Payload invalide\",\n    dimensions: { security: { score: 0 }, quality: { score: 0 } },\n    timestamp: new Date().toISOString()\n  }}];\n}\n\nconst issues = [];\n\n// ── SÉCURITÉ OWASP ─────────────────────────────────────────────────────────\n\n// A02 — Secrets hardcodés\nif (/password\\s*[:=]\\s*['\"][^'\"]{3,}['\"]/i.test(code))\n  issues.push({ severity:\"high\", category:\"security\", file:\"?\",\n    description:\"Secret hardcodé : password en clair\",\n    impact:\"Exposition des credentials si le code est partagé ou versionné\",\n    fix:\"Utiliser process.env.PASSWORD à la place\" });\n\nif (/api[_-]?key\\s*[:=]\\s*['\"][^'\"]{6,}['\"]/i.test(code))\n  issues.push({ severity:\"high\", category:\"security\", file:\"?\",\n    description:\"API Key hardcodée (OWASP A02:2021)\",\n    impact:\"Clé exposée dans le code source / dépôt Git\",\n    fix:\"const API_KEY = process.env.API_KEY;\" });\n\nif (/(SECRET|TOKEN|PWD)\\s*=\\s*['\"][^'\"]{4,}['\"]/i.test(code) && !/process\\.env/.test(code))\n  issues.push({ severity:\"high\", category:\"security\", file:\"?\",\n    description:\"Constante sensible hardcodée\",\n    impact:\"Données sensibles exposées dans le code\",\n    fix:\"Déplacer dans les variables d'environnement (.env)\" });\n\n// A03 — Injection\nif (/\\beval\\s*\\(/.test(code))\n  issues.push({ severity:\"high\", category:\"security\", file:\"?\",\n    description:\"Code Injection : eval() détecté (OWASP A03:2021)\",\n    impact:\"Exécution de code arbitraire possible\",\n    fix:\"Supprimer eval() — utiliser JSON.parse() si parsing JSON\" });\n\nif (/innerHTML\\s*=[^=]/i.test(code))\n  issues.push({ severity:\"high\", category:\"security\", file:\"frontend/app.js\",\n    description:\"XSS potentiel : innerHTML avec données non échappées (OWASP A03:2021)\",\n    impact:\"Injection de scripts malveillants côté client\",\n    fix:\"Utiliser textContent ou escapeHtml() avant innerHTML\" });\n\n// A07 — Auth cassée\nif (/jwt\\.verify\\s*\\([^,]+,\\s*['\"]none['\"]/i.test(code))\n  issues.push({ severity:\"high\", category:\"security\", file:\"?\",\n    description:\"JWT algorithme 'none' (OWASP A07:2021)\",\n    impact:\"Token JWT non vérifié — authentification contournable\",\n    fix:\"Spécifier un algorithme : { algorithms: ['HS256'] }\" });\n\n// ── QUALITÉ FONCTIONNELLE ──────────────────────────────────────────────────\n\n// Store non utilisé\nif (/const store\\s*=/.test(code) && /res\\.(json|send)\\s*\\(\\s*\\[\\s*\\]\\s*\\)/i.test(code))\n  issues.push({ severity:\"high\", category:\"quality\", file:\"server.js\",\n    description:\"res.json([]) statique — le store n'est pas lu\",\n    impact:\"Les données créées ne sont jamais retournées\",\n    fix:\"res.json(store.items) au lieu de res.json([])\" });\n\n// express.static absent avec frontend\nif (code.includes('frontend') && !code.includes('express.static'))\n  issues.push({ severity:\"medium\", category:\"quality\", file:\"server.js\",\n    description:\"express.static manquant alors que frontend/ est généré\",\n    impact:\"Le frontend HTML/CSS/JS ne sera pas servi par le serveur\",\n    fix:\"app.use(express.static(path.join(__dirname, 'frontend')))\" });\n\n// PORT hardcodé\nif (/app\\.listen\\s*\\(\\s*[0-9]{4,5}[^)]/.test(code) && !code.includes('process.env.PORT'))\n  issues.push({ severity:\"medium\", category:\"quality\", file:\"server.js\",\n    description:\"PORT hardcodé — non configurable par environnement\",\n    impact:\"Impossible de changer le port sans modifier le code\",\n    fix:\"const PORT = process.env.PORT || 3000;\" });\n\n// Endpoints sans try/catch\nconst epCount    = (code.match(/app\\.(get|post|put|delete|patch)\\s*\\(/gi) || []).length;\nconst tryCount   = (code.match(/try\\s*\\{/g) || []).length;\nif (epCount > 0 && tryCount < Math.floor(epCount / 2))\n  issues.push({ severity:\"medium\", category:\"quality\", file:\"server.js\",\n    description:`${epCount} endpoints mais seulement ${tryCount} try/catch`,\n    impact:\"Erreurs non gérées → crash du serveur sur exception\",\n    fix:\"Entourer chaque endpoint de try { ... } catch(err) { res.status(500)... }\" });\n\n// try/catch imbriqués (code corrompu)\nif ((code.match(/try\\s*\\{[\\s\\S]{0,50}try\\s*\\{/g) || []).length > 0)\n  issues.push({ severity:\"medium\", category:\"quality\", file:\"server.js\",\n    description:\"try/catch imbriqués détectés — signe de code mal généré\",\n    impact:\"Gestion d'erreurs confuse, comportement imprévisible\",\n    fix:\"Supprimer les try/catch dupliqués\" });\n\n// Console.log sensibles\nconst sensitiveLogs = (code.match(/console\\.(log|info)\\s*\\([^)]*(?:password|token|secret|key|auth)/gi) || []).length;\nif (sensitiveLogs > 0)\n  issues.push({ severity:\"medium\", category:\"security\", file:\"?\",\n    description:`${sensitiveLogs} console.log avec données potentiellement sensibles`,\n    impact:\"Fuite d'informations dans les logs serveur\",\n    fix:\"Supprimer ou masquer les données sensibles dans les logs\" });\n\n// Console.log debug excessifs\nconst allLogs = (code.match(/console\\.(log|debug)/g) || []).length;\nif (allLogs >= 5)\n  issues.push({ severity:\"low\", category:\"quality\", file:\"?\",\n    description:`${allLogs} console.log de debug — à nettoyer avant production`,\n    impact:\"Logs verbeux en production, légère dégradation perfo\",\n    fix:\"Supprimer ou conditionner avec if (process.env.NODE_ENV !== 'production')\" });\n\n// ── SCORE ──────────────────────────────────────────────────────────────────\nconst highCount   = issues.filter(i => i.severity === \"high\").length;\nconst mediumCount = issues.filter(i => i.severity === \"medium\").length;\nconst lowCount    = issues.filter(i => i.severity === \"low\").length;\n\nlet score = 100 - (highCount * 25) - (mediumCount * 10) - (lowCount * 3);\nscore = Math.max(0, Math.min(100, score));\n\nconst secIssues = issues.filter(i => i.category === \"security\" && i.severity === \"high\").length;\nconst secScore  = Math.max(0, 100 - (secIssues * 35));\nconst approved  = highCount === 0 && score >= 55;\nconst status    = highCount > 0 ? \"FAIL\" : (mediumCount >= 3 ? \"WARN\" : \"PASS\");\n\nreturn [{ json: {\n  agent: \"Agent Code Review\",\n  task_id, status,\n  global_score: score,\n  approved_for_pipeline: status !== \"FAIL\",\n  language,\n  critical_issues: issues.filter(i => i.severity === \"high\"),\n  warnings:        issues.filter(i => i.severity !== \"high\"),\n  recommendations: [\n    ...(highCount   > 0 ? [`Corriger les ${highCount} issue(s) HIGH en priorité`] : []),\n    ...(mediumCount > 0 ? [`Vérifier les ${mediumCount} issue(s) MEDIUM`] : []),\n    ...(score >= 80     ? [\"Code de bonne qualité — prêt pour la suite\"] : [])\n  ],\n  summary: status === \"FAIL\"\n    ? `${highCount} issue(s) critique(s) bloquante(s)`\n    : `Code ${score >= 80 ? \"de qualité\" : \"acceptable\"} — ${issues.length} issue(s)`,\n  dimensions: {\n    security: { score: secScore },\n    quality:  { score: score }\n  },\n  timestamp: new Date().toISOString()\n}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1968,
+        464
+      ],
+      "id": "114c3abd-1ae3-4bc5-a476-ae4979d525b2",
+      "name": "Security Review"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -1568,
+        304
+      ],
+      "id": "cde52ddd-577f-420d-b3f6-34ed51aec000",
+      "name": "Respond to Webhook pass"
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -1536,
+        448
+      ],
+      "id": "66da75d9-072a-4602-9a10-f9fcc85d29ad",
+      "name": "Respond to Webhook fail"
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -1520,
+        624
+      ],
+      "id": "7494fbf4-5cca-4046-9029-1c4d39e7ace5",
+      "name": "Respond to Webhook review"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -1568,
+        784
+      ],
+      "id": "10adda3d-85bf-4375-bae0-8d3d1b4b89e7",
+      "name": "Respond to Webhook error"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Extract Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Security Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook pass",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook fail",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook review",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Body": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Security Review": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "235972fb-fdf8-448d-ac0f-a4dc0482e138",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c77e41168b0abc4c9e72e3dfa70fb293d0acb289b40b847421933eadc146e082"
+  },
+  "id": "myiUT195hd7511j2",
+  "tags": []
+}
