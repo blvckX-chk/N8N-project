@@ -1,0 +1,396 @@
+{
+  "name": "Agent SCA V5.0 — CVE Détails + WARN",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "agent-sca",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -896,
+        16
+      ],
+      "id": "162e297e-8b43-4081-9956-ae8d22bab50b",
+      "name": "Webhook",
+      "webhookId": "742fdf1d-86e0-4171-876d-3e5e3586cf23"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "PASS",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "408454dc-aeca-4764-9787-d03971cfd9b5"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "pass"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "ca7b2de8-3027-41e1-b81d-4053cd945280",
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "FAIL",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "fail"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "47ac323e-9cd6-4d17-8f0e-826a8e8750d6",
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "WARN",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "review"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "e6dc87d2-e9e7-421d-8260-99c63148c7b3",
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "ERROR",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "error"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -16,
+        -32
+      ],
+      "id": "d5e4bd61-f216-431e-b5c7-f8ceccebe94a",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\n\n// Parser le body correctement — supporte string avec = parasite\nlet data = raw;\nif (raw.body !== undefined) {\n  let rawBody = raw.body;\n  if (typeof rawBody === 'string') {\n    rawBody = rawBody.replace(/^=+/, '').trim();\n    try { data = JSON.parse(rawBody); } catch(e) { data = raw; }\n  } else if (typeof rawBody === 'object') {\n    data = rawBody;\n  }\n}\n\nconst pkg = data.package_json || data.packageJson || null;\n\nif (!pkg) {\n  return [{\n    json: {\n      _error: \"YES\",\n      _error_code: \"VALIDATION_ERROR\",\n      _error_message: \"package_json manquant dans le payload\",\n      task_id: data.task_id || \"unknown\",\n      language: data.language || \"javascript\",\n      queries: []\n    }\n  }];\n}\n\nlet parsed;\ntry {\n  parsed = typeof pkg === \"string\" ? JSON.parse(pkg) : pkg;\n} catch (e) {\n  return [{\n    json: {\n      _error: \"YES\",\n      _error_code: \"PARSE_ERROR\",\n      _error_message: \"package_json invalide — JSON malformé\",\n      task_id: data.task_id || \"unknown\",\n      language: data.language || \"javascript\",\n      queries: []\n    }\n  }];\n}\n\nconst deps = {\n  ...(parsed.dependencies || {}),\n  ...(parsed.devDependencies || {})\n};\n\nconst queries = Object.keys(deps).map(name => ({\n  package: { name, ecosystem: \"npm\" },\n  version: deps[name].replace(/[^\\d.]/g, \"\")\n}));\n\nreturn [{\n  json: {\n    _error: \"NO\",\n    task_id: data.task_id || \"unknown\",\n    language: data.language || \"javascript\",\n    queries\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -720,
+        16
+      ],
+      "id": "d717d778-2ef4-4102-9875-a01c1bb0468b",
+      "name": "Extract & Prepare"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\n// Court-circuit si erreur amont\nif (input._error === \"YES\") {\n  return [{\n    json: {\n      agent: \"Agent SCA\",\n      task_id: input.task_id || \"unknown\",\n      status: \"ERROR\",\n      global_score: 0,\n      approved_for_pipeline: false,\n      language: input.language || \"javascript\",\n      critical_issues: [],\n      warnings: [],\n      recommendations: [input._error_message || \"Erreur de validation\"],\n      dimensions: { security: { score: 0 }, quality: { score: 0 } },\n      summary: input._error_message || \"Erreur de validation\",\n      timestamp: new Date().toISOString()\n    }\n  }];\n}\n\nconst results = input.results || [];\nconst taskNode = $('Extract & Prepare').first().json;\nlet critical = [];\nlet warnings = [];\n\nfor (const r of results) {\n  const vulns = r.vulns || [];\n  for (const v of vulns) {\n    const id      = v.id || \"UNKNOWN\";\n    const pkg     = v.package?.name || \"unknown\";\n    const aliases = (v.aliases || []).join(', ') || id;\n    const severity = (v.severity?.[0]?.score || 0) >= 7 ? \"high\" : \"medium\";\n    const details  = v.details || \"Vulnérabilité détectée\";\n    const fix      = v.fixed || null;\n\n    const issue = {\n      id,\n      severity,\n      package: pkg,\n      aliases,\n      description: `${id} dans ${pkg} — ${details.substring(0, 120)}`,\n      impact: severity === \"high\"\n        ? \"Exploitation potentielle en production\"\n        : \"Risque modéré selon le contexte\",\n      fix: fix\n        ? `Mettre à jour vers ${pkg}@${fix}`\n        : `Vérifier les releases de ${pkg} pour un patch`\n    };\n\n    if (severity === \"high\") critical.push(issue);\n    else warnings.push(issue);\n  }\n}\n\nconst secScore = Math.max(0, 100 - (critical.length * 30) - (warnings.length * 5));\nconst qualScore = critical.length > 0 ? 60 : warnings.length > 0 ? 80 : 100;\nconst globalScore = Math.round((secScore * 0.8) + (qualScore * 0.2));\n\n// WARN au lieu de NEEDSIMPROVEMENT\nconst status = critical.length > 0 ? \"FAIL\"\n             : warnings.length > 0 ? \"WARN\"\n             : \"PASS\";\n\nreturn [{\n  json: {\n    agent: \"Agent SCA\",\n    task_id: taskNode.task_id || \"unknown\",\n    status,\n    global_score: globalScore,\n    approved_for_pipeline: status !== \"FAIL\",\n    language: taskNode.language || \"javascript\",\n    critical_issues: critical,\n    warnings,\n    recommendations: critical.length > 0\n      ? [`Corriger immédiatement ${critical.length} CVE critique(s)`]\n      : warnings.length > 0\n        ? [\"Planifier la mise à jour des dépendances vulnérables\"]\n        : [\"Aucune CVE détectée — dépendances saines\"],\n    dimensions: {\n      security: { score: secScore },\n      quality:  { score: qualScore }\n    },\n    summary: critical.length > 0\n      ? `${critical.length} CVE critique(s) dans les dépendances`\n      : warnings.length > 0\n        ? `${warnings.length} vulnérabilité(s) modérée(s) détectée(s)`\n        : \"Aucune vulnérabilité dans les dépendances\",\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -208,
+        -16
+      ],
+      "id": "6572d0a8-fdae-44e2-b75b-1dbb88a28b61",
+      "name": "SCA Normalize & Scoring"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.osv.dev/v1/querybatch",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"queries\": $json.queries } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -384,
+        176
+      ],
+      "id": "38f6ec51-b06c-4842-8620-feafb2611c02",
+      "name": "HTTP Request OSV"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "8b703813-9cd9-481e-9576-51d9477468d7",
+              "leftValue": "={{ $json._error_code }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -544,
+        16
+      ],
+      "id": "f24dfdf7-f614-46dd-908a-3e8183569466",
+      "name": "If — Error Check"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        208,
+        224
+      ],
+      "id": "cb356a19-15c3-4a37-bb7c-ac7b4b341fd5",
+      "name": "Respond to Webhook error"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        224,
+        80
+      ],
+      "id": "d39de432-d2ef-4bf1-9144-93acdcb3d2f7",
+      "name": "Respond to Webhook review"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        208,
+        -64
+      ],
+      "id": "8d8637d8-45af-4b91-b309-bee5321be8e2",
+      "name": "Respond to Webhook fail",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        160,
+        -208
+      ],
+      "id": "d6be72b2-5a12-430c-a140-08403e86c69f",
+      "name": "Respond to Webhook pass",
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Extract & Prepare",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook pass",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook fail",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook review",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract & Prepare": {
+      "main": [
+        [
+          {
+            "node": "If — Error Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SCA Normalize & Scoring": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request OSV": {
+      "main": [
+        [
+          {
+            "node": "SCA Normalize & Scoring",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If — Error Check": {
+      "main": [
+        [
+          {
+            "node": "SCA Normalize & Scoring",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP Request OSV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "c269aae2-5e53-4b99-af49-eacc1847c60c",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c77e41168b0abc4c9e72e3dfa70fb293d0acb289b40b847421933eadc146e082"
+  },
+  "id": "Jdpuk8ylDODCgqNK",
+  "tags": []
+}

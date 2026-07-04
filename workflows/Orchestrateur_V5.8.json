@@ -1,0 +1,2412 @@
+{
+  "name": "Orchestrateur V5.8",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "pipeline",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "560e23ff-026e-4191-92c4-92615ccaf98f",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -223536,
+        -25024
+      ],
+      "webhookId": "4648cf15-5cca-4762-bb41-bbbce55b95a9"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/architect",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "=={{ JSON.stringify({\n  task_id:     $('Validate Input').first().json.task_id,\n  userRequest: $('Validate Input').first().json.userRequest\n}) }}",
+        "options": {}
+      },
+      "id": "f88675d4-82d2-4a72-ab34-983d1bc5fd83",
+      "name": "Agent Architect",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -216896,
+        -24992
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/developer",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "==={{ JSON.stringify({\n  task_id:            $('Validate Input').first().json.task_id,\n  userRequest:        $('Build Backend Payload').first().json.userRequest,\n  language:           $('Validate Input').first().json.language,\n  framework:          $('Validate Input').first().json.framework,\n  improve_mode:       $('Build Backend Payload').first().json.improve_mode || false,\n  improve_prompt:     $('Build Backend Payload').first().json.improve_prompt || '',\n  architecture:       $('Build Backend Payload').first().json.architecture || {},\n  priority_endpoints: $('Build Backend Payload').first().json.priority_endpoints || [],\n  mvp_scope:          $('Build Backend Payload').first().json.mvp_scope || '',\n  data_model:         $('Build Backend Payload').first().json.data_model || {},\n  stores:             $('Build Backend Payload').first().json.stores || {},\n  existing_server_js: $('Build Backend Payload').first().json.existing_server_js || '',\n  existing_routes:    $('Build Backend Payload').first().json.existing_routes || [],\n  existing_stores:    $('Build Backend Payload').first().json.existing_stores || {},\n  existing_version:   $('Build Backend Payload').first().json.existing_version || '1.0',\n  backend_instructions: $('Build Backend Payload').first().json.backend_instructions || []\n}) }}\n",
+        "options": {}
+      },
+      "id": "0bd7f64f-3197-45c0-b4f2-bc0804ca9691",
+      "name": "Agent Backend",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -216384,
+        -24960
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/frontend",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "==={{ JSON.stringify({\n  task_id:            $('Validate Input').first().json.task_id,\n  userRequest:        $('Validate Input').first().json.userRequest,\n  improve_mode:       $('Build Frontend Payload').first().json.improve_mode || false,\n  architecture:       $('Build Frontend Payload').first().json.architecture || {},\n  priority_endpoints: $('Build Frontend Payload').first().json.priority_endpoints || [],\n  mvp_scope:          $('Build Frontend Payload').first().json.mvp_scope || '',\n  project_name:       $('Build Frontend Payload').first().json.project_name || '',\n  data_model:         $('Build Frontend Payload').first().json.data_model || {},\n  stores:             $('Build Frontend Payload').first().json.stores || {},\n  frontend_instructions: $('Build Frontend Payload').first().json.frontend_instructions || []\n}) }}",
+        "options": {}
+      },
+      "id": "30328c71-1029-4624-a37b-15be70a3854f",
+      "name": "Agent Frontend",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -215904,
+        -24976
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\n// Parsing sécurisé du body — JSON.parse sans try/catch = crash si Groq renvoie un body non-JSON\nlet body;\nif (raw.body && typeof raw.body === 'object') {\n  body = raw.body;\n} else if (typeof raw.body === 'string') {\n  try {\n    body = JSON.parse(raw.body.replace(/^=+/, '').trim());\n  } catch(e) {\n    // Body string invalide (erreur réseau, timeout, HTML d'erreur) → utiliser raw\n    body = raw;\n  }\n} else {\n  body = raw;\n}\nif (!body.task_id) throw new Error('task_id requis');\nreturn [{ json: {\n  task_id:              String(body.task_id),\n  userRequest:          String(body.userRequest || ''),\n  environment:          String(body.environment || 'staging'),\n  language:             String(body.language    || 'javascript'),\n  framework:            String(body.framework   || 'express'),\n  input_type:           String(body.input_type  || 'direct'),\n  improve_mode:         body.improve_mode        || false,\n  improve_prompt:       body.improve_prompt      || body.userRequest || '',\n  existing_zip_base64:  body.existing_zip_base64 || null,\n  existing_zip_filename: body.existing_zip_filename || null,\n  pdf_base64:           body.pdf_base64           || null,\n  pdf_filename:         body.pdf_filename          || null,\n  specs_context:        body.specs_context         || null\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -220624,
+        -24960
+      ],
+      "id": "f8bc64cf-2a9f-4a74-a270-6f409deb129e",
+      "name": "Validate Input"
+    },
+    {
+      "parameters": {
+        "jsCode": "const arch    = $input.first().json;\nconst initial = $('Validate Input').first().json;\n\n// ── Récupérer les artifacts du LLM Architect ──────────────────────────────────\nconst llmArtifacts = arch.artifacts || arch.architecture || arch.specs || arch.data || arch.result || arch;\n\n// ── Récupérer les invariants déterministes depuis Build Architect Payload ──────\n// Ces invariants sont issus du Spec Normalizer — endpoints et stores exacts\nlet deterministicArtifacts = null;\ntry {\n  deterministicArtifacts = $('Build Architect Payload').first().json._deterministic_artifacts || null;\n} catch(e) {}\n\n// ── FUSION : LLM enrichit, Normalizer contraint ───────────────────────────────\n// INVARIANTS (Normalizer) : priority_endpoints, stores, data_model\n// ENRICHISSEMENTS (LLM)   : mvp_scope, deferred, abuse_cases, project_name, architecture\n\nconst finalEndpoints = (deterministicArtifacts && deterministicArtifacts.priority_endpoints &&\n                         deterministicArtifacts.priority_endpoints.length > 0)\n  ? deterministicArtifacts.priority_endpoints\n  : (llmArtifacts.priority_endpoints && llmArtifacts.priority_endpoints.length > 0)\n    ? llmArtifacts.priority_endpoints : [];\n\nconst finalStores = (deterministicArtifacts && deterministicArtifacts.stores &&\n                      Object.keys(deterministicArtifacts.stores).length > 0)\n  ? deterministicArtifacts.stores\n  : (llmArtifacts.stores && Object.keys(llmArtifacts.stores).length > 0)\n    ? llmArtifacts.stores : {};\n\nconst finalDataModel = (deterministicArtifacts && deterministicArtifacts.data_model &&\n                         Object.keys(deterministicArtifacts.data_model).length > 0)\n  ? deterministicArtifacts.data_model\n  : (llmArtifacts.data_model && Object.keys(llmArtifacts.data_model).length > 0)\n    ? llmArtifacts.data_model : {};\n\n// Enrichissements LLM — avec sanitisation anti-hallucination\n// mvp_scope : string max 300 chars\nconst rawMvpScope = llmArtifacts.mvp_scope;\nconst finalMvpScope = (typeof rawMvpScope === 'string' && rawMvpScope.length > 0)\n  ? rawMvpScope.substring(0, 300)\n  : (deterministicArtifacts ? 'MVP ' + deterministicArtifacts.project_name : '');\n\n// deferred : tableau de strings uniquement\nconst rawDeferred = llmArtifacts.deferred;\nconst finalDeferred = Array.isArray(rawDeferred)\n  ? rawDeferred.map(d => typeof d === 'string' ? d : (d && d.feature ? d.feature : String(d))).filter(d => d.length > 0).slice(0, 10)\n  : [];\n\n// abuse_cases : tableau de strings\nconst rawAbuse = llmArtifacts.abuse_cases;\nconst finalAbuseCases = Array.isArray(rawAbuse)\n  ? rawAbuse.map(a => typeof a === 'string' ? a : (a && a.name ? a.name : String(a))).filter(a => a.length > 0).slice(0, 8)\n  : [];\n\n// project_name : string courte sans caractères dangereux\nconst rawProjectName = llmArtifacts.project_name;\nconst finalProjectName = (typeof rawProjectName === 'string' && rawProjectName.length > 0 && rawProjectName.length < 50)\n  ? rawProjectName.replace(/[<>\"'&;]/g, '').trim()\n  : (deterministicArtifacts && deterministicArtifacts.project_name) || '';\n\nconst mergedArtifacts = {\n  stack:       llmArtifacts.stack       || 'Node.js / Express',\n  architecture:llmArtifacts.architecture || 'MVC',\n  auth:        llmArtifacts.auth         || 'none',\n  database:    llmArtifacts.database     || 'none',\n  project_name:     finalProjectName,\n  mvp_scope:        finalMvpScope,\n  priority_endpoints: finalEndpoints,\n  data_model:       finalDataModel,\n  stores:           finalStores,\n  deferred:         finalDeferred,\n  abuse_cases:      finalAbuseCases,\n  file_manifest:    llmArtifacts.file_manifest || ['server.js','package.json','.env.example','frontend/index.html','frontend/style.css','frontend/app.js']\n};\n\n// ── Contexte ZIP si mode amélioration ────────────────────────────────────────\nlet existingServerJs = '';\nlet existingRoutes   = [];\nlet existingStores   = {};\nlet existingVersion  = '1.0';\ntry {\n  const zipResult = $('Agent ZIP Analyzer').first().json;\n  if (zipResult && zipResult.improve_mode) {\n    existingServerJs = zipResult.existing_server_js || '';\n    existingRoutes   = zipResult.existing_routes    || [];\n    existingStores   = zipResult.existing_stores    || {};\n    existingVersion  = zipResult.existing_version   || '1.0';\n  }\n} catch(e) {}\n\nreturn [{\n  json: {\n    task_id:            initial.task_id,\n    userRequest:        (initial.improve_mode && initial.specs_context)\n                          ? initial.specs_context : initial.userRequest,\n    improve_prompt:     initial.improve_mode ? (initial.improve_prompt || initial.userRequest) : '',\n    language:           initial.language,\n    framework:          initial.framework,\n    improve_mode:       initial.improve_mode || false,\n    architecture:       mergedArtifacts,\n    priority_endpoints: finalEndpoints,\n    mvp_scope:          finalMvpScope,\n    project_name:       finalProjectName,\n    data_model:         finalDataModel,\n    stores:             finalStores,\n    existing_server_js: existingServerJs,\n    existing_routes:    existingRoutes,\n    existing_stores:    existingStores,\n    existing_version:   existingVersion,\n    backend_instructions: mergedArtifacts.backend_instructions || []\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -216720,
+        -24992
+      ],
+      "id": "7e1411ab-fba7-4dc1-b8ab-582d818dd0e4",
+      "name": "Build Backend Payload"
+    },
+    {
+      "parameters": {
+        "jsCode": "const backend   = $input.first().json;\nconst initial   = $('Validate Input').first().json;\nconst artifacts = backend.artifacts || backend.architecture || {};\n\nconst stores = (backend.stores && Object.keys(backend.stores).length > 0)\n  ? backend.stores\n  : (artifacts.stores && Object.keys(artifacts.stores).length > 0) ? artifacts.stores : {};\n\nconst dataModel = (backend.data_model && Object.keys(backend.data_model).length > 0)\n  ? backend.data_model\n  : (artifacts.data_model && Object.keys(artifacts.data_model).length > 0) ? artifacts.data_model : {};\n\nconst endpoints = (backend.priority_endpoints && backend.priority_endpoints.length > 0)\n  ? backend.priority_endpoints\n  : (artifacts.priority_endpoints && artifacts.priority_endpoints.length > 0) ? artifacts.priority_endpoints : [];\n\n// project_name : ordre de priorité\n// 1. _deterministic_artifacts (Normalizer + specs_context → toujours correct)\n// 2. Build Backend Payload (LLM enrichment)\n// 3. backend.project_name / artifacts.project_name (fallbacks)\nlet projectName = '';\ntry { projectName = $('Build Architect Payload').first().json._deterministic_artifacts?.project_name || ''; } catch(e) {}\nif (!projectName) { try { projectName = $('Build Backend Payload').first().json.project_name || ''; } catch(e) {} }\nif (!projectName) { projectName = backend.project_name || artifacts.project_name || ''; }\n\nconst mvpScope = backend.mvp_scope || artifacts.mvp_scope\n  || (() => { try { return $('Build Backend Payload').first().json.mvp_scope || ''; } catch(e) { return ''; } })()\n  || projectName;\n\nreturn [{ json: {\n  task_id:               initial.task_id,\n  userRequest:           initial.userRequest,\n  improve_mode:          initial.improve_mode || false,\n  architecture:          artifacts,\n  priority_endpoints:    endpoints,\n  mvp_scope:             mvpScope,\n  project_name:          projectName,\n  data_model:            dataModel,\n  stores:                stores,\n  frontend_instructions: artifacts.frontend_instructions || []\n}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -216208,
+        -24960
+      ],
+      "id": "44a47258-ce50-4f0a-834a-390bfa5d6692",
+      "name": "Build Frontend Payload"
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial  = $('Validate Input').first().json;\nconst backend  = $('Agent Backend').first().json;\nconst frontend = $('Agent Frontend').first().json;\n\nconst files = [\n  ...(backend.files  || []),\n  ...(frontend.files || [])\n];\nconst code = files.map(f =>\n  `// FILE: ${f.path}\\n${f.content || ''}`\n).join('\\n\\n') || '// no code';\n\nreturn [{\n  json: {\n    task_id:  initial.task_id,\n    language: initial.language,\n    code,\n    files\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -214672,
+        -25392
+      ],
+      "id": "3206aaca-d1a9-4c12-b24e-d211cfa71f77",
+      "name": "Build Review Payload"
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial  = $('Validate Input').first().json;\nconst backend  = $('Agent Backend').first().json;\nconst frontend = $('Agent Frontend').first().json;\n\nconst files = [\n  ...(backend.files  || []),\n  ...(frontend.files || [])\n];\nconst code = files.map(f =>\n  `// FILE: ${f.path}\\n${f.content || ''}`\n).join('\\n\\n') || '// no code';\n\nreturn [{\n  json: {\n    task_id:  initial.task_id,\n    language: initial.language,\n    code,\n    files\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -214704,
+        -25232
+      ],
+      "id": "d257cb7b-c640-4f7a-a892-e4bc27749dd3",
+      "name": "Build QA Payload"
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial = $('Validate Input').first().json;\nconst backend = $('Agent Backend').first().json;\n\nconst files = backend.files || [];\nconst code = files.map(f =>\n  `// FILE: ${f.path}\\n${f.content || ''}`\n).join('\\n\\n') || '// no code';\n\nreturn [{\n  json: {\n    task_id: initial.task_id,\n    language: initial.language,\n    code,\n    files\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -214704,
+        -25056
+      ],
+      "id": "206e5c77-aeac-4e9f-bba8-b05a1cd19f2b",
+      "name": "Build SAST Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/agent-code-review",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "=={{ JSON.stringify({\n  task_id:  $('Validate Input').first().json.task_id,\n  language: $('Validate Input').first().json.language,\n  code:     $('Build Review Payload').first().json.code || '',\n  files:    $('Build Review Payload').first().json.files || []\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -214416,
+        -25392
+      ],
+      "id": "18d15932-4aed-4cde-b12a-8ead0d99d838",
+      "name": "Agent Code Review"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/sast",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "=={{ JSON.stringify({\n  task_id:  $('Validate Input').first().json.task_id,\n  language: $('Validate Input').first().json.language,\n  code:     $('Build SAST Payload').first().json.code || '',\n  files:    $('Build SAST Payload').first().json.files || []\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -214384,
+        -25056
+      ],
+      "id": "37221d00-8a23-4e79-8163-6252ee28dfb7",
+      "name": "Agent SAST"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -214176,
+        -25280
+      ],
+      "id": "ff3839e8-0e2d-405b-b452-63cf5aaa2dd8",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial = $('Validate Input').first().json;\nconst backend = $('Agent Backend').first().json;\n\n// Chercher le vrai package.json généré par le Backend\nconst pkgFile = (backend.files || []).find(f => f.path === 'package.json');\nlet packageJson = null;\n\nif (pkgFile && pkgFile.content) {\n  try {\n    // Nettoyer le commentaire // FILE: package.json\n    const cleaned = pkgFile.content.replace(/^\\/\\/ FILE:.*\\n/, '').trim();\n    packageJson = JSON.parse(cleaned);\n  } catch(e) {\n    packageJson = null;\n  }\n}\n\n// Fallback si pas de package.json valide\nif (!packageJson) {\n  packageJson = {\n    name: 'generated-app',\n    version: '1.0.0',\n    dependencies: { express: '4.21.2' },\n    devDependencies: {}\n  };\n}\n\nreturn [{\n  json: {\n    task_id:      initial.task_id,\n    language:     initial.language,\n    package_json: packageJson\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -213984,
+        -25408
+      ],
+      "id": "17c11fd5-009f-45ca-9980-4de3ad913d64",
+      "name": "Build SCA Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/agent-sca",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "==={{ JSON.stringify({\n  task_id:      $('Build SCA Payload').first().json.task_id,\n  language:     $('Build SCA Payload').first().json.language,\n  package_json: $('Build SCA Payload').first().json.package_json\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -213840,
+        -25408
+      ],
+      "id": "f18aa0ac-dc67-4192-8e97-93a589a283cd",
+      "name": "Agent SCA"
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial = $('Validate Input').first().json;\nconst backend = $('Agent Backend').first().json;\n\nreturn [{\n  json: {\n    task_id: initial.task_id,\n    language: initial.language,\n    files: backend.files || []\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -213984,
+        -25232
+      ],
+      "id": "54336ebb-9e9e-4a5f-b7b8-4f6a1d0412d9",
+      "name": "Build Secrets Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/agent-secrets",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "==={{ JSON.stringify({\n  task_id:  $('Build Secrets Payload').first().json.task_id,\n  language: $('Build Secrets Payload').first().json.language,\n  files:    $('Build Secrets Payload').first().json.files\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -213808,
+        -25232
+      ],
+      "id": "800b74e9-6789-4b4b-9823-678b3410cef6",
+      "name": "Agent Secrets"
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial = $('Validate Input').first().json;\n// Agent Architect peut ne pas être exécuté (chemin déterministe)\nlet archData = {};\ntry { archData = $('Agent Architect').first().json; } catch(e) {\n  try { archData = $('Build Architect Payload').first().json; } catch(e2) {}\n}\nconst arch = archData;\nconst artifacts = arch.artifacts || arch;\nconst endpoints = artifacts.priority_endpoints || [];\n\n// Construire les vrais endpoints depuis l'Architect\nconst realEndpoints = endpoints\n  .filter(ep => ep.path !== '/health')\n  .map(ep => ep.path.replace(/:id/g, '1'));\n\nreturn [{\n  json: {\n    task_id:     initial.task_id,\n    environment: initial.environment,\n    target_url:  'http://localhost:3000',\n    endpoints:   realEndpoints.length ? realEndpoints : ['/health'],\n    simulate:    'pass'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -213968,
+        -25056
+      ],
+      "id": "dd952b09-f8ac-43f7-a076-fe6179d631ef",
+      "name": "Build DAST Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/agent-dast",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "==={{ JSON.stringify({\n  task_id:     $('Validate Input').first().json.task_id,\n  environment: $('Validate Input').first().json.environment,\n  target_url:  'https://app-' + $('Validate Input').first().json.environment + '.monprojet.com',\n  endpoints:   ['/api/users', '/api/auth/login', '/health'],\n  simulate:    'pass'\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -213808,
+        -25056
+      ],
+      "id": "ac9df987-3de6-4aa5-9956-62f524624e08",
+      "name": "Agent DAST"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -213584,
+        -25280
+      ],
+      "id": "820984bc-9336-43fa-8877-2a09bd803f04",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/agent-qa",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "=={{ JSON.stringify({\n  task_id:  $('Validate Input').first().json.task_id,\n  language: $('Validate Input').first().json.language,\n  code:     $('Build QA Payload').first().json.code || ''\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -214400,
+        -25232
+      ],
+      "id": "a37d63f6-b286-48aa-9694-f918d6492152",
+      "name": "Agent QA"
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial = $('Validate Input').first().json;\n\n// Référencer chaque agent directement par son nom de nœud\nconst codeReview = $('Agent Code Review').first().json;\nconst qa         = $('Agent QA').first().json;\nconst sast       = $('Agent SAST').first().json;\nconst sca        = $('Agent SCA').first().json;\nconst secrets    = $('Agent Secrets').first().json;\nconst dast       = $('Agent DAST').first().json;\n\nreturn [{\n  json: {\n    task_id: initial.task_id,\n    results: {\n      code_review: {\n        status: codeReview.status || 'SKIP',\n        global_score: codeReview.global_score || 100,\n        critical_issues: codeReview.critical_issues || []\n      },\n      qa: {\n        status: qa.status || 'SKIP',\n        global_score: qa.global_score || 100,\n        critical_issues: qa.critical_issues || []\n      },\n      sast: {\n        status: sast.status || 'SKIP',\n        global_score: sast.global_score || 100,\n        critical_issues: sast.critical_issues || []\n      },\n      sca: {\n        status: sca.status || 'SKIP',\n        global_score: sca.global_score || 100,\n        critical_issues: sca.critical_issues || []\n      },\n      secrets: {\n        status: secrets.status || 'SKIP',\n        global_score: secrets.global_score || 100,\n        critical_issues: secrets.critical_issues || []\n      },\n      dast: {\n        status: dast.status || 'SKIP',\n        global_score: dast.global_score || 100,\n        critical_issues: dast.critical_issues || []\n      }\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -213408,
+        -25264
+      ],
+      "id": "7386ac7a-7594-4e30-ad41-d648822c6d2a",
+      "name": "Build GoNoGo Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/agent-gonogo",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "=={{ JSON.stringify({ task_id: $json.task_id, results: $json.results }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -213248,
+        -25264
+      ],
+      "id": "c2e8d662-2436-4b22-84c9-b7b63e479ec2",
+      "name": "Agent Go/No-Go"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b6299bbf-6475-4c7a-b58e-32dc2fccd936",
+              "leftValue": "={{ $json.decision }}",
+              "rightValue": "CONTINUE",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -213072,
+        -25264
+      ],
+      "id": "6d0424f5-9f2e-4004-ae3b-12e5a33ffda5",
+      "name": "If — CONTINUE ?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/agent-devops",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "=={{ JSON.stringify({\n  task_id:         $('Validate Input').first().json.task_id,\n  environment:     $('Validate Input').first().json.environment,\n  gonogo_decision: \"CONTINUE\",\n  code: {\n    language:  $('Validate Input').first().json.language,\n    framework: $('Validate Input').first().json.framework,\n    files:     $('Agent Backend').first().json.files || []\n  }\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -212880,
+        -25376
+      ],
+      "id": "cf1030fb-3829-478d-9b4b-0d4ba4b4a021",
+      "name": "Agent DevOps/Deploy"
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial = $('Validate Input').first().json;\nconst gonogo  = $('Agent Go/No-Go').first().json;\nlet partialFiles = [];\ntry {\n  const backend  = $('Agent Backend').first().json;\n  const frontend = $('Agent Frontend').first().json;\n  partialFiles = [...(backend.files || []), ...(frontend.files || [])];\n} catch(e) {}\nreturn [{\n  json: {\n    success:          false,\n    pipeline:         \"SDLC Multi-Agent\",\n    task_id:          initial.task_id,\n    input_type:       initial.input_type || 'direct',\n    decision:         gonogo.decision,\n    blocking_reasons: gonogo.blocking_reasons || [],\n    summary:          `Pipeline arrêté — décision : ${gonogo.decision}`,\n    completed_at:     new Date().toISOString(),\n    results: {\n      files:       partialFiles,\n      files_count: partialFiles.length,\n      note:        \"Fichiers partiellement générés avant arrêt du pipeline\"\n    },\n    metrics: {\n      language:    initial.language,\n      framework:   initial.framework,\n      environment: initial.environment\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -212880,
+        -25168
+      ],
+      "id": "37b26dd1-6848-407e-8985-52d5174d27c0",
+      "name": "Respond STOP"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -212672,
+        -25168
+      ],
+      "id": "4923315d-51ac-4f4f-b384-4efc554a5a04",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial = $('Validate Input').first().json;\nconst devops  = $('Agent DevOps/Deploy').first().json;\nconst deployUrl = devops.deployment_url || devops.service_url || devops.url\n  || `http://167.86.93.31:${initial.environment === 'production' ? '3000' : '3001'}`;\nreturn [{\n  json: {\n    task_id:     initial.task_id,\n    environment: initial.environment,\n    service_url: deployUrl,\n    deployed_at: devops.deployed_at || new Date().toISOString(),\n    simulate:    \"healthy\"\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -212672,
+        -25376
+      ],
+      "id": "692b31ed-dcc8-42ea-a893-583378535c34",
+      "name": "Build Monitoring Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/agent-monitoring",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "==={{ JSON.stringify({\n  task_id:     $('Validate Input').first().json.task_id,\n  environment: $('Validate Input').first().json.environment,\n  service_url: 'https://app-' + $('Validate Input').first().json.environment + '.monprojet.com',\n  deployed_at: $('Agent DevOps/Deploy').first().json.deployed_at || new Date().toISOString(),\n  simulate:    'healthy'\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -212496,
+        -25376
+      ],
+      "id": "607fc711-c676-4cb9-a267-232e2997f108",
+      "name": "Agent Monitoring"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "8ebfc90c-b978-4b9e-850c-a31a2d3a519a",
+              "leftValue": "={{ $json.monitoring_status }}",
+              "rightValue": "HEALTHY",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -212336,
+        -25376
+      ],
+      "id": "9018fb2f-8e22-4b74-8651-63c11e4d9f2e",
+      "name": "If HEALTHY"
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial    = $('Validate Input').first().json;\nconst devops     = $('Agent DevOps/Deploy').first().json;\nconst monitoring = $('Agent Monitoring').first().json;\nconst deployUrl  = devops.deployment_url || devops.service_url || devops.url || 'http://167.86.93.31:3001';\nreturn [{\n  json: {\n    task_id:     initial.task_id,\n    environment: initial.environment,\n    service: {\n      url:       deployUrl,\n      framework: initial.framework,\n      language:  initial.language,\n      status:    monitoring.monitoring_status || 'HEALTHY'\n    },\n    thresholds: {\n      max_cost_per_hour_usd: 0.5,\n      max_response_time_ms:  1000,\n      max_cpu_percent:       80,\n      max_memory_percent:    85\n    },\n    simulate: \"\"\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -212160,
+        -25472
+      ],
+      "id": "83ab575d-c7c5-45e8-ad1a-fdc12d829335",
+      "name": "Build Cost Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/agent-cost-performance",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "==={{ JSON.stringify({\n  task_id:     $('Validate Input').first().json.task_id,\n  environment: $('Validate Input').first().json.environment,\n  service: {\n    url:       'https://app-' + $('Validate Input').first().json.environment + '.monprojet.com',\n    framework: $('Validate Input').first().json.framework,\n    language:  $('Validate Input').first().json.language,\n    status:    $('Agent Monitoring').first().json.monitoring_status || 'HEALTHY'\n  },\n  thresholds: {\n    max_cost_per_hour_usd: 0.5,\n    max_response_time_ms:  1000,\n    max_cpu_percent:       80,\n    max_memory_percent:    85\n  },\n  simulate: \"\"\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -212000,
+        -25472
+      ],
+      "id": "afe5f0d3-9709-4006-a37c-293283d148e3",
+      "name": "Agent Cost & Performance"
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial    = $('Validate Input').first().json;\nconst devops     = $('Agent DevOps/Deploy').first().json;\nconst monitoring = $('Agent Monitoring').first().json;\nconst deployUrl  = devops.deployment_url || devops.service_url || devops.url || 'http://167.86.93.31:3001';\nconst monStatus  = monitoring.monitoring_status || 'HEALTHY';\nconst issues     = monitoring.critical_issues   || [];\nreturn [{\n  json: {\n    task_id:     initial.task_id,\n    environment: initial.environment,\n    incident: {\n      type:             monStatus === 'HEALTHY' ? 'none' : 'performance',\n      severity:         monStatus === 'HEALTHY' ? 'low'  : 'high',\n      service_url:      deployUrl,\n      error_message:    issues.map(i => i.description || i).join(', ') || 'Aucun incident',\n      duration_minutes: monStatus === 'HEALTHY' ? 0 : 5\n    },\n    monitoring_report: { status: monStatus, violations: issues }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -212160,
+        -25296
+      ],
+      "id": "eca126df-e303-4eaf-944a-183562d6edb6",
+      "name": "Build Runtime Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/agent-runtime-feedback",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "==={{ JSON.stringify({\n  task_id:     $('Validate Input').first().json.task_id,\n  environment: $('Validate Input').first().json.environment,\n  incident: {\n    type:             'none',\n    severity:         'low',\n    service_url:      'https://app-' + $('Validate Input').first().json.environment + '.monprojet.com',\n    error_message:    'Aucun incident',\n    duration_minutes: 0\n  },\n  monitoring_report: {\n    status:     $('Agent Monitoring').first().json.monitoring_status || 'HEALTHY',\n    violations: $('Agent Monitoring').first().json.critical_issues   || []\n  }\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -211984,
+        -25296
+      ],
+      "id": "658c40d0-ba11-458e-b922-e60023fedd5e",
+      "name": "Agent Runtime Feedback"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -211776,
+        -25376
+      ],
+      "id": "d5d41051-adeb-4b0e-a254-76fd1a97a36e",
+      "name": "Merge2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial  = $('Validate Input').first().json;\n// Agent Architect peut ne pas être exécuté (chemin déterministe)\nlet archData = {};\ntry { archData = $('Agent Architect').first().json; } catch(e) {\n  try { archData = $('Build Architect Payload').first().json; } catch(e2) {}\n}\nconst arch = archData;\nconst backend  = $('Agent Backend').first().json;\nconst frontend = $('Agent Frontend').first().json;\nconst devops   = $('Agent DevOps/Deploy').first().json;\n\nconst artifacts = arch.artifacts || arch.architecture || arch;\nconst allFiles  = [...(backend.files || []), ...(frontend.files || [])];\n\nconst endpoints = (artifacts.priority_endpoints || [])\n  .map(ep => `${ep.method} ${ep.path} — ${ep.description || ''}`)\n  .join('\\n');\n\nconst deployUrl = devops.deployment_url || devops.service_url || devops.url || null;\n\n// Récupérer project_name de l'Architect\nconst projectName = artifacts.project_name || '';\n\nreturn [{\n  json: {\n    task_id:     initial.task_id,\n    project_name: projectName,\n    userRequest: initial.userRequest,\n    architecture: {\n      stack:      artifacts.stack      || '',\n      mvp_scope:  artifacts.mvp_scope  || '',\n      endpoints:  endpoints,\n      data_model: artifacts.data_model || {}\n    },\n    deploy_url:  deployUrl,\n    files:       allFiles\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -211632,
+        -25376
+      ],
+      "id": "d0104871-0e45-4700-bd1c-fefd49dc2405",
+      "name": "Build Doc Payload"
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial    = $('Validate Input').first().json;\nconst gonogo     = $('Agent Go/No-Go').first().json;\nconst monitoring = $('Agent Monitoring').first().json;\nconst devops     = $('Agent DevOps/Deploy').first().json;\nconst backend    = $('Agent Backend').first().json;\nreturn [{\n  json: {\n    task_id:   initial.task_id,\n    operation: \"WRITE\",\n    category:  \"deployment\",\n    data: {\n      project:      initial.task_id,\n      environment:  initial.environment,\n      language:     initial.language,\n      framework:    initial.framework,\n      input_type:   initial.input_type || 'direct',\n      agent_source: \"Orchestrateur\",\n      content: {\n        pipeline_completed:  true,\n        gonogo_decision:     gonogo.decision,\n        monitoring_status:   monitoring.monitoring_status || \"HEALTHY\",\n        deployment_url:      devops.deployment_url || devops.service_url || null,\n        files_generated:     (backend.files || []).length,\n        user_request_length: (initial.userRequest || '').length,\n        timestamp:           new Date().toISOString()\n      }\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -211168,
+        -25376
+      ],
+      "id": "9e0b3218-be71-41ea-b019-57c702ac52b0",
+      "name": "Build Knowledge Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/agent-knowledge",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "=={{ JSON.stringify({ task_id: $json.task_id, operation: $json.operation, category: $json.category, data: $json.data }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -211008,
+        -25376
+      ],
+      "id": "1539582f-7de9-4668-b1a0-9c6ccbd0bd32",
+      "name": "Agent Knowledge/Memory"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -210688,
+        -25376
+      ],
+      "id": "de343243-0bfa-47fe-bcab-9c6f0bb48d66",
+      "name": "Respond Final"
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial    = $('Validate Input').first().json;\nconst gonogo     = $('Agent Go/No-Go').first().json;\n// Agent Architect peut ne pas être exécuté (chemin déterministe)\nlet archData = {};\ntry { archData = $('Agent Architect').first().json; } catch(e) {\n  try { archData = $('Build Architect Payload').first().json; } catch(e2) {}\n}\nconst arch = archData;\nconst backend    = $('Agent Backend').first().json;\nconst frontend   = $('Agent Frontend').first().json;\nconst devops     = $('Agent DevOps/Deploy').first().json;\nconst monitoring = $('Agent Monitoring').first().json;\nconst doc        = $('Agent Documentation').first().json;\n\n// Inclure backend + frontend + documentation dans le ZIP\nconst allFiles = [\n  ...(backend.files  || []),\n  ...(frontend.files || []),\n  ...(doc.files      || []),\n  // Scripts de démarrage local dynamiques\n  ...(function() {\n    const _artifacts = arch.artifacts || arch.architecture || {};\n    const pn = _artifacts.project_name || initial.project_name || 'Application';\n    return [\n      {\n        path: 'start.sh',\n        content: '#!/bin/bash\\n'\n          + '# Démarrage ' + pn + ' sur Linux/Mac\\n'\n          + '# PRÉ-REQUIS : Node.js >= 16 installé (https://nodejs.org)\\n'\n          + 'if ! command -v node &> /dev/null; then\\n'\n          + '  echo \"Node.js non trouvé. Installe-le depuis https://nodejs.org\"\\n'\n          + '  exit 1\\n'\n          + 'fi\\n'\n          + 'echo \"Node.js OK : $(node -v)\"\\n'\n          + 'echo \"Installation des dépendances...\"\\n'\n          + 'npm install\\n'\n          + 'echo \"Démarrage du serveur...\"\\n'\n          + 'echo \"Ouvre http://localhost:3000 dans ton navigateur\"\\n'\n          + 'node server.js\\n'\n      },\n      {\n        path: 'start.bat',\n        content: '@echo off\\n'\n          + 'REM Démarrage ' + pn + ' sur Windows\\n'\n          + 'REM PRÉ-REQUIS : Node.js >= 16 installé (https://nodejs.org)\\n'\n          + 'where node >nul 2>nul\\n'\n          + 'if %ERRORLEVEL% neq 0 (\\n'\n          + '  echo.\\n'\n          + '  echo  Node.js non trouve. Installe-le depuis : https://nodejs.org\\n'\n          + '  echo  Choisis la version LTS et coche \"Add to PATH\"\\n'\n          + '  echo  Apres installation, relance start.bat\\n'\n          + '  echo.\\n'\n          + '  pause\\n'\n          + '  exit /b 1\\n'\n          + ')\\n'\n          + 'echo Node.js OK && node -v\\n'\n          + 'echo Installation des dependances...\\n'\n          + 'call npm install\\n'\n          + 'echo Demarrage de ' + pn + '...\\n'\n          + 'echo Ouvre http://localhost:3000 dans ton navigateur\\n'\n          + 'node server.js\\n'\n          + 'pause\\n'\n      }\n    ];\n  })()\n];\n\nconst deployUrl = devops.deployment_url || devops.service_url || devops.url || null;\n\nconst _finalArtifacts = arch.artifacts || arch.architecture || {};\nlet _projectName = '';\n// Priorité : display_name du Normalizer (nettoyé) > _deterministic_artifacts > fallbacks\ntry {\n  const _normOut = $('Agent Spec Normalizer').first().json;\n  _projectName = _normOut.display_name || _normOut.project_name || '';\n} catch(e) {}\nif (!_projectName) {\n  try { _projectName = $('Build Architect Payload').first().json._deterministic_artifacts?.project_name || ''; } catch(e2) {}\n}\nif (!_projectName) _projectName = _finalArtifacts.project_name || arch.project_name || initial.project_name || 'Application';\nconst _version = initial.improve_mode ? (initial.next_version || '1.1') : '1.0';\nconst _zipName = 'ForgeIA-' + _projectName.replace(/[^a-zA-Z0-9]/g, '') + '-v' + _version.replace(/\\./g, '_');\n\nreturn [{\n  json: {\n    success:      true,\n    pipeline:     \"SDLC Multi-Agent\",\n    task_id:      initial.task_id,\n    project_name: _projectName,\n    zip_name:     _zipName,\n    input_type:   initial.input_type   || 'direct',\n    decision:     gonogo.decision,\n    completed_at: new Date().toISOString(),\n    summary:      `Pipeline terminé avec succès — décision : ${gonogo.decision}`,\n    results: {\n      architecture:  arch.artifacts || arch.architecture || {},\n      files:         allFiles,\n      files_count:   allFiles.length,\n      documentation: (doc.files || []).find(f => f.path === 'README.md') || null,\n      deployment: {\n        url:         deployUrl,\n        environment: initial.environment,\n        status:      monitoring.monitoring_status || 'HEALTHY',\n        deployed_at: devops.deployed_at || new Date().toISOString()\n      }\n    },\n    metrics: {\n      language:          initial.language,\n      framework:         initial.framework,\n      environment:       initial.environment,\n      gonogo_score:      gonogo.overall_score || null,\n      monitoring_status: monitoring.monitoring_status || 'HEALTHY'\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -210848,
+        -25376
+      ],
+      "id": "abab9703-ad1f-41b4-8561-9822b8104fed",
+      "name": "Build Final Response"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/documentation",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "=={{ JSON.stringify({\n  task_id:      $('Validate Input').first().json.task_id,\n  userRequest:  $('Validate Input').first().json.userRequest,\n  architecture: $('Build Doc Payload').first().json.architecture || $input.first().json.artifacts || {},\n  files:        $('Build Doc Payload').first().json.files || [],\n  deployment:   $('Build Doc Payload').first().json.deployment || {}\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -211312,
+        -25376
+      ],
+      "id": "e11d21a5-4355-4f1d-bfba-2481b57fc575",
+      "name": "Agent Documentation"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw  = $input.first().json;\nconst body = (raw.body && typeof raw.body === 'object') ? raw.body : raw;\n\n// Détecter par présence de la clé ET longueur minimale\n// Ne pas lire la valeur complète — juste vérifier qu'elle existe\nconst hasPdf   = typeof body.pdf_base64   === 'string' && body.pdf_base64.length   > 100;\nconst hasDocx  = typeof body.docx_base64  === 'string' && body.docx_base64.length  > 100;\nconst hasImage = typeof body.image_base64 === 'string' && body.image_base64.length > 100;\nconst hasUrl   = typeof body.url === 'string' && body.url.startsWith('http');\n\n// Fallback : détecter par nom de fichier si base64 tronqué\nconst hasPdfFilename   = typeof body.pdf_filename   === 'string';\nconst hasDocxFilename  = typeof body.docx_filename  === 'string';\nconst hasImageFilename = typeof body.image_filename === 'string';\n\nlet input_type;\nif      (hasPdf   || hasPdfFilename)   input_type = 'pdf';\nelse if (hasDocx  || hasDocxFilename)  input_type = 'docx';\nelse if (hasImage || hasImageFilename) input_type = 'image';\nelse if (hasUrl)                       input_type = 'url';\nelse                                   input_type = 'direct';\n\nconst improveMode   = body.improve_mode   || false;\nconst improvePrompt = body.improve_prompt || (improveMode ? body.userRequest : '') || '';\n\nreturn [{\n  json: {\n    input_type,\n    improve_mode:   improveMode,\n    improve_prompt: improvePrompt,\n    task_id:        String(body.task_id || ('TASK-' + Date.now())),\n    environment:    String(body.environment || 'staging'),\n    language:       String(body.language    || 'javascript'),\n    framework:      String(body.framework   || 'express'),\n    userRequest:    body.userRequest || body.text || body.markdown || null,\n    pdf_filename:   body.pdf_filename   || 'document.pdf',\n    docx_filename:  body.docx_filename  || 'document.docx',\n    image_filename: body.image_filename || 'image.png',\n    image_mime:     body.image_mime     || 'image/png',\n    url:            body.url            || null\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -223360,
+        -25024
+      ],
+      "id": "0de626c3-e3ad-4089-9620-55ad604493d3",
+      "name": "Detect Input"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-ifpdf-bbb2-bbb2-bbb2-bbb2bbb2bbb2",
+              "leftValue": "={{ $json.input_type }}",
+              "rightValue": "pdf",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -222960,
+        -25024
+      ],
+      "id": "02327f31-f982-468a-abc1-3cb0771b3434",
+      "name": "IF PDF?"
+    },
+    {
+      "parameters": {
+        "jsCode": "const detected = $('Detect Input').first().json;\nconst raw      = $input.first().json;\n\nlet parsed;\nif (raw.text || raw.success !== undefined) {\n  parsed = raw;\n} else if (raw.stdout) {\n  try { parsed = JSON.parse(raw.stdout); } catch(e) { parsed = { text: raw.stdout, success: false }; }\n} else {\n  parsed = { text: '', success: false };\n}\n\nconst fullText = (parsed.text || '').trim();\nconst MAX      = 6000;\nconst specsContext = fullText;\n\n// En mode amélioration : userRequest = prompt d'amélioration (pas le PDF)\n// En mode normal : userRequest = contenu du PDF\nconst improveMode    = detected.improve_mode || false;\nconst improvePrompt  = detected.improve_prompt || detected.userRequest || '';\n\nconst userRequest = improveMode\n  ? improvePrompt  // Garder le prompt d'amélioration\n  : (fullText.length > MAX ? fullText.substring(0, MAX) + '\\n...[tronqué — voir specs_context]' : fullText);\n\nreturn [{\n  json: {\n    input_type:     'pdf',\n    task_id:        detected.task_id,\n    userRequest,\n    specs_context:  specsContext.length > MAX ? specsContext.substring(0, MAX) : specsContext,\n    improve_mode:   improveMode,\n    improve_prompt: improvePrompt,\n    pdf_filename:   detected.pdf_filename,\n    pages:          parsed.pages || null,\n    environment:    detected.environment,\n    language:       detected.language,\n    framework:      detected.framework\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -222224,
+        -25280
+      ],
+      "id": "e4a901a0-3e85-42fa-9041-b51cfe23d50d",
+      "name": "Build PDF Context"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-ifdocx-eee5-eee5-eee5-eee5eee5eee5",
+              "leftValue": "={{ $json.input_type }}",
+              "rightValue": "docx",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -222720,
+        -24944
+      ],
+      "id": "bb9ebcca-22cb-4840-afe2-76957c1d03c0",
+      "name": "IF DOCX?"
+    },
+    {
+      "parameters": {
+        "jsCode": "const detected  = $('Detect Input').first().json;\nconst extracted = $input.first().json;\n\n// LlamaParse retourne { pages: [{ text: \"...\" }], ... }\nlet fullText = '';\nif (extracted.pages && Array.isArray(extracted.pages)) {\n  fullText = extracted.pages.map(p => p.text || p.content || '').join('\\n\\n');\n} else {\n  fullText = extracted.text || extracted.content || extracted.result || '';\n}\n\nconst MAX         = 6000;\nconst userRequest = fullText.length > MAX\n  ? fullText.substring(0, MAX) + '\\n...[tronqué — voir specs_context]'\n  : fullText;\n\nreturn [{\n  json: {\n    input_type:    'docx',\n    task_id:       detected.task_id,\n    userRequest,\n    specs_context: fullText,\n    docx_filename: detected.docx_filename,\n    environment:   detected.environment,\n    language:      detected.language,\n    framework:     detected.framework\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -222224,
+        -25104
+      ],
+      "id": "6b09b5a2-f326-4d7e-aeca-9f25c8f8f461",
+      "name": "Build DOCX Context"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-ifurl-hhh8-hhh8-hhh8-hhh8hhh8hhh8",
+              "leftValue": "={{ $json.input_type }}",
+              "rightValue": "url",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -222496,
+        -24880
+      ],
+      "id": "a44baab8-c78d-40a4-b13d-3e16f31d18da",
+      "name": "IF URL?"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -222144,
+        -24928
+      ],
+      "id": "d2406661-d56c-4e73-a215-71081fdba799",
+      "name": "Fetch URL Content"
+    },
+    {
+      "parameters": {
+        "jsCode": "const detected = $('Detect Input').first().json;\nconst fetched  = $input.first().json;\nconst raw = fetched.body || fetched.data || fetched || '';\nconst fullText = typeof raw === 'string' ? raw : JSON.stringify(raw);\nconst MAX = 6000;\nconst userRequest = fullText.length > MAX\n  ? fullText.substring(0, MAX) + '\\n...[tronqué]'\n  : fullText;\nreturn [{\n  json: {\n    input_type:    'url',\n    task_id:       detected.task_id,\n    userRequest,\n    specs_context: fullText,\n    source_url:    detected.url,\n    environment:   detected.environment,\n    language:      detected.language,\n    framework:     detected.framework\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -221872,
+        -24928
+      ],
+      "id": "15aa44d1-055b-472e-8ab3-459091227312",
+      "name": "Build URL Context"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-ifimg-kkk1-kkk1-kkk1-kkk1kkk1kkk1",
+              "leftValue": "={{ $json.input_type }}",
+              "rightValue": "image",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -222144,
+        -24736
+      ],
+      "id": "4662b172-18cc-45ae-8a49-b4c5c6da9812",
+      "name": "IF IMAGE?"
+    },
+    {
+      "parameters": {
+        "jsCode": "const detected  = $('Detect Input').first().json;\nconst extracted = $input.first().json;\n\n// Groq Vision retourne { choices: [{ message: { content: \"...\" } }] }\nlet fullText = '';\nif (extracted.choices && extracted.choices[0]) {\n  fullText = extracted.choices[0].message?.content || '';\n} else {\n  fullText = extracted.text || extracted.description || extracted.content || '';\n}\n\nconst MAX         = 6000;\nconst userRequest = fullText.length > MAX\n  ? fullText.substring(0, MAX) + '\\n...[tronqué — voir specs_context]'\n  : fullText;\n\nreturn [{\n  json: {\n    input_type:     'image',\n    task_id:        detected.task_id,\n    userRequest,\n    specs_context:  fullText,\n    image_filename: detected.image_filename,\n    environment:    detected.environment,\n    language:       detected.language,\n    framework:      detected.framework\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -221456,
+        -24816
+      ],
+      "id": "1f92c86e-80a5-43ce-9ccf-b003fe844100",
+      "name": "Build Image Context"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json;\nreturn [{\n  json: {\n    input_type:    body.input_type || 'direct',\n    task_id:       body.task_id,\n    userRequest:   String(body.userRequest || body.text || body.markdown || ''),\n    specs_context: null,\n    environment:   body.environment,\n    language:      body.language,\n    framework:     body.framework\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -221504,
+        -24608
+      ],
+      "id": "3c0f0601-3544-49c6-a053-3fd103eede59",
+      "name": "Build Direct Context"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -221120,
+        -24976
+      ],
+      "id": "926a210e-ad11-4a85-bdce-145b4538be55",
+      "name": "Merge Input Paths"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json;\n\n// ── 1. Taille maximale ────────────────────────────────────────────────────\nconst MAX_PROMPT = 8000;\nif (body.userRequest && body.userRequest.length > MAX_PROMPT) {\n  throw new Error(`Prompt trop long : ${body.userRequest.length} chars (max ${MAX_PROMPT})`);\n}\n\n// ── 2. Prompt injection ───────────────────────────────────────────────────\nconst INJECTION_PATTERNS = [\n  /ignore\\s+(all\\s+)?previous\\s+instructions/i,\n  /you\\s+are\\s+now/i,\n  /act\\s+as\\s+(a\\s+)?different/i,\n  /jailbreak/i,\n  /<\\s*script[\\s\\S]*?>/i,\n  /\\beval\\s*\\(/i,\n  /\\bexec\\s*\\(/i,\n];\nconst textToCheck = body.userRequest || '';\nfor (const pattern of INJECTION_PATTERNS) {\n  if (pattern.test(textToCheck)) {\n    throw new Error('Contenu suspect détecté — requête rejetée');\n  }\n}\n\n// ── 3. Validation base64 — juste présence et type string ─────────────────\nif (body.pdf_base64   && typeof body.pdf_base64   !== 'string') throw new Error('pdf_base64 invalide');\nif (body.docx_base64  && typeof body.docx_base64  !== 'string') throw new Error('docx_base64 invalide');\nif (body.image_base64 && typeof body.image_base64 !== 'string') throw new Error('image_base64 invalide');\n\n// ── 4. Validation URL ─────────────────────────────────────────────────────\nif (body.url) {\n  const urlRegex = /^https?:\\/\\/.+/;\n  if (!urlRegex.test(body.url)) {\n    throw new Error('URL invalide — doit commencer par http:// ou https://');\n  }\n  const BLOCKED = /https?:\\/\\/(localhost|127\\.|10\\.|192\\.168\\.|172\\.(1[6-9]|2[0-9]|3[01])\\.|0\\.0\\.0\\.0)/;\n  if (BLOCKED.test(body.url)) {\n    throw new Error('URL non autorisée — accès réseau interne bloqué');\n  }\n}\n\n// ── 5. Sanitize le prompt ─────────────────────────────────────────────────\nconst sanitized = (body.userRequest || '')\n  .replace(/<[^>]*>/g, '')\n  .replace(/[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F\\x7F]/g, '')\n  .trim();\n\nreturn [{\n  json: {\n    ...body,\n    userRequest:  sanitized || body.userRequest || null,\n    sanitized:    true,\n    sanitized_at: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -223184,
+        -25024
+      ],
+      "id": "c6cb79a2-9424-476b-ab67-4e3051a4f2d7",
+      "name": "Sanitize Input"
+    },
+    {
+      "parameters": {
+        "jsCode": "const node_fetch = require('node-fetch');\nconst webhook = $('Webhook').first().json;\nconst body    = (webhook.body && typeof webhook.body === 'object') ? webhook.body : webhook;\n\nconst payload = {\n  model: 'meta-llama/llama-4-scout-17b-16e-instruct',\n  messages: [{\n    role: 'user',\n    content: [\n      {\n        type: 'image_url',\n        image_url: {\n          url: 'data:' + (body.image_mime || 'image/png') + ';base64,' + body.image_base64\n        }\n      },\n      {\n        type: 'text',\n        text: 'Extrais et retranscris intégralement tout le texte visible dans cette image. Retourne uniquement le texte brut, sans commentaire.'\n      }\n    ]\n  }],\n  max_tokens: 2000\n};\n\nconst response = await node_fetch('https://api.groq.com/openai/v1/chat/completions', {\n  method:  'POST',\n  headers: {\n    'Content-Type':  'application/json',\n    'Authorization': 'Bearer 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'\n  },\n  body: JSON.stringify(payload)\n});\n\nif (!response.ok) {\n  const err = await response.text();\n  throw new Error(`Groq ${response.status} - ${err}`);\n}\n\nconst data = await response.json();\nreturn [{ json: data }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -221744,
+        -24752
+      ],
+      "id": "16653433-dbb8-4c40-8310-e953702361b2",
+      "name": "Extract Image Text"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -218704,
+        -24944
+      ],
+      "id": "d3787aa4-d9f1-4fc6-a974-620e5e3a3cc6",
+      "name": "Wait — Architect",
+      "webhookId": "cec3f8f4-875b-49dc-b914-75736f9a7d50"
+    },
+    {
+      "parameters": {
+        "amount": 25
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -216544,
+        -24976
+      ],
+      "id": "109699af-0195-495b-97ac-f204a9bd7c17",
+      "name": "Wait — Backend",
+      "webhookId": "212796db-01d1-41b2-90a2-a26e450b8378"
+    },
+    {
+      "parameters": {
+        "amount": 65
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -216048,
+        -24976
+      ],
+      "id": "6933260e-e9cd-4ce2-9393-d09427089e06",
+      "name": "Wait — Frontend",
+      "webhookId": "54a51a89-a4ca-4c1a-8f2e-23e88467ff8c"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -214544,
+        -25392
+      ],
+      "id": "adbfe2b3-da04-4d82-b60a-730caf4aa38c",
+      "name": "Wait — Code Review",
+      "webhookId": "6a217d9a-46c6-4b83-9102-6879fdce8fa5"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -214544,
+        -25232
+      ],
+      "id": "5b7df95d-dec1-4be2-b31e-6538053bb7ea",
+      "name": "Wait — QA",
+      "webhookId": "a0950285-807b-45e6-8293-b00b65afe24c"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -214544,
+        -25056
+      ],
+      "id": "eebf5b88-e736-4ed0-8b44-d8a21fb5b736",
+      "name": "Wait — SAST",
+      "webhookId": "4b4d212c-5b31-4eae-aafb-e5c7789d0636"
+    },
+    {
+      "parameters": {
+        "amount": 30
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -211488,
+        -25376
+      ],
+      "id": "4b92a1ab-cf2c-410b-b7f4-10138cfed330",
+      "name": "Wait — Documentation",
+      "webhookId": "e7f69f72-3982-4c90-ad0c-a63a331cc683"
+    },
+    {
+      "parameters": {
+        "jsCode": "const node_fetch = require('node-fetch');\nconst webhook = $('Webhook').first().json;\nconst body    = (webhook.body && typeof webhook.body === 'object') ? webhook.body : webhook;\n\nconst response = await node_fetch('http://host.docker.internal:3002/extract-docx', {\n  method:  'POST',\n  headers: { 'Content-Type': 'application/json' },\n  body:    JSON.stringify({\n    docx_base64: body.docx_base64,\n    filename:    body.docx_filename || 'document.docx'\n  })\n});\n\nif (!response.ok) {\n  const err = await response.text();\n  throw new Error(`HTTP ${response.status} - ${err}`);\n}\n\nconst data = await response.json();\nreturn [{ json: data }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -222496,
+        -25040
+      ],
+      "id": "da99cf44-7eea-42e9-85f7-12aa01fdc6ea",
+      "name": "Extract DOCX Text"
+    },
+    {
+      "parameters": {
+        "jsCode": "const fetch = require('node-fetch');\n\n// Lit directement depuis le Webhook\nconst webhook = $('Webhook').first().json;\nconst body = (webhook.body && typeof webhook.body === 'object') ? webhook.body : webhook;\n\nconst response = await fetch('http://host.docker.internal:3002/extract', {\n  method: 'POST',\n  headers: {\n    'Content-Type': 'application/json',\n  },\n  body: JSON.stringify({\n    pdf_base64: body.pdf_base64,\n    filename: body.pdf_filename || 'document.pdf',\n  }),\n});\n\nif (!response.ok) {\n  const errorText = await response.text();\n  throw new Error(`HTTP ${response.status} - ${errorText}`);\n}\n\nconst data = await response.json();\n\nreturn [{ json: data }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -222720,
+        -25120
+      ],
+      "id": "7919ed6c-e327-4482-b3d4-a9820ef62939",
+      "name": "Extract PDF Text"
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial = $('Validate Input').first().json;\n\n// Mode amélioration — les 3 entrées sont obligatoires\nif (!initial.existing_zip_base64) {\n  // Mode génération normale — pas d'amélioration\n  return [{ json: {\n    task_id: initial.task_id,\n    improve_mode: false,\n    project_name: '',\n    existing_version: null,\n    next_version: null,\n    existing_routes: [],\n    existing_stores: {},\n    changelog_context: ''\n  }}];\n}\n\n// Mode amélioration — passer les 3 entrées au ZIP Analyzer\nreturn [{ json: {\n  task_id:              initial.task_id,\n  language:             initial.language,\n  userRequest:          initial.userRequest,\n  improve_mode:         true,\n  existing_zip_base64:  initial.existing_zip_base64,\n  existing_zip_filename: initial.existing_zip_filename || 'existing.zip',\n  // Le document de specs est déjà extrait par le nœud Extract PDF/DOCX\n  // et disponible via userRequest (specs_context)\n  specs_context:        initial.specs_context || initial.userRequest || ''\n}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -217888,
+        -25344
+      ],
+      "id": "d69507f9-f322-48f6-93d3-91bbdeca2667",
+      "name": "Build ZIP Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/zip-analyzer",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "=={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -217728,
+        -25344
+      ],
+      "id": "ed70b170-eaf0-46da-b955-b49155776c23",
+      "name": "Agent ZIP Analyzer"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "be7f1eb8-1b4d-40ff-b6c1-1fc3a5cca4a9",
+              "leftValue": "={{ $('Validate Input').first().json.improve_mode }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -218560,
+        -24960
+      ],
+      "id": "e1071c4e-e387-415f-9d74-afa8ddee1a8b",
+      "name": "If — Improve Mode ?"
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial   = $('Validate Input').first().json;\nconst zipResult = $input.first().json;\n\nreturn [{\n  json: {\n    task_id:            initial.task_id,\n    improve_prompt:     initial.improve_prompt || initial.userRequest || '',\n    existing_server_js: zipResult.existing_server_js || '',\n    existing_routes:    zipResult.existing_routes    || [],\n    existing_stores:    zipResult.existing_stores    || {},\n    existing_version:   zipResult.existing_version   || '1.0'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -217536,
+        -25344
+      ],
+      "id": "5e64ff23-1d13-490d-8059-9dbc1bee0791",
+      "name": "Build VM Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/version-manager",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "=={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -217344,
+        -25344
+      ],
+      "id": "017962d7-019d-4d62-ba3f-3579016db4d7",
+      "name": "Agent Version Manager"
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial = $('Validate Input').first().json;\nreturn [{\n  json: {\n    task_id:     initial.task_id,\n    // specs_context = toujours le PDF complet, même en mode amélioration\n    userRequest: initial.specs_context || initial.userRequest\n  }\n}];"
+      },
+      "id": "b939ee17-bba0-4969-8c1c-9231b41cc6b9",
+      "name": "Build Spec Linter Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -220464,
+        -24960
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/spec-linter",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "=={{ JSON.stringify({task_id: $json.task_id, userRequest: $json.userRequest}) }}",
+        "options": {}
+      },
+      "id": "b2aa1797-8728-47eb-96bc-3ad1e26138d5",
+      "name": "Agent Spec Linter",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -220336,
+        -24960
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "f50e5732-fec5-43c4-889f-1a5d41aea20b",
+              "leftValue": "={{ $json.linter_status }}",
+              "rightValue": "PASS",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "1b5d6b49-6ec7-4b3e-963f-48389ce5d83a",
+      "name": "IF LINTER PASS?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -220128,
+        -24960
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial = $('Validate Input').first().json;\nconst linter  = $input.first().json;\nreturn [{\n  json: {\n    success:       false,\n    pipeline:      'SDLC Multi-Agent',\n    task_id:       initial.task_id,\n    stage:         'SPEC_LINTER',\n    decision:      'BLOCKED',\n    linter_status: linter.linter_status,\n    errors:        linter.errors   || [],\n    warnings:      linter.warnings || [],\n    summary:       linter.summary  || 'Spec invalide — pipeline bloque',\n    message:       'Pipeline arrete avant l Architect. Corrigez les erreurs et relancez.',\n    checked_at:    linter.checked_at || new Date().toISOString()\n  }\n}];"
+      },
+      "id": "cbd4a43a-9349-4f9c-8359-f5dcd90ee4d3",
+      "name": "Respond Linter Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -219808,
+        -24880
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "fbf11bfb-b8e8-41a4-a0b6-25f9d45d22aa",
+      "name": "Respond Linter Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -219584,
+        -24880
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial  = $('Validate Input').first().json;\nconst backend  = $('Agent Backend').first().json;\nconst frontend = $('Agent Frontend').first().json;\nreturn [{\n  json: {\n    task_id:   initial.task_id,\n    language:  initial.language,\n    framework: initial.framework,\n    files: [\n      ...(backend.files  || []),\n      ...(frontend.files || [])\n    ]\n  }\n}];"
+      },
+      "id": "1b86de51-85d7-4300-bf44-108c54adfb28",
+      "name": "Build Tests L0 Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -215744,
+        -24976
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/tests-l0",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "=={{ JSON.stringify({task_id: $json.task_id, language: $json.language, framework: $json.framework, files: $json.files}) }}",
+        "options": {}
+      },
+      "id": "ec38fa23-9581-4efd-accf-8e715e6d1021",
+      "name": "Agent Tests L0",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -215568,
+        -24976
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "a16774bb-6421-49e3-9c83-13646eec98e1",
+              "leftValue": "={{ $json.tests_l0_status }}",
+              "rightValue": "PASS",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "939048dc-d644-4504-a9f6-ec4bc8c84fae",
+      "name": "IF TESTS L0 PASS?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -215392,
+        -24960
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial = $('Validate Input').first().json;\nconst testsL0 = $input.first().json;\nreturn [{\n  json: {\n    success:         false,\n    pipeline:        'SDLC Multi-Agent',\n    task_id:         initial.task_id,\n    stage:           'TESTS_L0',\n    decision:        'BLOCKED',\n    tests_l0_status: testsL0.tests_l0_status,\n    results:         testsL0.results  || [],\n    summary:         testsL0.summary  || 'Tests L0 echoues — pipeline bloque',\n    message:         'Le code genere ne passe pas les tests statiques. Pipeline arrete avant Code Review/QA/SAST.',\n    checked_at:      testsL0.checked_at || new Date().toISOString()\n  }\n}];"
+      },
+      "id": "6c190be2-fa7a-4a13-91fa-fd9cd5dfb9bd",
+      "name": "Respond Tests L0 Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -214656,
+        -24656
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "58a9f79a-7128-46c7-b28c-8cae9c920672",
+      "name": "Respond Tests L0 Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -214464,
+        -24656
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial = $('Validate Input').first().json;\nif (initial.improve_mode) {\n  return [{ json: { task_id: initial.task_id, normalized: false,\n    normalized_userRequest: initial.specs_context || initial.userRequest,\n    structured_context: '', language: initial.language || 'javascript',\n    framework: initial.framework || 'express', _skipped: 'improve_mode' } }];\n}\nreturn [{ json: { task_id: initial.task_id,\n  userRequest: initial.specs_context || initial.userRequest,\n  language: initial.language || 'javascript', framework: initial.framework || 'express' } }];"
+      },
+      "id": "af6b9038-8356-45c0-a2d9-42c4a47aebc9",
+      "name": "Build Spec Normalizer Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -219792,
+        -25232
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const normData = $input.first().json;\nconst initial  = $('Validate Input').first().json;\nconst sc = (normData.structured_context && normData.structured_context.length > 20)\n  ? normData.structured_context : '';\n\n// ── Construire les artifacts déterministes depuis structured_context ──────────\n// Ces données sont les INVARIANTS — le LLM ne peut pas les modifier\nlet deterministicArtifacts = null;\nif (sc && !initial.improve_mode) {\n  try {\n    const norm = JSON.parse(sc);\n    if (norm && Array.isArray(norm.resources) && norm.resources.length > 0) {\n      // Nom technique du Spec Normalizer (ex: \"diaspokoli-marketplace\")\n      const rawPn = norm.project_name || 'Application';\n      // Essayer d'extraire le vrai nom d'affichage :\n      // 1. display_name du Normalizer V1.1 (déjà nettoyé)\n      // 2. Première ligne de specs_context si c'est un nom court propre\n      let pn = normData.display_name || rawPn;\n      try {\n        const specsText = initial.specs_context || initial.userRequest || '';\n        const firstLines = specsText.split('\\n').map(l => l.trim()).filter(l => l.length > 1);\n        const firstLine  = firstLines[0] || '';\n        const firstWords = firstLine.split(/\\s+/);\n        const lastWord   = (firstWords[firstWords.length - 1] || '').toLowerCase();\n        const PREP_FR    = ['de','du','la','le','les','et','ou','pour','avec','sur','par','web','une','un'];\n        const isCleanName = firstLine.length < 25\n          && /^[A-ZÀ-Ü]/.test(firstLine)\n          && !/[:|=\\t]/.test(firstLine)\n          && firstWords.length <= 2\n          && !PREP_FR.includes(lastWord);\n        if (isCleanName) pn = firstLine;\n      } catch(e) {}\n      const endpoints = [{ method: 'GET', path: '/health', description: 'health check' }];\n      (norm.routes || []).filter(r => r.path !== '/health').slice(0, 6).forEach(r => {\n        endpoints.push({ method: r.method, path: r.path, description: r.description || (r.method + ' ' + r.path) });\n      });\n      const dataModel = {};\n      const stores    = {};\n      (norm.resources || []).forEach(res => {\n        const fields = Object.assign({ id: 'number', created_at: 'string' }, res.fields || {});\n        dataModel[res.name] = fields;\n        stores[res.name]    = {\n          store_name:     res.name_plural || (res.name + 's'),\n          required_fields: (res.required_fields || []).filter(f => !['id','created_at'].includes(f))\n        };\n      });\n      deterministicArtifacts = { project_name: pn, priority_endpoints: endpoints,\n        data_model: dataModel, stores: stores };\n    }\n  } catch(e) {}\n}\n\n// ── Toujours envoyer au LLM Architect (même si structured_context valide) ────\n// Le LLM enrichit : mvp_scope, deferred, abuse_cases, architecture\n// Les invariants (endpoints, stores, data_model) sont protégés par Build Backend Payload\nconst userRequest = (normData.normalized_userRequest && normData.normalized_userRequest.length > 20)\n  ? normData.normalized_userRequest\n  : (initial.specs_context || initial.userRequest);\n\nreturn [{ json: {\n  _deterministic_architect:  false,  // toujours LLM\n  _deterministic_artifacts:  deterministicArtifacts,  // invariants pour Build Backend\n  task_id:           initial.task_id,\n  userRequest:       userRequest,\n  structured_context: sc,\n  specs_context:     initial.specs_context || initial.userRequest,\n  project_name:      normData.project_name || '',\n  language:          initial.language    || 'javascript',\n  framework:         initial.framework   || 'express',\n  environment:       initial.environment || 'staging',\n  improve_mode:      initial.improve_mode || false,\n  improve_prompt:    initial.improve_mode ? (initial.improve_prompt || initial.userRequest) : '',\n  existing_routes:   initial.existing_routes  || [],\n  existing_stores:   initial.existing_stores  || {},\n  existing_version:  initial.existing_version || '1.0',\n  next_version:      initial.next_version     || '1.1',\n  changelog_context: initial.changelog_context || '',\n  backend_instructions:  initial.backend_instructions  || [],\n  frontend_instructions: initial.frontend_instructions || []\n}}];"
+      },
+      "id": "52ad681c-8740-43c5-b24a-60f062bee2ad",
+      "name": "Build Architect Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -219440,
+        -25232
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/spec-normalizer",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({task_id: $json.task_id, userRequest: $json.userRequest, language: $json.language, framework: $json.framework}) }}",
+        "options": {}
+      },
+      "id": "828869bc-5b30-46b0-a66a-c58836d9cc64",
+      "name": "Agent Spec Normalizer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -219632,
+        -25232
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "a1f31625-1a4f-49bd-894e-dc5f0bc8df6a",
+              "leftValue": "={{ $json._deterministic_architect }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0f178acd-1439-4b6f-b58b-168bfc2df529",
+      "name": "IF Deterministic Architect?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -219248,
+        -25232
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Detect Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent Architect": {
+      "main": [
+        [
+          {
+            "node": "Build Backend Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent Backend": {
+      "main": [
+        [
+          {
+            "node": "Build Frontend Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Build Spec Linter Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Backend Payload": {
+      "main": [
+        [
+          {
+            "node": "Wait — Backend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Frontend Payload": {
+      "main": [
+        [
+          {
+            "node": "Wait — Frontend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent Frontend": {
+      "main": [
+        [
+          {
+            "node": "Build Tests L0 Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Review Payload": {
+      "main": [
+        [
+          {
+            "node": "Wait — Code Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build QA Payload": {
+      "main": [
+        [
+          {
+            "node": "Wait — QA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build SAST Payload": {
+      "main": [
+        [
+          {
+            "node": "Wait — SAST",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent Code Review": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent SAST": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Build SCA Payload",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build Secrets Payload",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build DAST Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build SCA Payload": {
+      "main": [
+        [
+          {
+            "node": "Agent SCA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Secrets Payload": {
+      "main": [
+        [
+          {
+            "node": "Agent Secrets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build DAST Payload": {
+      "main": [
+        [
+          {
+            "node": "Agent DAST",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent Secrets": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Agent SCA": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent DAST": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Agent QA": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Build GoNoGo Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build GoNoGo Payload": {
+      "main": [
+        [
+          {
+            "node": "Agent Go/No-Go",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent Go/No-Go": {
+      "main": [
+        [
+          {
+            "node": "If — CONTINUE ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If — CONTINUE ?": {
+      "main": [
+        [
+          {
+            "node": "Agent DevOps/Deploy",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond STOP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond STOP": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent DevOps/Deploy": {
+      "main": [
+        [
+          {
+            "node": "Build Monitoring Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Monitoring Payload": {
+      "main": [
+        [
+          {
+            "node": "Agent Monitoring",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent Monitoring": {
+      "main": [
+        [
+          {
+            "node": "If HEALTHY",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If HEALTHY": {
+      "main": [
+        [
+          {
+            "node": "Build Cost Payload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Runtime Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Cost Payload": {
+      "main": [
+        [
+          {
+            "node": "Agent Cost & Performance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Runtime Payload": {
+      "main": [
+        [
+          {
+            "node": "Agent Runtime Feedback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent Runtime Feedback": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Agent Cost & Performance": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge2": {
+      "main": [
+        [
+          {
+            "node": "Build Doc Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Doc Payload": {
+      "main": [
+        [
+          {
+            "node": "Wait — Documentation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Knowledge Payload": {
+      "main": [
+        [
+          {
+            "node": "Agent Knowledge/Memory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent Knowledge/Memory": {
+      "main": [
+        [
+          {
+            "node": "Build Final Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Final Response": {
+      "main": [
+        [
+          {
+            "node": "Respond Final",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent Documentation": {
+      "main": [
+        [
+          {
+            "node": "Build Knowledge Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detect Input": {
+      "main": [
+        [
+          {
+            "node": "Sanitize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF PDF?": {
+      "main": [
+        [
+          {
+            "node": "Extract PDF Text",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF DOCX?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build PDF Context": {
+      "main": [
+        [
+          {
+            "node": "Merge Input Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF DOCX?": {
+      "main": [
+        [
+          {
+            "node": "Extract DOCX Text",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF URL?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build DOCX Context": {
+      "main": [
+        [
+          {
+            "node": "Merge Input Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF URL?": {
+      "main": [
+        [
+          {
+            "node": "Fetch URL Content",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF IMAGE?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch URL Content": {
+      "main": [
+        [
+          {
+            "node": "Build URL Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build URL Context": {
+      "main": [
+        [
+          {
+            "node": "Merge Input Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF IMAGE?": {
+      "main": [
+        [
+          {
+            "node": "Extract Image Text",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Direct Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Image Context": {
+      "main": [
+        [
+          {
+            "node": "Merge Input Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Direct Context": {
+      "main": [
+        [
+          {
+            "node": "Merge Input Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Input Paths": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sanitize Input": {
+      "main": [
+        [
+          {
+            "node": "IF PDF?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Image Text": {
+      "main": [
+        [
+          {
+            "node": "Build Image Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait — Backend": {
+      "main": [
+        [
+          {
+            "node": "Agent Backend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait — Frontend": {
+      "main": [
+        [
+          {
+            "node": "Agent Frontend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait — Code Review": {
+      "main": [
+        [
+          {
+            "node": "Agent Code Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait — QA": {
+      "main": [
+        [
+          {
+            "node": "Agent QA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait — SAST": {
+      "main": [
+        [
+          {
+            "node": "Agent SAST",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait — Documentation": {
+      "main": [
+        [
+          {
+            "node": "Agent Documentation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait — Architect": {
+      "main": [
+        [
+          {
+            "node": "If — Improve Mode ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract DOCX Text": {
+      "main": [
+        [
+          {
+            "node": "Build DOCX Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract PDF Text": {
+      "main": [
+        [
+          {
+            "node": "Build PDF Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build ZIP Payload": {
+      "main": [
+        [
+          {
+            "node": "Agent ZIP Analyzer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent ZIP Analyzer": {
+      "main": [
+        [
+          {
+            "node": "Build VM Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If — Improve Mode ?": {
+      "main": [
+        [
+          {
+            "node": "Build ZIP Payload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Agent Architect",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build VM Payload": {
+      "main": [
+        [
+          {
+            "node": "Agent Version Manager",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent Version Manager": {
+      "main": [
+        [
+          {
+            "node": "Agent Architect",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Spec Linter Payload": {
+      "main": [
+        [
+          {
+            "node": "Agent Spec Linter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent Spec Linter": {
+      "main": [
+        [
+          {
+            "node": "IF LINTER PASS?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF LINTER PASS?": {
+      "main": [
+        [
+          {
+            "node": "Build Spec Normalizer Payload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Linter Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond Linter Error": {
+      "main": [
+        [
+          {
+            "node": "Respond Linter Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Tests L0 Payload": {
+      "main": [
+        [
+          {
+            "node": "Agent Tests L0",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent Tests L0": {
+      "main": [
+        [
+          {
+            "node": "IF TESTS L0 PASS?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF TESTS L0 PASS?": {
+      "main": [
+        [
+          {
+            "node": "Build Review Payload",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build QA Payload",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build SAST Payload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Tests L0 Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond Tests L0 Error": {
+      "main": [
+        [
+          {
+            "node": "Respond Tests L0 Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Spec Normalizer Payload": {
+      "main": [
+        [
+          {
+            "node": "Agent Spec Normalizer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent Spec Normalizer": {
+      "main": [
+        [
+          {
+            "node": "Build Architect Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Architect Payload": {
+      "main": [
+        [
+          {
+            "node": "IF Deterministic Architect?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Deterministic Architect?": {
+      "main": [
+        [
+          {
+            "node": "Build Backend Payload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait — Architect",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "3fb65c05-6bbe-423e-8f35-da41b492d2d2",
+  "meta": {
+    "instanceId": "c77e41168b0abc4c9e72e3dfa70fb293d0acb289b40b847421933eadc146e082"
+  },
+  "id": "QyYQ6XDizqJJN9pD",
+  "tags": []
+}

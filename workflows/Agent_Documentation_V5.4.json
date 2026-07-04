@@ -1,0 +1,473 @@
+{
+  "name": "Agent Documentation V5.4",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "documentation",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -144,
+        256
+      ],
+      "id": "42cd6469-0efd-479e-b943-a2b4cc4cf912",
+      "name": "Webhook",
+      "webhookId": "4cd8b23c-f86a-4f09-98e0-6211aa72a8eb"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1904,
+        96
+      ],
+      "id": "02363e6c-6bd2-4de4-9edd-1623f7799296",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nlet data = raw;\nif (raw.body !== undefined) {\n  let rawBody = raw.body;\n  if (typeof rawBody === 'string') {\n    rawBody = rawBody.replace(/^=+/, '').trim();\n    try { data = JSON.parse(rawBody); } catch(e) { data = raw; }\n  } else if (typeof rawBody === 'object') { data = rawBody; }\n}\n\nfunction sanitize(s) { return String(s || '').substring(0, 10000); }\n\nconst userRequest = sanitize(data.userRequest || data.prompt || data.description || data.request || '');\nconst arch        = data.architecture || {};\nconst stack       = arch.stack        || 'Node.js/Express';\nconst mvpScope    = arch.mvp_scope    || userRequest.substring(0, 100);\nconst endpoints   = arch.priority_endpoints || [];\nconst dataModel   = arch.data_model   || {};\nconst stores      = arch.stores       || {};\nconst deployUrl   = data.deploy_url   || null;\n\n// Priorité : project_name de l'Architect > extraction depuis mvp_scope\nconst rawProjectName = arch.project_name || data.project_name || '';\nlet projectName = '';\nif (rawProjectName && rawProjectName.length > 1) {\n  projectName = rawProjectName.trim();\n} else if (mvpScope) {\n  // Extraire nom depuis mvp_scope en supprimant les mots génériques\n  projectName = mvpScope\n    .replace(/^cr[eéè]er\\s+(une?\\s+)?/i, '')\n    .replace(/^(une?|le|la|les)\\s+/i, '')\n    .split(' ').slice(0, 3).join(' ')\n    .trim();\n  projectName = projectName.charAt(0).toUpperCase() + projectName.slice(1);\n}\nif (!projectName || projectName.length < 2) projectName = 'Application';\n\nif (!data.task_id) {\n  return [{ json: { error_code: \"VALIDATION_ERROR\", error_message: \"task_id manquant\", timestamp: new Date().toISOString() } }];\n}\nif (!userRequest) {\n  return [{ json: { error_code: \"VALIDATION_ERROR\", error_message: \"userRequest manquant\", timestamp: new Date().toISOString() } }];\n}\n\n// Construire contexte API\nlet apiDocs = '';\nif (endpoints.length > 0) {\n  apiDocs = '\\n\\nENDPOINTS API :\\n';\n  endpoints.forEach(ep => { apiDocs += '- ' + ep.method + ' ' + ep.path + ' : ' + (ep.description || '') + '\\n'; });\n}\n\n// Champs requis par ressource\nlet storeDocs = '';\nif (Object.keys(stores).length > 0) {\n  storeDocs = '\\n\\nCHAMPS REQUIS PAR RESSOURCE :\\n';\n  Object.keys(stores).forEach(res => {\n    const cfg = stores[res];\n    storeDocs += '- POST /' + cfg.store_name + ' : ' + (cfg.required_fields || []).join(', ') + '\\n';\n  });\n}\n\n// Exemples curl\nlet curlExamples = '';\nendpoints.forEach(ep => {\n  if (ep.path === '/health') {\n    curlExamples += 'curl http://localhost:3000/health\\n';\n  } else if (ep.method === 'GET') {\n    curlExamples += 'curl http://localhost:3000' + ep.path + '\\n';\n  } else if (ep.method === 'POST') {\n    const seg = ep.path.replace(/^\\//, '').split('/')[0];\n    const resName = seg.replace(/s$/, '');\n    const reqFields = stores[resName]?.required_fields || [];\n    if (reqFields.length > 0) {\n      const exBody = reqFields.reduce((acc, f) => {\n        acc[f] = (dataModel[resName]?.[f] === 'number') ? 1 : 'exemple';\n        return acc;\n      }, {});\n      curlExamples += 'curl -X POST http://localhost:3000' + ep.path + ' \\\\\\n';\n      curlExamples += '  -H \"Content-Type: application/json\" \\\\\\n';\n      curlExamples += '  -d \\'' + JSON.stringify(exBody) + '\\'\\n';\n    }\n  }\n  curlExamples += '\\n';\n});\n\nconst improvementPrompts = [\n  'Ajoute un bouton Supprimer sur chaque element de la liste',\n  'Affiche ' + (Object.values(stores)[0]?.required_fields?.[1] || 'le titre') + ' et ' + (Object.values(stores)[0]?.required_fields?.[2] || 'la description') + ' dans le titre de chaque item',\n  'Ajoute un systeme de statut sur les reservations (en_attente, acceptee, refusee, livree)',\n  'Ajoute une liste deroulante qui charge automatiquement les trajets disponibles dans le formulaire de reservation',\n  'Ajoute la validation que tous les champs numeriques sont des nombres positifs'\n];\n\nconst systemPrompt = `Tu es un expert en documentation technique.\nREGLE ABSOLUE : Retourner UNIQUEMENT un objet JSON valide.\n\nFORMAT :\n{\n  \"agent\": \"documentation\",\n  \"files\": [\n    { \"path\": \"README.md\", \"content\": \"...\" }\n  ],\n  \"errors\": []\n}\n\nSECTIONS OBLIGATOIRES DU README :\n1. Titre H1 = NOM DU PROJET (utiliser EXACTEMENT : ${projectName})\n2. Vue d ensemble du projet\n3. Ce que genere le pipeline (architecture, stack, fichiers produits)\n4. Prerequis et Installation\n5. Configuration (.env) — IMPORTANT : la stack utilise SQLite (better-sqlite3), PAS de serveur de base de donnees externe. Les SEULES variables .env sont EXACTEMENT : PORT (port du serveur, defaut 3000), DB_PATH (chemin du fichier SQLite, defaut ./database.db), NODE_ENV. NE JAMAIS inventer DB_HOST, DB_USER, DB_PASSWORD, DB_NAME ni aucune variable de connexion MySQL/PostgreSQL/MongoDB : elles n existent pas dans cette stack.\n6. Demarrage (npm start / start.bat / start.sh)\n7. Documentation API complete avec exemples curl\n8. Modele de donnees\n9. Guide d amelioration — expliquer que l app est generee automatiquement\n10. Exemples de prompts d amelioration\n11. Limitations MVP Phase 1 — IMPORTANT : les donnees SONT persistantes (SQLite, fichier database.db conserve apres redemarrage). NE PAS ecrire que le stockage est en memoire ni que les donnees sont perdues au redemarrage : c est FAUX. Limitations reelles a mentionner : pas d authentification, pas de matching automatique, MVP fonctionnel mono-utilisateur.\n12. Roadmap suggeree (v1.1, v1.2, v1.3)\n13. Securite\n\nIMPORTANT : Le titre H1 DOIT etre exactement \"${projectName}\". Pas de variante.\nCommence par { et termine par }.`;\n\nconst userPrompt = `Genere la documentation complete pour :\n\nNOM DU PROJET (H1 obligatoire) : ${projectName}\nSTACK : ${stack}\nTASK_ID : ${data.task_id}\n${apiDocs}${storeDocs}\n\nEXEMPLES CURL :\n${curlExamples}\n\nPROMPTS D AMELIORATION SUGGERES :\n${improvementPrompts.map((p, i) => (i+1) + '. \"' + p + '\"').join('\\n')}\n\nCONTEXTE :\n${userRequest.substring(0, 2000)}\n\nRetourne UNIQUEMENT le JSON.`;\n\nreturn [{\n  json: {\n    task_id:      String(data.task_id),\n    userRequest,\n    systemPrompt,\n    userPrompt\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        32,
+        256
+      ],
+      "id": "b1550baa-9ab9-45ce-a8bc-1ec9d8acc231",
+      "name": "Inject Prompt"
+    },
+    {
+      "parameters": {
+        "jsCode": "const groqResponse = $input.first().json;\nconst upstream = $('Inject Prompt').first().json;\n\nconst raw = groqResponse.choices?.[0]?.message?.content;\n\nif (!raw) {\n  return [{\n    json: {\n      task_id: upstream.task_id,\n      agent: \"documentation\",\n      files: [],\n      errors: [{ stage: \"groq\", message: \"Réponse Groq vide\" }]\n    }\n  }];\n}\n\nlet parsed = {};\ntry {\n  const cleaned = raw.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  parsed = JSON.parse(cleaned);\n} catch(e) {\n  return [{\n    json: {\n      task_id: upstream.task_id,\n      agent: \"documentation\",\n      files: [],\n      errors: [{ stage: \"parsing\", message: e.message }]\n    }\n  }];\n}\n\nconst files = Array.isArray(parsed.files)\n  ? parsed.files.filter(f => f.path && f.content !== undefined)\n  : [];\n\nreturn [{\n  json: {\n    task_id: upstream.task_id,\n    agent: \"documentation\",\n    files,\n    errors: parsed.errors || []\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1504,
+        128
+      ],
+      "id": "694780d3-7ef2-4f89-bcae-23f3778ec884",
+      "name": "Parsing"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "6f7e6e9f-c112-484b-9b2b-07dd9f6cd0d0",
+              "leftValue": "={{ $json.error_code }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        192,
+        256
+      ],
+      "id": "21a7244e-c39c-4403-993e-c2f52e2e1014",
+      "name": "If — Valid Check"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nreturn [{\n  json: {\n    success: false,\n    agent: \"Agent Documentation\",\n    task_id: \"unknown\",\n    status: \"ERROR\",\n    error_code: input.error_code,\n    error_message: input.error_message,\n    approved_for_pipeline: false,\n    timestamp: input.timestamp\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        16
+      ],
+      "id": "4e971cfc-0bb4-47e6-ac3e-47fb0568c5e0",
+      "name": "Format Error"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        640,
+        16
+      ],
+      "id": "a59fb3f8-47ec-452a-8c83-c0c7f9382e45",
+      "name": "Respond to Webhook1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\nreturn [{\n  json: {\n    model: \"llama-3.3-70b-versatile\",\n    messages: [\n      { role: \"system\", content: input.systemPrompt },\n      { role: \"user\", content: input.userPrompt }\n    ],\n    temperature: 0,\n    max_tokens: 8000,\n    response_format: { type: \"json_object\" }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        336
+      ],
+      "id": "0a212f52-57fb-4d82-85c3-a75985b1166d",
+      "name": "Build Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "groqApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        592,
+        336
+      ],
+      "id": "33808626-6b3e-42f8-b70a-d72a8a8fb9e4",
+      "name": "HTTP Request",
+      "credentials": {
+        "groqApi": {
+          "id": "ul0KCSp1fgIVymMj",
+          "name": "Groq account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\nconst hasFiles = Array.isArray(input.files) && input.files.length > 0;\nconst hasErrors = Array.isArray(input.errors) && input.errors.length > 0;\nconst status = hasFiles && !hasErrors ? \"PASS\" : \"FAIL\";\n\nreturn [{\n  json: {\n    success: status === 'PASS',\n    agent: \"Agent Documentation\",\n    task_id: input.task_id,\n    status,\n    global_score: hasFiles ? 100 : 0,\n    approved_for_pipeline: status === 'PASS',\n    language: \"markdown\",\n    critical_issues: hasErrors\n      ? input.errors.map(e => ({ severity: \"high\", description: e.message || String(e) }))\n      : [],\n    warnings: [],\n    recommendations: hasFiles\n      ? [\"Documentation générée avec succès\"]\n      : [\"Régénérer — aucun fichier produit\"],\n    summary: hasFiles\n      ? `${input.files.length} fichier(s) de documentation générés`\n      : \"Échec de génération documentation\",\n    dimensions: {\n      security: { score: 100 },\n      quality: { score: hasFiles ? 100 : 0 }\n    },\n    timestamp: new Date().toISOString(),\n    files: input.files || []\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1728,
+        224
+      ],
+      "id": "8fdb199d-84a0-4fd8-9a3a-80ed4eb66c76",
+      "name": "Format Standard Output"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "958e9a26-45d4-43de-9a6e-e527e31ab30e",
+              "leftValue": "={{ $json.choices && $json.choices[0] && $json.choices[0].message && $json.choices[0].message.content ? 'yes' : 'no' }}",
+              "rightValue": "yes",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "4ddab4d9-3306-4a08-903e-9cc4054ae781",
+      "name": "IF Groq Key1 Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        832,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "groqApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $('Build Payload').first().json }}",
+        "options": {}
+      },
+      "id": "858ab4a0-8cdf-4a3e-816b-a6ea7499c9e3",
+      "name": "HTTP Request 2",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        992,
+        400
+      ],
+      "credentials": {
+        "groqApi": {
+          "id": "YPio3sIer525L1Zk",
+          "name": "Groq account 2"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "0f5af98a-0252-408b-b8ad-a80f3dea34d8",
+              "leftValue": "={{ $json.choices && $json.choices[0] && $json.choices[0].message && $json.choices[0].message.content ? 'yes' : 'no' }}",
+              "rightValue": "yes",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c2fb3420-91ba-4793-b712-9d46c54bffaf",
+      "name": "IF Groq Key2 Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1200,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fallback déterministe si les deux clés Groq échouent\n// Génère un README minimal depuis les données déjà calculées dans Inject Prompt\nconst upstream = $('Inject Prompt').first().json;\nconst task_id = upstream.task_id || 'unknown';\n\n// Extraire project_name depuis le systemPrompt\nlet projectName = 'Application';\nconst sysPrompt = upstream.systemPrompt || '';\nconst match = sysPrompt.match(/EXACTEMENT : ([^\\n)]+)/);\nif (match) projectName = match[1].trim();\n\nconst readme = '# ' + projectName + '\\n\\n' +\n  '> *Documentation générée automatiquement par le pipeline SDLC*\\n\\n' +\n  '## Vue d\\'ensemble\\n\\n' +\n  'Application générée par le pipeline Forge IA.\\n\\n' +\n  '## Installation\\n\\n' +\n  '```bash\\nnpm install\\nnpm start\\n```\\n\\n' +\n  '## Configuration\\n\\n' +\n  'Créer un fichier `.env` :\\n```\\nPORT=3000\\n```\\n\\n' +\n  '## Note\\n\\nDocumentation complète non générée (limite quota Groq). ' +\n  'Relancer la génération demain pour obtenir le README complet.\\n';\n\nreturn [{\n  json: {\n    task_id,\n    agent: 'documentation',\n    files: [{ path: 'README.md', content: readme }],\n    errors: [{ stage: 'groq_fallback', message: 'Les deux clés Groq ont atteint leur limite — README minimal généré.' }]\n  }\n}];"
+      },
+      "id": "8608be6b-3151-46a6-995d-2e209b83a5cc",
+      "name": "Fallback README",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1408,
+        384
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Inject Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Inject Prompt": {
+      "main": [
+        [
+          {
+            "node": "If — Valid Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parsing": {
+      "main": [
+        [
+          {
+            "node": "Format Standard Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If — Valid Check": {
+      "main": [
+        [
+          {
+            "node": "Format Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Error": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Payload": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "IF Groq Key1 Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP Request 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Standard Output": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Groq Key1 Valid?": {
+      "main": [
+        [
+          {
+            "node": "Parsing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP Request 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request 2": {
+      "main": [
+        [
+          {
+            "node": "IF Groq Key2 Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fallback README",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Groq Key2 Valid?": {
+      "main": [
+        [
+          {
+            "node": "Parsing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fallback README",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fallback README": {
+      "main": [
+        [
+          {
+            "node": "Format Standard Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "7e7dd507-d13a-4b62-a005-0b85e518a435",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c77e41168b0abc4c9e72e3dfa70fb293d0acb289b40b847421933eadc146e082"
+  },
+  "id": "DKjnn4n3gbFpDrO2",
+  "tags": []
+}
