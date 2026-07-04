@@ -1,0 +1,4 @@
+run = "npm install && node server.js"
+entrypoint = "server.js"
+[nix]
+channel = "stable-24_05"
