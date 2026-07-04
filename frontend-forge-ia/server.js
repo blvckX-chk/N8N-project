@@ -8,6 +8,7 @@ const cors           = require('cors');
 const jwt            = require('jsonwebtoken');
 const bcrypt         = require('bcryptjs');
 const { body, validationResult } = require('express-validator');
+const MAX_BASE64_SIZE = 15 * 1000 * 1000; // ~15M chars, borne large pour PDF/DOCX/image encodes
 const app  = express();
 const PORT = process.env.PORT || 3000;
 const APP_VERSION = '4.8.0';
@@ -113,11 +114,55 @@ app.get('/api/auth/me', authMiddleware, (req, res) => {
   res.json({ username: req.user.sub });
 });
 
+// ── Validation d'entrée ────────────────────────────────────────────────────
+function handleValidation(req, res, next) {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      error: 'Requete invalide',
+      details: errors.array().map(e => `${e.path}: ${e.msg}`)
+    });
+  }
+  next();
+}
+
+const validatePipeline = [
+  body('task_id').optional().isString().trim().isLength({ max: 100 }),
+  body('environment').optional().isIn(['staging', 'production']),
+  body('language').optional().isString().trim().isLength({ max: 50 }),
+  body('framework').optional().isString().trim().isLength({ max: 50 }),
+  body('userRequest').optional().isString().isLength({ max: 100000 }),
+  body('url').optional().isURL({ require_protocol: true }),
+  body('improve_mode').optional().isBoolean(),
+  body('improve_prompt').optional().isString().isLength({ max: 100000 }),
+  body('pdf_base64').optional().isString().isLength({ max: MAX_BASE64_SIZE }),
+  body('pdf_filename').optional().isString().isLength({ max: 255 }),
+  body('docx_base64').optional().isString().isLength({ max: MAX_BASE64_SIZE }),
+  body('docx_filename').optional().isString().isLength({ max: 255 }),
+  body('image_base64').optional().isString().isLength({ max: MAX_BASE64_SIZE }),
+  body('image_filename').optional().isString().isLength({ max: 255 }),
+  body('image_mime').optional().isString().isLength({ max: 100 }),
+  body('existing_zip_base64').optional().isString().isLength({ max: MAX_BASE64_SIZE }),
+  body('existing_zip_filename').optional().isString().isLength({ max: 255 }),
+  handleValidation
+];
+
+const appNamePattern = /^[a-z0-9-]{1,50}$/;
+const validateDeployOrImprove = [
+  body('task_id').optional().isString().trim().isLength({ max: 100 }),
+  body('app_name').optional().isString().trim().matches(appNamePattern)
+    .withMessage('app_name doit contenir uniquement des minuscules, chiffres et tirets (max 50 caracteres)'),
+  body('files').isArray({ min: 1, max: 50 }).withMessage('files doit etre un tableau de 1 a 50 fichiers'),
+  body('files.*.path').isString().trim().isLength({ min: 1, max: 255 }),
+  body('files.*.content').isString().isLength({ max: 500000 }),
+  handleValidation
+];
+
 // Stockage en mémoire des résultats en attente
 const pendingResults = {};
 
 // ── Pipeline asynchrone : lance + stocke le résultat ──────────────────────
-app.post('/api/pipeline', authMiddleware, async (req, res) => {
+app.post('/api/pipeline', authMiddleware, validatePipeline, async (req, res) => {
   const taskId = req.body.task_id || ('TASK-' + Date.now());
   // Répondre immédiatement avec le task_id
   res.json({ pending: true, task_id: taskId });
@@ -152,10 +197,10 @@ app.get('/api/result/:taskId', authMiddleware, (req, res) => {
   res.json({ pending: false, data: result.data });
 });
 
-app.post('/api/deploy', authMiddleware, async (req, res) => {
+app.post('/api/deploy', authMiddleware, validateDeployOrImprove, async (req, res) => {
   try { const r = await nodeFetch(DEPLOY_URL+'/deploy', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(req.body), timeout:120000 }); res.json(await r.json()); } catch(e) { res.status(500).json({ error: e.message }); }
 });
-app.post('/api/improve', authMiddleware, async (req, res) => {
+app.post('/api/improve', authMiddleware, validateDeployOrImprove, async (req, res) => {
   try { const r = await nodeFetch(DEPLOY_URL+'/improve', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(req.body), timeout:120000 }); res.json(await r.json()); } catch(e) { res.status(500).json({ error: e.message }); }
 });
 app.get('/api/apps', authMiddleware, async (req, res) => {
