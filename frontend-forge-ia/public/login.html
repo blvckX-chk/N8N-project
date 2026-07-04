@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Connexion — Forge IA</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--bg:#0a0a0f;--surface:#111118;--border:#1e1e2e;--accent:#7c3aed;--accent2:#06b6d4;--danger:#ef4444;--text:#e2e8f0;--muted:#64748b;--mono:'Space Mono',monospace;--sans:'Syne',sans-serif}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;display:flex;align-items:center;justify-content:center}
+    .card{width:100%;max-width:340px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:32px 28px}
+    .logo-row{display:flex;align-items:center;gap:12px;margin-bottom:24px}
+    .logo{width:34px;height:34px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px}
+    h1{font-size:17px;font-weight:800;letter-spacing:-.5px}
+    label{display:block;font-size:9px;font-family:var(--mono);color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px}
+    .field{margin-bottom:16px}
+    input[type=text],input[type=password]{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:var(--mono);font-size:13px;padding:11px 12px;outline:none;transition:border-color .2s}
+    input:focus{border-color:var(--accent)}
+    button{width:100%;margin-top:6px;padding:12px;background:var(--accent);color:white;border:none;border-radius:10px;font-family:var(--sans);font-size:14px;font-weight:600;cursor:pointer;transition:all .2s}
+    button:hover:not(:disabled){background:#6d28d9}
+    button:disabled{opacity:.5;cursor:not-allowed}
+    .error{margin-top:14px;padding:10px 12px;border-radius:8px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:var(--danger);font-size:12px;font-family:var(--mono);display:none}
+    .error.show{display:block}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo-row">
+      <div class="logo">⚡</div>
+      <h1>Forge IA</h1>
+    </div>
+    <form id="login-form" method="post" autocomplete="off">
+      <div class="field">
+        <label for="username">Identifiant</label>
+        <input type="text" id="username" name="username" autocomplete="username" required maxlength="100"/>
+      </div>
+      <div class="field">
+        <label for="password">Mot de passe</label>
+        <input type="password" id="password" name="password" autocomplete="current-password" required maxlength="200"/>
+      </div>
+      <button type="submit" id="btn-submit">Se connecter</button>
+      <div class="error" id="error-msg"></div>
+    </form>
+  </div>
+  <script>
+    function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+    const form=document.getElementById('login-form');
+    const btn=document.getElementById('btn-submit');
+    const errBox=document.getElementById('error-msg');
+    form.addEventListener('submit', async function(e){
+      e.preventDefault();
+      errBox.classList.remove('show');
+      btn.disabled=true;
+      btn.textContent='Connexion...';
+      try{
+        const r=await fetch('/api/auth/login',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({
+            username: document.getElementById('username').value.trim(),
+            password: document.getElementById('password').value
+          })
+        });
+        const data=await r.json();
+        if(!r.ok){
+          errBox.textContent=esc(data.error||'Identifiants incorrects');
+          errBox.classList.add('show');
+          return;
+        }
+        window.location.href='/';
+      }catch(err){
+        errBox.textContent='Erreur de connexion au serveur';
+        errBox.classList.add('show');
+      }finally{
+        btn.disabled=false;
+        btn.textContent='Se connecter';
+      }
+    });
+  </script>
+</body>
+</html>

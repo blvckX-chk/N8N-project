@@ -1,8 +1,13 @@
-const express   = require('express');
-const nodeFetch = require('node-fetch');
-const path      = require('path');
-const helmet    = require('helmet');
-const rateLimit = require('express-rate-limit');
+const express        = require('express');
+const nodeFetch      = require('node-fetch');
+const path           = require('path');
+const helmet         = require('helmet');
+const rateLimit      = require('express-rate-limit');
+const cookieParser   = require('cookie-parser');
+const cors           = require('cors');
+const jwt            = require('jsonwebtoken');
+const bcrypt         = require('bcryptjs');
+const { body, validationResult } = require('express-validator');
 const app  = express();
 const PORT = process.env.PORT || 3000;
 const APP_VERSION = '4.8.0';
@@ -10,10 +15,32 @@ const APP_VERSION = '4.8.0';
 const N8N_URL    = process.env.N8N_URL    || 'http://167.86.93.31:5688/webhook/pipeline';
 const DEPLOY_URL = process.env.DEPLOY_URL || 'http://167.86.93.31:4001';
 
+// ── Authentification (Sprint 2) — zero secret en dur, echec au demarrage si absent ──
+const JWT_SECRET          = process.env.JWT_SECRET;
+const ADMIN_USERNAME      = process.env.ADMIN_USERNAME;
+const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
+if (!JWT_SECRET || !ADMIN_USERNAME || !ADMIN_PASSWORD_HASH) {
+  console.error('[ERREUR] JWT_SECRET, ADMIN_USERNAME et ADMIN_PASSWORD_HASH doivent etre definis (voir .env.example).');
+  console.error('  Generer le hash : npm run hash-password -- "VotreMotDePasse"');
+  process.exit(1);
+}
+const COOKIE_NAME = 'forge_token';
+
 // ── Sécurité HTTP ─────────────────────────────────────────────────────────
 // CSP désactivée : l'UI utilise des styles/scripts inline (SPA mono-fichier).
 // Les autres protections helmet (X-Frame-Options, HSTS, noSniff...) restent actives.
 app.use(helmet({ contentSecurityPolicy: false }));
+
+// CORS : aucune origine cross-site autorisee par defaut (outil mono-origine).
+// CORS_ORIGIN (liste separee par virgules) permet d'ouvrir explicitement si besoin.
+const allowedOrigins = (process.env.CORS_ORIGIN || '').split(',').map(s => s.trim()).filter(Boolean);
+app.use(cors({
+  origin: function(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error('Origine non autorisee (CORS)'));
+  },
+  credentials: true
+}));
 
 // Rate-limit global : protège le proxy contre les abus (100 req / 15 min / IP)
 app.use(rateLimit({
@@ -24,14 +51,73 @@ app.use(rateLimit({
   message: { error: 'Trop de requetes — reessayez dans quelques minutes.' }
 }));
 
+// Rate-limit dedie a la connexion : freine le brute-force sur le mot de passe admin
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Trop de tentatives de connexion — reessayez dans 15 minutes.' }
+});
+
 app.use(express.json({ limit: '10mb' }));
+app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ── Middleware d'authentification ─────────────────────────────────────────
+function authMiddleware(req, res, next) {
+  const token = req.cookies && req.cookies[COOKIE_NAME];
+  if (!token) return res.status(401).json({ error: 'Non authentifie' });
+  try {
+    req.user = jwt.verify(token, JWT_SECRET);
+    next();
+  } catch (e) {
+    res.clearCookie(COOKIE_NAME);
+    return res.status(401).json({ error: 'Session invalide ou expiree' });
+  }
+}
+
+// ── Routes d'authentification ─────────────────────────────────────────────
+app.post('/api/auth/login',
+  loginLimiter,
+  body('username').isString().trim().isLength({ min: 1, max: 100 }),
+  body('password').isString().isLength({ min: 1, max: 200 }),
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ error: 'Identifiants invalides' });
+
+    const { username, password } = req.body;
+    if (username !== ADMIN_USERNAME) {
+      return res.status(401).json({ error: 'Identifiants incorrects' });
+    }
+    const match = await bcrypt.compare(password, ADMIN_PASSWORD_HASH);
+    if (!match) return res.status(401).json({ error: 'Identifiants incorrects' });
+
+    const token = jwt.sign({ sub: username }, JWT_SECRET, { expiresIn: '8h' });
+    res.cookie(COOKIE_NAME, token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 8 * 60 * 60 * 1000
+    });
+    res.json({ ok: true });
+  }
+);
+
+app.post('/api/auth/logout', (req, res) => {
+  res.clearCookie(COOKIE_NAME);
+  res.json({ ok: true });
+});
+
+app.get('/api/auth/me', authMiddleware, (req, res) => {
+  res.json({ username: req.user.sub });
+});
 
 // Stockage en mémoire des résultats en attente
 const pendingResults = {};
 
 // ── Pipeline asynchrone : lance + stocke le résultat ──────────────────────
-app.post('/api/pipeline', async (req, res) => {
+app.post('/api/pipeline', authMiddleware, async (req, res) => {
   const taskId = req.body.task_id || ('TASK-' + Date.now());
   // Répondre immédiatement avec le task_id
   res.json({ pending: true, task_id: taskId });
@@ -59,31 +145,31 @@ app.post('/api/pipeline', async (req, res) => {
 });
 
 // ── Poll : Forge IA interroge toutes les 5s ───────────────────────────────
-app.get('/api/result/:taskId', (req, res) => {
+app.get('/api/result/:taskId', authMiddleware, (req, res) => {
   const result = pendingResults[req.params.taskId];
   if (!result) return res.json({ pending: true });
   if (result.error) return res.json({ error: result.error });
   res.json({ pending: false, data: result.data });
 });
 
-app.post('/api/deploy', async (req, res) => {
+app.post('/api/deploy', authMiddleware, async (req, res) => {
   try { const r = await nodeFetch(DEPLOY_URL+'/deploy', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(req.body), timeout:120000 }); res.json(await r.json()); } catch(e) { res.status(500).json({ error: e.message }); }
 });
-app.post('/api/improve', async (req, res) => {
+app.post('/api/improve', authMiddleware, async (req, res) => {
   try { const r = await nodeFetch(DEPLOY_URL+'/improve', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(req.body), timeout:120000 }); res.json(await r.json()); } catch(e) { res.status(500).json({ error: e.message }); }
 });
-app.get('/api/apps', async (req, res) => {
+app.get('/api/apps', authMiddleware, async (req, res) => {
   try { const r = await nodeFetch(DEPLOY_URL+'/apps'); res.json(await r.json()); } catch(e) { res.status(500).json({ error: e.message }); }
 });
-app.delete('/api/apps/:name', async (req, res) => {
+app.delete('/api/apps/:name', authMiddleware, async (req, res) => {
   try { const r = await nodeFetch(DEPLOY_URL+'/apps/'+req.params.name, { method:'DELETE' }); res.json(await r.json()); } catch(e) { res.status(500).json({ error: e.message }); }
 });
-app.get('/api/apps/:name/files', async (req, res) => {
+app.get('/api/apps/:name/files', authMiddleware, async (req, res) => {
   try { const r = await nodeFetch(DEPLOY_URL+'/apps/'+req.params.name+'/files'); res.json(await r.json()); } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── Création ZIP côté serveur (sans dépendance CDN) ───────────────────────
-app.post('/api/create-zip', (req, res) => {
+app.post('/api/create-zip', authMiddleware, (req, res) => {
   try {
     const { files, filename } = req.body;
     if (!files || !files.length) return res.status(400).json({ error: 'Aucun fichier' });
@@ -149,7 +235,7 @@ app.post('/api/create-zip', (req, res) => {
 
 
 // ── Launcher universel ────────────────────────────────────────────────────
-app.get('/api/launcher', (req, res) => {
+app.get('/api/launcher', authMiddleware, (req, res) => {
   const lines = [
     '@echo off',
     'SETLOCAL ENABLEDELAYEDEXPANSION',
@@ -225,7 +311,7 @@ app.get('/api/launcher', (req, res) => {
 });
 
 // ── Launcher spécifique par génération ────────────────────────────────────
-app.get('/api/specific-launcher', (req, res) => {
+app.get('/api/specific-launcher', authMiddleware, (req, res) => {
   const zipName = (req.query.zipname || 'ForgeIA-app-v1_0').replace(/[^a-zA-Z0-9\-_]/g, '');
   const dn = zipName.replace(/^(?:ForgeIA|MVP)-/, '').replace(/-v[0-9_]+$/, '');
   const lines = [
