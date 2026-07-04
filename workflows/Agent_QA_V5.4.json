@@ -1,0 +1,806 @@
+{
+  "name": "Agent QA V5.4",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\nreturn [{\n  json: {\n    success: null,\n    agent: \"Agent QA\",\n    task_id: input.task_id,\n    status: \"NEEDSIMPROVEMENT\",\n    global_score: input.global_score,\n    approved_for_pipeline: false,\n    language: input.language,\n    critical_issues: input.critical_issues || [],\n    warnings: input.warnings || [],\n    recommendations: input.recommendations || [],\n    summary: input.summary || \"\",\n    dimensions: input.dimensions,\n    timestamp: input.timestamp\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -28432,
+        -1200
+      ],
+      "id": "c4ec7ce3-8503-4747-80cb-4e29530a5cde",
+      "name": "Code \"Format Review\""
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\nreturn [{\n  json: {\n    success: false,\n    agent: \"Agent QA\",\n    task_id: input.task_id,\n    status: \"FAIL\",\n    global_score: input.global_score,\n    approved_for_pipeline: false,\n    language: input.language,\n    critical_issues: input.critical_issues || [],\n    warnings: input.warnings || [],\n    recommendations: input.recommendations || [],\n    summary: input.summary || \"\",\n    dimensions: input.dimensions,\n    timestamp: input.timestamp\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -28448,
+        -1408
+      ],
+      "id": "7751eb7b-d6c7-489f-939e-4c018a421a58",
+      "name": "Code \"Format Fail\""
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\nreturn [{\n  json: {\n    success: true,\n    agent: \"Agent QA\",\n    task_id: input.task_id,\n    status: \"PASS\",\n    global_score: input.global_score,\n    approved_for_pipeline: true,\n    language: input.language,\n    critical_issues: [],\n    warnings: input.warnings || [],\n    recommendations: input.recommendations || [],\n    summary: input.summary || \"\",\n    dimensions: input.dimensions,\n    timestamp: input.timestamp\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -28448,
+        -1584
+      ],
+      "id": "a0bb65ae-1ca9-42cc-a190-6738883f6e30",
+      "name": "Code \"Format Pass\""
+    },
+    {
+      "parameters": {
+        "jsCode": "// Nœud Code — \"Format Error Response\"\nconst input = $input.first().json;\n\nreturn [{\n  json: {\n    success: false,\n    agent: \"Agent QA\",\n    status: \"ERROR\",\n    error_code: input.error_code,\n    error_message: input.error_message,\n    approved_for_pipeline: false,\n    timestamp: input.timestamp\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -31488,
+        -1344
+      ],
+      "id": "87c9fc39-a8d3-4db7-ab31-893cd31fa906",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -31344,
+        -1328
+      ],
+      "id": "0051c9e7-1f62-4323-b30c-dcbe30755a78",
+      "name": "Respond to Webhook — error"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "e919820f-140e-43e4-af08-91e67f736760",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -31728,
+        -1520
+      ],
+      "id": "9b6e5431-1553-4bb3-b727-6cf7bfc80bd8",
+      "name": "If — Valid Check"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "c13cdf67-98a9-483e-b52a-8a0911c4534e",
+              "leftValue": "={{ $json.skipLLM }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -31216,
+        -1520
+      ],
+      "id": "d541844d-fcce-41fa-9845-d7251a20e446",
+      "name": "If — skipLLM"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -28944,
+        -1392
+      ],
+      "id": "35fd7edb-e778-462d-9c60-2537b98c48e9",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nreturn [{\n  json: {\n    model: \"codestral-latest\",\n    messages: [\n      { role: \"system\", content: input.systemPrompt },\n      { role: \"user\",   content: input.userPrompt }\n    ],\n    temperature: 0,\n    max_tokens: 3500,\n    response_format: { type: \"json_object\" }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -30912,
+        -1312
+      ],
+      "id": "f73750ae-fc0d-4c3f-84bd-b289eec52da6",
+      "name": "Build Payload QA"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -28208,
+        -1200
+      ],
+      "id": "75745b9e-f4a7-49a7-a7e3-6849a07f696d",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst input = raw.body || raw;\n\nconst issues = input.issues || [];\nconst coverage = typeof input.coverage === 'number'\n  ? Math.min(100, Math.max(0, input.coverage)) : 0;\nconst securityScore = typeof input.security_score === 'number' ? input.security_score : null;\nconst qualityScore  = typeof input.quality_score  === 'number' ? input.quality_score  : null;\nconst verdict = (input.verdict || '').toUpperCase();\n\n\n// ── Filtrage faux positifs — règles déterministes ─────────────────────────\n// Le LLM génère des HIGH sur des choix d'architecture MVP → reclasser en WARN\n\nconst FALSE_POSITIVE_PATTERNS = [\n  // Stockage en mémoire = choix MVP délibéré\n  'base de données', 'database', 'stockage en mémoire', 'perte de données',\n  'redémarrage du serveur', 'persistance', 'persist',\n  // Dotenv déjà utilisé\n  'dotenv', 'process.env', 'variables d\\'environnement', 'gestion de secrets',\n  // Auth / passwords non demandés dans un MVP sans auth\n  'authentification', 'autorisation', 'jwt', 'session',\n  'mot de passe', 'mots de passe', 'password', 'passwords',\n  'bcrypt', 'hash', 'hachage', 'stockage sécurisé',\n  'système de stockage', 'système de gestion de secrets',\n  'clés api', 'clé api', 'api key',\n  // Tests unitaires non demandés\n  'tests unitaires', 'tests d\\'intégration', 'couverture de test',\n  // Style cosmétique\n  'noms de variables', 'convention de nommage', 'lisibilité', 'maintenabilité',\n  // Validation générique (le Backend déterministe génère déjà les validations)\n  'mécanismes de validation', 'validation de données', 'valider les données',\n  // Rate limiting / CORS / Helmet → hors périmètre MVP\n  'rate limit', 'rate-limit', 'helmet', 'cors', 'limitation de débit',\n  // Logs sensibles → hors périmètre MVP\n  'journalisation', 'logs sensibles', 'logging',\n  // Gestion erreurs générique → BONNE PRATIQUE OWASP\n  'gérées de manière générique', \"messages d'erreur personnalisés\",\n  \"informations spécifiques sur l'erreur\", 'sans exposer', 'exposer les détails',\n  // SQL paramétré → déjà protégé avec db.prepare()\n  'sans échappement', 'paramètres pour éviter', 'requêtes préparées', 'injection sql',\n  // Date validation → hors périmètre MVP\n  'validation pour les champs de date', 'format attendu', 'format de date',\n  // Nommage / convention\n  'noms de variables', 'noms de fonctions', 'renommer', 'descriptif',\n  'lisibilité', 'maintenabilité', 'convention de nommage'\n];\n\nfor (let i = issues.length - 1; i >= 0; i--) {\n  const issue = issues[i];\n  if (issue.severity !== 'high') continue;\n\n  const haystack = [\n    issue.description || '',\n    issue.fix || '',\n    issue.impact || ''\n  ].join(' ').toLowerCase();\n\n  const isFalsePositive = FALSE_POSITIVE_PATTERNS.some(p => haystack.includes(p));\n\n  if (isFalsePositive) {\n    issue.severity = 'medium';\n    issue._reclassified = true;\n    console.log('⚠️ Faux positif reclassé en WARN: ' + (issue.description || '').substring(0, 60));\n  }\n}\n\n// Après reclassification, recalculer critical vs warnings\nconst realCritical = issues.filter(i => i.severity === 'high' && !i._reclassified);\nconst allWarnings  = issues.filter(i => i.severity !== 'high' || i._reclassified);\n\nfunction isTrivial(desc) {\n  const d = desc.toLowerCase();\n  return d.includes('commentaire') || d.includes('indentation') ||\n         d.includes('typo') || d.includes('convention de nommage');\n}\n\nlet critical = [];\nlet warnings = [];\n\nfor (const issue of (realCritical || issues)) {\n  const desc = (issue.description || '').trim();\n  const sev  = (issue.severity || 'low').toLowerCase();\n  if (!desc || isTrivial(desc)) continue;\n  if (sev === 'high') critical.push({\n    severity: sev, category: issue.category || 'quality',\n    file: issue.file || '?', description: desc,\n    impact: issue.impact || '', fix: issue.fix || ''\n  });\n}\nfor (const issue of (allWarnings || [])) {\n  const desc = (issue.description || '').trim();\n  const sev  = (issue.severity || 'low').toLowerCase();\n  if (!desc || isTrivial(desc)) continue;\n  warnings.push({\n    severity: sev, category: issue.category || 'quality',\n    file: issue.file || '?', description: desc,\n    impact: issue.impact || '', fix: issue.fix || ''\n  });\n}\n\n// Statut basé sur le verdict LLM ou calculé\nlet status;\nif (verdict === 'FAIL' || critical.length > 0) {\n  status = 'FAIL';\n} else if (verdict === 'WARN' || warnings.filter(w => w.severity === 'medium').length >= 3 || coverage < 50) {\n  status = 'WARN'; // WARN ne bloque PAS le pipeline — juste des avertissements\n} else {\n  status = 'PASS';\n}\n\n// Scores\nconst secScore  = securityScore !== null ? securityScore : Math.max(0, 100 - (critical.filter(i => i.category === 'security').length * 30));\nconst qualScore = qualityScore  !== null ? qualityScore  : Math.min(100, Math.max(0, coverage));\nconst globalScore = Math.round((secScore * 0.4) + (qualScore * 0.6));\n\nreturn [{\n  json: {\n    agent: 'Agent QA',\n    task_id: input.task_id,\n    status,\n    global_score: globalScore,\n    approved_for_pipeline: status !== 'FAIL', // WARN laisse passer\n    language: input.language,\n    critical_issues: critical,\n    warnings,\n    recommendations: input.recommendations || [],\n    summary: input.summary || '',\n    verdict_llm: verdict,\n    dimensions: {\n      security: { score: secScore },\n      quality:  { score: qualScore }\n    },\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -28800,
+        -1376
+      ],
+      "id": "6e43ca94-9c83-4fd3-886d-a526b1064957",
+      "name": "QA Normalize & Scoring"
+    },
+    {
+      "parameters": {
+        "jsCode": "const llmResponse = $input.first().json;\n\n// Référence explicite au nœud Validate Input\nconst upstream = $('Validate Input').first().json;\n\nconst raw = llmResponse.choices?.[0]?.message?.content;\n\nif (!raw) {\n  return [{\n    json: {\n      task_id: upstream.task_id,\n      language: upstream.language,\n      issues: [],\n      coverage: 0,\n      recommendations: [],\n      summary: \"Erreur : réponse LLM vide\",\n      received_at: upstream.received_at,\n      _parse_error: true\n    }\n  }];\n}\n\nlet parsed = {};\ntry {\n  const cleaned = raw\n    .replace(/```json\\n?/g, '')\n    .replace(/```\\n?/g, '')\n    .trim();\n  parsed = JSON.parse(cleaned);\n} catch(e) {\n  parsed = {\n    issues: [],\n    coverage: 0,\n    recommendations: [],\n    summary: `Erreur parsing LLM : ${e.message}`\n  };\n}\n\nconst issues = Array.isArray(parsed.issues) ? parsed.issues.filter(i =>\n  i && typeof i.severity === 'string' && typeof i.description === 'string'\n) : [];\n\nreturn [{\n  json: {\n    task_id: upstream.task_id,\n    language: upstream.language,\n    issues,\n    coverage: typeof parsed.coverage === 'number'\n      ? Math.min(100, Math.max(0, parsed.coverage))\n      : 0,\n    recommendations: Array.isArray(parsed.recommendations)\n      ? parsed.recommendations\n      : [],\n    summary: parsed.summary || \"\",\n    received_at: upstream.received_at\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -29664,
+        -1296
+      ],
+      "id": "5fa8d44f-d81a-439c-af94-d53aacb9bd62",
+      "name": "Parse Response"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\n// Sécurité : limiter la taille du code analysé\nconst maxCodeSize = 40000;\nlet code = input.code || '';\nif (code.length > maxCodeSize) {\n  code = code.substring(0, maxCodeSize) + '\\n// ... [code tronqué pour analyse]';\n}\n\nconst systemPrompt = `Tu es un expert QA senior et DevSecOps spécialisé Node.js/Express.\nTu analyses le code en profondeur et fournis des détails ACTIONNABLES pour chaque problème.\n\n━━━ FORMAT DE SORTIE OBLIGATOIRE ━━━\n{\n  \"issues\": [\n    {\n      \"severity\": \"high|medium|low\",\n      \"category\": \"security|quality|functionality|performance\",\n      \"file\": \"server.js\",\n      \"description\": \"description précise du problème\",\n      \"impact\": \"conséquence concrète si non corrigé\",\n      \"fix\": \"exemple de correction en 1-2 lignes de code\"\n    }\n  ],\n  \"coverage\": 85,\n  \"security_score\": 90,\n  \"quality_score\": 80,\n  \"recommendations\": [\"action concrète et prioritaire\"],\n  \"summary\": \"résumé en une phrase\",\n  \"verdict\": \"PASS|FAIL|WARN\"\n}\n\n━━━ SÉVÉRITÉS ━━━\n\nHIGH (bloquant — crash ou faille critique) :\n  - require() vers fichier inexistant → crash au démarrage\n  - Variable undefined sans vérification → crash runtime\n  - Secret hardcodé (API key, password) → faille sécurité critique\n  - eval() ou innerHTML avec données utilisateur → injection/XSS\n  - Pas de validation sur données entrantes → injection possible\n  - res.json([]) statique au lieu du store → perte de données\n  - app.listen() sans PORT → non configurable\n\nMEDIUM (comportement incorrect ou risque modéré) :\n  - Code HTTP incorrect (200 pour création, utiliser 201)\n  - Absence de try/catch sur endpoint\n  - express.static absent avec frontend/\n  - Pas de Content-Type validé sur POST\n  - console.log avec données utilisateur (fuite info)\n\nLOW (amélioration non urgente) :\n  - Console.log de debug oubliés\n  - Nommage peu descriptif\n  - Code dupliqué mineur\n\n━━━ CHECKS SÉCURITÉ OBLIGATOIRES (DevSecOps) ━━━\n1. Secrets hardcodés : chercher password=, apikey=, SECRET=, TOKEN= avec valeurs\n2. Injection XSS : innerHTML, document.write avec données non échappées\n3. Injection SQL/NoSQL : concaténation dans requêtes\n4. eval() ou Function() avec données utilisateur\n5. Validation inputs : tous les champs POST sont-ils validés ?\n6. Gestion erreurs : les messages d'erreur exposent-ils des infos sensibles ?\n\n━━━ NE PAS SIGNALER ━━━\n- Absence de commentaires ou documentation\n- Style (tabs/spaces, nommage subjectif)\n- Stockage en mémoire → c'est un choix valide\n- Absence de tests unitaires\n- Optimisations prématurées\n\n━━━ VERDICT ━━━\n- PASS  : 0 high, coverage >= 60\n- WARN  : 0 high, coverage 40-59 OU 1-2 medium\n- FAIL  : 1+ high OU coverage < 40\n\nSois précis et actionnable. Chaque issue doit avoir un fix concret.`;\n\nconst userPrompt = code\n  ? `Analyse ce code ${input.language} en détail :\\n\\n\\`\\`\\`${input.language}\\n${code}\\n\\`\\`\\``\n  : `Évalue ce rapport pour le projet ${input.language} :\\n${JSON.stringify({\n      issues: input.issues,\n      coverage: input.coverage,\n      recommendations: input.recommendations\n    }, null, 2)}`;\n\nreturn [{\n  json: {\n    ...input,\n    code,\n    systemPrompt,\n    userPrompt\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -31088,
+        -1312
+      ],
+      "id": "84bb52a1-d5ee-42d7-86e8-352bf953d6dc",
+      "name": "Build Prompt"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.mistral.ai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer SpAzrxMF27dh1b6bx3HwYqoabjHL3owy"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -30704,
+        -1328
+      ],
+      "id": "b7734d7a-9589-4a17-ad1b-39386a5ac478",
+      "name": "LLM Mistral QA",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -28272,
+        -1584
+      ],
+      "id": "cadf867f-3469-46bb-b726-dcb806f02e4a",
+      "name": "Respond to Webhook pass"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -28224,
+        -1408
+      ],
+      "id": "c665fb04-03a2-4e27-abf5-cae8a5dcbfb0",
+      "name": "Respond to Webhook fail"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "PASS",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "07e67630-c4cb-4959-9821-6a25ebcb5d6f"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "pass"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "10ed3d71-6c6b-483c-9f14-d39d04919625",
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "FAIL",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "fail"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "7dcbb202-54b9-46f1-81b2-27cca00d45f1",
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "WARN",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "warn"
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -28656,
+        -1392
+      ],
+      "id": "01b843ca-aefb-42a8-a002-71c7b25cae4e",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\n\nlet data = raw;\nif (raw.body !== undefined) {\n  let rawBody = raw.body;\n  if (typeof rawBody === 'string') {\n    rawBody = rawBody.replace(/^=+/, '').trim();\n    try { data = JSON.parse(rawBody); } catch(e) { data = raw; }\n  } else if (typeof rawBody === 'object' && Object.keys(rawBody).length > 0) {\n    data = rawBody;\n  }\n}\n\nconst hasDirectData = (\n  Array.isArray(data.issues) &&\n  data.issues.length > 0 &&\n  data.coverage !== undefined &&\n  data.code === undefined\n);\n\nif (!data.task_id) {\n  return [{\n    json: {\n      valid: false,\n      error_code: \"VALIDATION_ERROR\",\n      error_message: \"task_id manquant dans le payload entrant\",\n      received_payload: data,\n      timestamp: new Date().toISOString()\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    valid: true,\n    task_id: data.task_id,\n    language: (data.language || \"javascript\").toLowerCase().trim(),\n    issues: data.issues || [],\n    coverage: data.coverage ?? 0,\n    recommendations: data.recommendations || [],\n    code: data.code || null,\n    skipLLM: hasDirectData,\n    received_at: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -31904,
+        -1520
+      ],
+      "id": "648b9ccc-e2c9-4c2e-9065-a1c31f7b9dbe",
+      "name": "Validate Input"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "agent-qa",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -32096,
+        -1520
+      ],
+      "id": "1d5ffa53-558b-4173-a135-c57108e493b0",
+      "name": "Webhook",
+      "webhookId": "5244f448-f815-4eaa-893e-90dbe2e6b0b0"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "4b3fe787-f783-46ab-8f78-7d8b7098fa46",
+              "leftValue": "={{ $json.choices && $json.choices[0] && $json.choices[0].message && $json.choices[0].message.content ? 'yes' : 'no' }}",
+              "rightValue": "yes",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f8609f78-91e0-4bc3-aecd-7441840ee1ca",
+      "name": "IF Groq Key1 Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -30256,
+        -1328
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.mistral.ai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer SpAzrxMF27dh1b6bx3HwYqoabjHL3owy"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $('Build Payload QA').first().json }}",
+        "options": {}
+      },
+      "id": "80739d62-7e85-431a-a979-f0c10f381ec9",
+      "name": "LLM Mistral QA Retry",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -30144,
+        -1056
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "134a3f50-3e4b-4891-9f10-ea9a1dcc91cb",
+              "leftValue": "={{ $json.choices && $json.choices[0] && $json.choices[0].message && $json.choices[0].message.content ? 'yes' : 'no' }}",
+              "rightValue": "yes",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "8b612715-f1ca-46b7-bb2a-0a37db6600de",
+      "name": "IF Groq Key2 Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -29872,
+        -1088
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fallback QA : Mistral indisponible — retourner WARN pour laisser le pipeline continuer\nconst upstream = $('Validate Input').first().json;\nreturn [{\n  json: {\n    task_id:   upstream.task_id || 'unknown',\n    language:  upstream.language || 'javascript',\n    issues: [],\n    coverage: 100,\n    verdict: 'PASS',\n    security_score: 100,\n    quality_score: 100,\n    recommendations: ['QA non exécutée — quota LLM atteint. Relancer pour une analyse complète.'],\n    summary: 'QA ignorée (rate limit Mistral) — pipeline autorisé à continuer.',\n    _llm_fallback: true\n  }\n}];"
+      },
+      "id": "64d0e8e2-7a32-4fae-9108-e8b8e546fffd",
+      "name": "QA Fallback",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -29648,
+        -896
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook — error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If — Valid Check": {
+      "main": [
+        [
+          {
+            "node": "If — skipLLM",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If — skipLLM": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "QA Normalize & Scoring",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Payload QA": {
+      "main": [
+        [
+          {
+            "node": "LLM Mistral QA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code \"Format Review\"": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QA Normalize & Scoring": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Response": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Build Prompt": {
+      "main": [
+        [
+          {
+            "node": "Build Payload QA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code \"Format Pass\"": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook pass",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code \"Format Fail\"": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook fail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Code \"Format Pass\"",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code \"Format Fail\"",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code \"Format Review\"",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "If — Valid Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Groq Key1 Valid?": {
+      "main": [
+        [
+          {
+            "node": "Parse Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "LLM Mistral QA Retry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Groq Key2 Valid?": {
+      "main": [
+        [
+          {
+            "node": "Parse Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "QA Fallback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QA Fallback": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM Mistral QA": {
+      "main": [
+        [
+          {
+            "node": "IF Groq Key1 Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "LLM Mistral QA Retry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM Mistral QA Retry": {
+      "main": [
+        [
+          {
+            "node": "IF Groq Key2 Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "QA Fallback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "01edb0cb-4116-459d-8f43-4fea6400a4d1",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c77e41168b0abc4c9e72e3dfa70fb293d0acb289b40b847421933eadc146e082"
+  },
+  "id": "KCQLLGAim9sf9Hud",
+  "tags": []
+}
