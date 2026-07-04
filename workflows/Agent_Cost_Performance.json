@@ -1,0 +1,375 @@
+{
+  "name": "Agent Cost & Performance",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "agent-cost-performance",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        16,
+        0
+      ],
+      "id": "d102cf2a-2a22-49cf-8353-0332b5182b62",
+      "name": "Webhook",
+      "webhookId": "3e71a0fd-fa29-4597-9bfb-4ab33fdac06d"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.status  }}",
+                    "rightValue": "PASS",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "afd715de-447d-4b1b-b6d7-7f045c7ebc25"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "pass"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "b8b8e775-7d15-44cb-8a97-83d293aba925",
+                    "leftValue": "={{ $json.status  }}",
+                    "rightValue": "NEEDSIMPROVEMENT",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "review"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "ba30bcc9-66e4-4783-b63e-1d68398e7aa4",
+                    "leftValue": "={{ $json.status  }}",
+                    "rightValue": "FAIL",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "fail"
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        944,
+        0
+      ],
+      "id": "f0304d0b-6e80-459e-b9d6-7279cf5ff4ae",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1344,
+        16
+      ],
+      "id": "b0cfb62e-71cd-41b2-8cc6-6de1296b27ab",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\n\nlet data = raw;\nif (raw.body !== undefined) {\n  let rawBody = raw.body;\n  if (typeof rawBody === 'string') {\n    rawBody = rawBody.replace(/^=+/, '').trim();\n    try { data = JSON.parse(rawBody); } catch(e) { data = raw; }\n  } else if (typeof rawBody === 'object') {\n    data = rawBody;\n  }\n}\n\nconst task_id     = data.task_id     || raw.task_id     || 'TASK-COST-' + Date.now();\nconst environment = data.environment || raw.environment || 'staging';\nconst service     = data.service     || raw.service     || {\n  url:       'https://app-' + environment + '.monprojet.com',\n  framework: 'express',\n  language:  'javascript',\n  status:    'HEALTHY'\n};\nconst thresholds  = data.thresholds  || raw.thresholds  || {\n  max_cost_per_hour_usd: 0.5,\n  max_response_time_ms:  1000,\n  max_cpu_percent:       80,\n  max_memory_percent:    85\n};\n\nreturn [{\n  json: {\n    task_id:     String(task_id),\n    environment: String(environment),\n    service:     service,\n    thresholds:  thresholds,\n    simulate:    String(data.simulate || '')\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        192,
+        0
+      ],
+      "id": "00f32147-210b-44a7-9ac6-d55e8fc43337",
+      "name": "Validate Input"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "2339c9b5-49eb-478d-904e-69586fc6410c",
+              "leftValue": "={{ $json.error_code }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        384,
+        0
+      ],
+      "id": "9ef83ed6-0310-4d91-a9ac-b6337422119b",
+      "name": "If — Valid Check"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nreturn [{\n  json: {\n    success: false,\n    agent: \"Agent Cost & Performance\",\n    task_id: \"unknown\",\n    status: \"ERROR\",\n    error_code: input.error_code,\n    error_message: input.error_message,\n    approved_for_pipeline: false,\n    timestamp: input.timestamp\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        544,
+        -96
+      ],
+      "id": "2f67bcea-dfbf-467a-a4f1-0da66af540a7",
+      "name": "Format Error"
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        752,
+        -96
+      ],
+      "id": "841bbb2a-8c3b-49f5-abf9-2bb704769fb2",
+      "name": "Respond to Webhook1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\nconst url = input.service_url || '';\nconst simulate = input.simulate || '';\nconst max_cost = input.max_cost_per_hour;\nconst max_response_time = input.max_response_time;\nconst max_cpu = input.max_cpu;\nconst max_memory = input.max_memory;\nconst environment = input.environment;\n\n// Détection du scénario\nconst is_expensive = simulate === 'alert'\n  || url.includes('heavy') || url.includes('overload');\nconst is_warn = simulate === 'optimize'\n  || url.includes('slow') || url.includes('perf');\n\n// Métriques simulées\nconst metrics = {\n  response_time_ms: is_expensive ? 2500 : is_warn ? 1500 : 320,\n  cpu_percent: is_expensive ? 92 : is_warn ? 65 : 35,\n  memory_percent: is_expensive ? 88 : is_warn ? 75 : 52,\n  requests_per_minute: is_expensive ? 12 : 85,\n  cost_per_hour_usd: is_expensive ? 1.2 : is_warn ? 0.4 : environment === 'production' ? 0.35 : 0.08,\n  cost_per_request_usd: is_expensive ? 0.0017 : 0.00004\n};\n\n// Violations\nconst violations = [];\nif (metrics.cost_per_hour_usd > max_cost)\n  violations.push(`Coût ${metrics.cost_per_hour_usd}$/h > seuil ${max_cost}$/h`);\nif (metrics.response_time_ms > max_response_time)\n  violations.push(`Response time ${metrics.response_time_ms}ms > seuil ${max_response_time}ms`);\nif (metrics.cpu_percent > max_cpu)\n  violations.push(`CPU ${metrics.cpu_percent}% > seuil ${max_cpu}%`);\nif (metrics.memory_percent > max_memory)\n  violations.push(`Mémoire ${metrics.memory_percent}% > seuil ${max_memory}%`);\n\n// Optimisations\nconst optimizations = [];\nif (metrics.cpu_percent > 60)\n  optimizations.push('Considérer une mise à l\\'échelle horizontale');\nif (metrics.memory_percent > 70)\n  optimizations.push('Analyser les fuites mémoire potentielles');\nif (metrics.response_time_ms > 500)\n  optimizations.push('Ajouter un cache Redis pour les requêtes fréquentes');\nif (metrics.cost_per_hour_usd > max_cost * 0.7)\n  optimizations.push('Évaluer un plan d\\'hébergement plus adapté');\n\n// Action\nconst action = violations.length >= 2 || metrics.cpu_percent > max_cpu\n  ? 'ALERT'\n  : violations.length === 1 || optimizations.length >= 2\n    ? 'OPTIMIZE'\n    : 'OK';\n\nconst performance_score = Math.max(0,\n  100 - (violations.length * 25) - (optimizations.length * 5)\n);\n\nreturn [{\n  json: {\n    task_id: input.task_id,\n    environment,\n    action,\n    metrics,\n    violations,\n    optimizations,\n    performance_score,\n    recommendations: action === 'ALERT'\n      ? ['Intervention immédiate requise', ...violations.map(v => `Corriger : ${v}`), ...optimizations]\n      : action === 'OPTIMIZE'\n        ? optimizations\n        : ['Performances et coûts dans les seuils — aucune action requise']\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        576,
+        96
+      ],
+      "id": "5bc770c4-6cfe-4acf-86b9-c2786f9a487a",
+      "name": "Cost Performance Logic"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\nconst statusMap = { OK: 'PASS', OPTIMIZE: 'NEEDSIMPROVEMENT', ALERT: 'FAIL' };\nconst status = statusMap[input.action] || 'FAIL';\nconst scoreMap = { PASS: 100, NEEDSIMPROVEMENT: 65, FAIL: 0 };\n\nreturn [{\n  json: {\n    agent: \"Agent Cost & Performance\",\n    task_id: input.task_id,\n    status,\n    global_score: input.performance_score || scoreMap[status],\n    approved_for_pipeline: status === 'PASS',\n    language: \"javascript\",\n    critical_issues: status === 'FAIL'\n      ? input.violations.map(v => ({ severity: \"high\", description: v }))\n      : [],\n    warnings: status === 'NEEDSIMPROVEMENT'\n      ? input.violations.map(v => ({ severity: \"medium\", description: v }))\n      : [],\n    recommendations: input.recommendations || [],\n    summary: `Action : ${input.action} — ${input.violations.length} violation(s)`,\n    dimensions: {\n      security: { score: 100 },\n      quality: { score: input.performance_score || scoreMap[status] }\n    },\n    action: input.action,\n    metrics: input.metrics,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        784,
+        96
+      ],
+      "id": "de60521c-805a-43b9-92d8-97cf90a93111",
+      "name": "Format Standard Output"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst status = input.status;\n\nreturn [{\n  json: {\n    success: status === 'PASS' ? true : status === 'NEEDSIMPROVEMENT' ? null : false,\n    agent: \"Agent Cost & Performance\",\n    task_id: input.task_id,\n    status,\n    global_score: input.global_score,\n    approved_for_pipeline: status === 'PASS',\n    action: input.action,\n    critical_issues: input.critical_issues || [],\n    warnings: input.warnings || [],\n    recommendations: input.recommendations || [],\n    summary: input.summary,\n    dimensions: input.dimensions,\n    metrics: input.metrics,\n    timestamp: input.timestamp\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1184,
+        16
+      ],
+      "id": "e099c2e2-2de6-4b2a-9a2a-81115ed45cbb",
+      "name": "Format Response"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook": {
+      "main": [
+        []
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "If — Valid Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If — Valid Check": {
+      "main": [
+        [
+          {
+            "node": "Format Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Cost Performance Logic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Error": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cost Performance Logic": {
+      "main": [
+        [
+          {
+            "node": "Format Standard Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Standard Output": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "2e489954-c731-4f7a-a48a-03b9e956cf2a",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c77e41168b0abc4c9e72e3dfa70fb293d0acb289b40b847421933eadc146e082"
+  },
+  "id": "vPLB0wv6wsX4TTgq",
+  "tags": []
+}

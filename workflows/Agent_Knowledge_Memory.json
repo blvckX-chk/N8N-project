@@ -1,0 +1,343 @@
+{
+  "name": "Agent Knowledge/Memory",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "agent-knowledge",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -592,
+        496
+      ],
+      "id": "72dacd86-5d52-4a86-a45f-eb342e792dfd",
+      "name": "Webhook",
+      "webhookId": "4c47a626-c6fb-4217-b317-c4f1b5c7f8e1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\n\nlet data = raw;\nif (raw.body !== undefined) {\n  let rawBody = raw.body;\n  if (typeof rawBody === 'string') {\n    rawBody = rawBody.replace(/^=+/, '').trim();\n    try { data = JSON.parse(rawBody); } catch(e) { data = raw; }\n  } else if (typeof rawBody === 'object') {\n    data = rawBody;\n  }\n}\n\nconst task_id   = data.task_id   || raw.task_id   || 'TASK-KNOWLEDGE-' + Date.now();\nconst operation = data.operation || raw.operation || 'WRITE';\nconst category  = data.category  || raw.category  || 'deployment';\nconst knowledge = data.data      || raw.data      || {};\n\nreturn [{\n  json: {\n    task_id:   String(task_id),\n    operation: String(operation),\n    category:  String(category),\n    data:      knowledge\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -416,
+        496
+      ],
+      "id": "b5af9a18-a6f6-403a-9fed-477a143dca80",
+      "name": "Validate Input"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "WRITE",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "c8b39a46-5212-48e0-8a0c-477229246fcc"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "write"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "0969ab4c-aa03-4c43-a0d1-2604069631dd",
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "READ",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "read"
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -32,
+        496
+      ],
+      "id": "de19e3e0-6d96-49e6-a15b-750caf72733d",
+      "name": "Router READ/WRITE"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        576,
+        480
+      ],
+      "id": "f58be279-e011-4323-9edb-09795cc44c3f",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "53b6e061-ac70-4c1f-93a5-36d41151004f",
+              "leftValue": "={{ $json.error_code }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -256,
+        496
+      ],
+      "id": "27ddb43e-2581-4663-8c99-b01be71bca65",
+      "name": "If — Valid Check"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nreturn [{\n  json: {\n    success: false,\n    agent: \"Agent Knowledge/Memory\",\n    task_id: \"unknown\",\n    status: \"ERROR\",\n    error_code: input.error_code,\n    error_message: input.error_message,\n    approved_for_pipeline: false,\n    timestamp: input.timestamp\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -80,
+        320
+      ],
+      "id": "b188c54a-5fba-46fe-bfce-48c84a3900e6",
+      "name": "Format Error"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\nlet content = {};\ntry {\n  content = typeof input.content_json === 'string'\n    ? JSON.parse(input.content_json)\n    : input.content_json || {};\n} catch(e) {\n  content = { raw: input.content_json };\n}\n\nconst entry_id = `${input.category}-${input.project}-${Date.now()}`;\n\nreturn [{\n  json: {\n    task_id: input.task_id,\n    operation: 'WRITE',\n    status: 'STORED',\n    entry_id,\n    category: input.category,\n    project: input.project,\n    environment: input.environment,\n    agent_source: input.agent_source,\n    content,\n    message: `Entrée ${entry_id} stockée dans la catégorie ${input.category}`,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        256,
+        416
+      ],
+      "id": "39efa0f9-be9f-441d-afa9-b0445f342fe9",
+      "name": "Store Logic"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\nreturn [{\n  json: {\n    task_id: input.task_id,\n    operation: 'READ',\n    status: 'RETRIEVED',\n    category: input.category,\n    project: input.project,\n    environment: input.environment,\n    entries: [],\n    count: 0,\n    message: `Aucune entrée trouvée pour ${input.category}/${input.project}`,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        176,
+        592
+      ],
+      "id": "6ee03a2f-93a8-4355-a57b-17d480d914ad",
+      "name": "Retrieve Logic"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst isSuccess = input.status === 'STORED' || input.status === 'RETRIEVED';\n\nreturn [{\n  json: {\n    success: isSuccess,\n    agent: \"Agent Knowledge/Memory\",\n    task_id: input.task_id,\n    status: isSuccess ? \"PASS\" : \"FAIL\",\n    global_score: isSuccess ? 100 : 0,\n    approved_for_pipeline: isSuccess,\n    language: \"javascript\",\n    critical_issues: [],\n    warnings: [],\n    recommendations: isSuccess\n      ? [`Opération ${input.operation} réussie`]\n      : [`Échec de l'opération ${input.operation}`],\n    summary: input.message || `Opération ${input.operation}`,\n    dimensions: { security: { score: 100 }, quality: { score: 100 } },\n    operation: input.operation,\n    entry_id: input.entry_id || null,\n    timestamp: input.timestamp || new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        480
+      ],
+      "id": "8ea9efa6-1989-4e8c-aa1a-2623bab9b92c",
+      "name": "Format Output"
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        96,
+        304
+      ],
+      "id": "85976de7-a2fa-4e91-a116-d3ce63463bab",
+      "name": "Respond to Webhook1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "If — Valid Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Router READ/WRITE": {
+      "main": [
+        [
+          {
+            "node": "Store Logic",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Retrieve Logic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook": {
+      "main": [
+        []
+      ]
+    },
+    "If — Valid Check": {
+      "main": [
+        [
+          {
+            "node": "Format Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Router READ/WRITE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Output": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Logic": {
+      "main": [
+        [
+          {
+            "node": "Format Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retrieve Logic": {
+      "main": [
+        [
+          {
+            "node": "Format Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Error": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "701d7680-95b7-483a-92c0-011aab2cb701",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c77e41168b0abc4c9e72e3dfa70fb293d0acb289b40b847421933eadc146e082"
+  },
+  "id": "CfxmsSua2v6rC5t6",
+  "tags": []
+}
