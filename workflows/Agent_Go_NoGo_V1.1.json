@@ -1,0 +1,357 @@
+{
+  "name": "Agent Go/No-Go V1.1",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "/agent-gonogo",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1040,
+        224
+      ],
+      "id": "c91d96e8-ec7d-45ed-9801-34f64c4ca4df",
+      "name": "Webhook",
+      "webhookId": "e8f62a53-5f60-40a4-ba70-52eaef0717a6"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\n\n// Parser le body correctement — supporte string avec = parasite\nlet data = raw;\nif (raw.body !== undefined) {\n  let rawBody = raw.body;\n  if (typeof rawBody === 'string') {\n    rawBody = rawBody.replace(/^=+/, '').trim();\n    try { data = JSON.parse(rawBody); } catch(e) { data = raw; }\n  } else if (typeof rawBody === 'object') {\n    data = rawBody;\n  }\n}\n\nif (!data.task_id) {\n  return [{\n    json: {\n      valid: \"NO\",\n      error_code: \"VALIDATION_ERROR\",\n      error_message: \"task_id manquant\",\n      task_id: \"unknown\",\n      timestamp: new Date().toISOString()\n    }\n  }];\n}\n\nif (!data.results || typeof data.results !== 'object') {\n  return [{\n    json: {\n      valid: \"NO\",\n      error_code: \"VALIDATION_ERROR\",\n      error_message: \"Champ results manquant ou invalide\",\n      task_id: data.task_id,\n      timestamp: new Date().toISOString()\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    valid: \"YES\",\n    task_id: data.task_id,\n    results: {\n      code_review: data.results.code_review || { status: \"SKIP\" },\n      qa:          data.results.qa          || { status: \"SKIP\" },\n      sast:        data.results.sast        || { status: \"SKIP\" },\n      sca:         data.results.sca         || { status: \"SKIP\" },\n      secrets:     data.results.secrets     || { status: \"SKIP\" },\n      dast:        data.results.dast        || { status: \"SKIP\" }\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -848,
+        224
+      ],
+      "id": "ec1fa7e8-13a0-40fb-b791-fb90303bfce1",
+      "name": "Validate Input"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.decision }}",
+                    "rightValue": "CONTINUE",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "4ebd509c-ff4b-400f-9e54-156e8e57a530"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "continue"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "f934bbe9-ec34-461b-bf5d-466bb03de99d",
+                    "leftValue": "={{ $json.decision }}",
+                    "rightValue": "REWORK",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "rework"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "bf464002-a555-4a41-b7f6-0045cbc6eede",
+                    "leftValue": "={{ $json.decision }}",
+                    "rightValue": "STOP",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "stop"
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -240,
+        144
+      ],
+      "id": "ae828587-fe15-45ec-b066-04cbfb9054a6",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst results = input.results || {};\n\n// ── Extraction normalisée des résultats de chaque agent ──\nfunction getStatus(r) { return String(r?.status || r?.Status || \"SKIP\").toUpperCase(); }\nfunction getCritical(r) { return Array.isArray(r?.critical_issues) ? r.critical_issues.length : 0; }\nfunction getScore(r) { return typeof r?.global_score === 'number' ? r.global_score : 100; }\nfunction getCoverage(r) { return typeof r?.coverage === 'number' ? r.coverage : 100; }\n\nconst qa      = results.qa      || {};\nconst sast    = results.sast    || {};\nconst sca     = results.sca     || {};\nconst secrets = results.secrets || {};\nconst dast    = results.dast    || {};\n\n// ── Règles STOP (bloquantes absolues) ──\nconst stopReasons = [];\n\nif (getCritical(secrets) > 0)\n  stopReasons.push(`Secrets exposés : ${getCritical(secrets)} secret(s) critique(s) détecté(s)`);\n\nif (getCritical(sast) > 0)\n  stopReasons.push(`SAST critique : ${getCritical(sast)} vulnérabilité(s) OWASP critique(s)`);\n\nif (getCritical(dast) > 0)\n  stopReasons.push(`DAST critique : ${getCritical(dast)} vulnérabilité(s) runtime critique(s)`);\n\nif (getCritical(sca) > 0)\n  stopReasons.push(`SCA critique : ${getCritical(sca)} CVE critique(s) dans les dépendances`);\n\n// ── Règles REWORK (non bloquantes mais requièrent correction) ──\nconst reworkReasons = [];\n\nif (getStatus(qa) === \"FAIL\")\n  reworkReasons.push(\"QA : statut FAIL — problèmes qualité bloquants\");\n\nif (getStatus(qa) === \"NEEDSIMPROVEMENT\" && getCoverage(qa) < 50)\n  reworkReasons.push(`QA : couverture insuffisante (${getCoverage(qa)}%)`);\n\nif (getScore(sast) < 60)\n  reworkReasons.push(`SAST : score insuffisant (${getScore(sast)}/100)`);\n\nif (getScore(sca) < 60)\n  reworkReasons.push(`SCA : score insuffisant (${getScore(sca)}/100)`);\n\nif (getStatus(dast) === \"NEEDSIMPROVEMENT\")\n  reworkReasons.push(\"DAST : avertissements de sécurité à corriger\");\n\n// ── Décision finale ──\nlet decision;\nlet blockingReasons = [];\n\nif (stopReasons.length > 0) {\n  decision = \"STOP\";\n  blockingReasons = stopReasons;\n} else if (reworkReasons.length > 0) {\n  decision = \"REWORK\";\n  blockingReasons = reworkReasons;\n} else {\n  decision = \"CONTINUE\";\n}\n\n// ── Score de risque global ──\nconst allScores = [\n  getScore(qa),\n  getScore(sast),\n  getScore(sca),\n  getScore(secrets),\n  getScore(dast)\n].filter(s => s !== 100 || true);\n\nconst riskScore = Math.round(\n  100 - (allScores.reduce((a, b) => a + b, 0) / allScores.length)\n);\n\n// ── Rework target ──\nlet reworkTarget = null;\nif (decision === \"REWORK\") {\n  if (getStatus(sast) === \"FAIL\" || getCritical(sast) > 0) reworkTarget = \"BACKEND\";\n  else if (getStatus(qa) === \"FAIL\") reworkTarget = \"BACKEND\";\n  else reworkTarget = \"BACKEND\";\n}\n\nreturn [{\n  json: {\n    agent: \"Agent Go/No-Go\",\n    task_id: input.task_id,\n    decision,\n    confidence: stopReasons.length > 0 ? 1.0 : reworkReasons.length > 0 ? 0.9 : 0.95,\n    risk_score: riskScore,\n    blocking_reasons: blockingReasons,\n    warnings: reworkReasons,\n    recommendations: decision === \"CONTINUE\"\n      ? [\"Pipeline validé — déploiement autorisé\"]\n      : decision === \"REWORK\"\n        ? [\"Corriger les points signalés et relancer le pipeline\"]\n        : [\"Arrêt immédiat — corriger les vulnérabilités critiques avant toute relance\"],\n    rework_target: reworkTarget,\n    approved_for_pipeline: decision === \"CONTINUE\",\n    summary: `Décision : ${decision} — ${blockingReasons.length} raison(s) bloquante(s)`,\n    results_summary: {\n      qa:      { status: getStatus(qa),      score: getScore(qa) },\n      sast:    { status: getStatus(sast),     score: getScore(sast) },\n      sca:     { status: getStatus(sca),      score: getScore(sca) },\n      secrets: { status: getStatus(secrets),  score: getScore(secrets) },\n      dast:    { status: getStatus(dast),     score: getScore(dast) }\n    },\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -432,
+        144
+      ],
+      "id": "0f8e6295-141f-4293-b136-b962685b0503",
+      "name": "GoNoGo Decision"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -304,
+        400
+      ],
+      "id": "0c34e502-69c6-43c5-9420-e18d7aa247a0",
+      "name": "Respond to Webhook error"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b9dc6dc3-0dbb-42ce-bbbe-1b3f18a51837",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": "YES",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -672,
+        224
+      ],
+      "id": "8fbc8412-7196-4dfb-924a-fc122e582dc1",
+      "name": "If — Valid Check"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\nreturn [{\n  json: {\n    success: false,\n    agent: \"Agent Go/No-Go\",\n    task_id: input.task_id || \"unknown\",\n    status: \"ERROR\",\n    error_code: input.error_code || \"VALIDATION_ERROR\",\n    error_message: input.error_message || \"Erreur de validation\",\n    approved_for_pipeline: false,\n    timestamp: input.timestamp || new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -464,
+        400
+      ],
+      "id": "f97e04b8-5291-40dc-8dde-c11e3b31349c",
+      "name": "Format Error"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        0,
+        160
+      ],
+      "id": "5f25e011-cc90-4961-8dfe-0eefa77799e9",
+      "name": "Respond to Webhook rework"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        0,
+        0
+      ],
+      "id": "e08c1726-3418-410c-b989-629f6cadf55f",
+      "name": "Respond to Webhook continue"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -16,
+        320
+      ],
+      "id": "709ffc5b-994f-4311-8400-a9119f255742",
+      "name": "Respond to Webhook stop"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "If — Valid Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook continue",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook rework",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook stop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GoNoGo Decision": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If — Valid Check": {
+      "main": [
+        [
+          {
+            "node": "GoNoGo Decision",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Error": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "657d8835-d498-4859-8f33-658f50a3eb6a",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c77e41168b0abc4c9e72e3dfa70fb293d0acb289b40b847421933eadc146e082"
+  },
+  "id": "QvSIaQRt1AFLx8yA",
+  "tags": []
+}
