@@ -1,5 +1,5 @@
 {
-  "name": "Agent Documentation V5.4",
+  "name": "Agent Documentation V5.5",
   "nodes": [
     {
       "parameters": {
@@ -11,10 +11,10 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
-        -144,
-        256
+        -464,
+        336
       ],
-      "id": "42cd6469-0efd-479e-b943-a2b4cc4cf912",
+      "id": "87f46c27-1409-48db-963b-d7432e954319",
       "name": "Webhook",
       "webhookId": "4cd8b23c-f86a-4f09-98e0-6211aa72a8eb"
     },
@@ -29,10 +29,10 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        1904,
-        96
+        1584,
+        176
       ],
-      "id": "02363e6c-6bd2-4de4-9edd-1623f7799296",
+      "id": "21d5aa11-0091-4881-8be3-272d0e234813",
       "name": "Respond to Webhook"
     },
     {
@@ -42,10 +42,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        32,
-        256
+        -288,
+        336
       ],
-      "id": "b1550baa-9ab9-45ce-a8bc-1ec9d8acc231",
+      "id": "6c90877a-bd4c-49a5-9883-33e519c4bff4",
       "name": "Inject Prompt"
     },
     {
@@ -55,10 +55,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1504,
-        128
+        1184,
+        208
       ],
-      "id": "694780d3-7ef2-4f89-bcae-23f3778ec884",
+      "id": "c91290cf-4f8d-402f-9db4-bb7f7a041f05",
       "name": "Parsing"
     },
     {
@@ -89,10 +89,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        192,
-        256
+        -128,
+        336
       ],
-      "id": "21a7244e-c39c-4403-993e-c2f52e2e1014",
+      "id": "df8bd989-809d-4cdd-8761-ff5862a43ab7",
       "name": "If — Valid Check"
     },
     {
@@ -102,10 +102,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        480,
-        16
+        160,
+        96
       ],
-      "id": "4e971cfc-0bb4-47e6-ac3e-47fb0568c5e0",
+      "id": "4b47117a-452f-4104-aa57-c20eab269a73",
       "name": "Format Error"
     },
     {
@@ -119,10 +119,10 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        640,
-        16
+        320,
+        96
       ],
-      "id": "a59fb3f8-47ec-452a-8c83-c0c7f9382e45",
+      "id": "9d5de411-0124-451e-aabf-67cb3fa254c0",
       "name": "Respond to Webhook1"
     },
     {
@@ -132,10 +132,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        432,
-        336
+        112,
+        416
       ],
-      "id": "0a212f52-57fb-4d82-85c3-a75985b1166d",
+      "id": "92fff1f8-eaa7-4577-8413-775a9ba2379d",
       "name": "Build Payload"
     },
     {
@@ -152,10 +152,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        592,
-        336
+        272,
+        416
       ],
-      "id": "33808626-6b3e-42f8-b70a-d72a8a8fb9e4",
+      "id": "f72e57f9-7f74-4108-a081-8c76be78c3d9",
       "name": "HTTP Request",
       "credentials": {
         "groqApi": {
@@ -172,10 +172,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1728,
-        224
+        1408,
+        304
       ],
-      "id": "8fdb199d-84a0-4fd8-9a3a-80ed4eb66c76",
+      "id": "00e4ec29-20de-46cd-9ee2-f0a03f78ec22",
       "name": "Format Standard Output"
     },
     {
@@ -203,13 +203,13 @@
         },
         "options": {}
       },
-      "id": "4ddab4d9-3306-4a08-903e-9cc4054ae781",
+      "id": "a972ee80-771b-4b81-a814-bcc216ce65e8",
       "name": "IF Groq Key1 Valid?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        832,
-        224
+        512,
+        304
       ]
     },
     {
@@ -223,13 +223,13 @@
         "jsonBody": "={{ $('Build Payload').first().json }}",
         "options": {}
       },
-      "id": "858ab4a0-8cdf-4a3e-816b-a6ea7499c9e3",
+      "id": "30988469-bfd4-48bb-aabc-36370888696c",
       "name": "HTTP Request 2",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        992,
-        400
+        672,
+        480
       ],
       "credentials": {
         "groqApi": {
@@ -264,26 +264,26 @@
         },
         "options": {}
       },
-      "id": "c2fb3420-91ba-4793-b712-9d46c54bffaf",
+      "id": "2a9f4554-e718-4c44-b915-eaadd1edad7a",
       "name": "IF Groq Key2 Valid?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        1200,
-        256
+        880,
+        336
       ]
     },
     {
       "parameters": {
         "jsCode": "// Fallback déterministe si les deux clés Groq échouent\n// Génère un README minimal depuis les données déjà calculées dans Inject Prompt\nconst upstream = $('Inject Prompt').first().json;\nconst task_id = upstream.task_id || 'unknown';\n\n// Extraire project_name depuis le systemPrompt\nlet projectName = 'Application';\nconst sysPrompt = upstream.systemPrompt || '';\nconst match = sysPrompt.match(/EXACTEMENT : ([^\\n)]+)/);\nif (match) projectName = match[1].trim();\n\nconst readme = '# ' + projectName + '\\n\\n' +\n  '> *Documentation générée automatiquement par le pipeline SDLC*\\n\\n' +\n  '## Vue d\\'ensemble\\n\\n' +\n  'Application générée par le pipeline Forge IA.\\n\\n' +\n  '## Installation\\n\\n' +\n  '```bash\\nnpm install\\nnpm start\\n```\\n\\n' +\n  '## Configuration\\n\\n' +\n  'Créer un fichier `.env` :\\n```\\nPORT=3000\\n```\\n\\n' +\n  '## Note\\n\\nDocumentation complète non générée (limite quota Groq). ' +\n  'Relancer la génération demain pour obtenir le README complet.\\n';\n\nreturn [{\n  json: {\n    task_id,\n    agent: 'documentation',\n    files: [{ path: 'README.md', content: readme }],\n    errors: [{ stage: 'groq_fallback', message: 'Les deux clés Groq ont atteint leur limite — README minimal généré.' }]\n  }\n}];"
       },
-      "id": "8608be6b-3151-46a6-995d-2e209b83a5cc",
+      "id": "00dfb3bd-c431-40fd-87ad-f836a7a8d3ea",
       "name": "Fallback README",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1408,
-        384
+        1088,
+        464
       ]
     }
   ],
@@ -463,7 +463,7 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "7e7dd507-d13a-4b62-a005-0b85e518a435",
+  "versionId": "9d0c3340-c413-422d-875b-a2d77f833144",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "c77e41168b0abc4c9e72e3dfa70fb293d0acb289b40b847421933eadc146e082"

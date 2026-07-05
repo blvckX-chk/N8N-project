@@ -1,5 +1,5 @@
 {
-  "name": "Agent Backend V5.8",
+  "name": "Agent Backend V5.9",
   "nodes": [
     {
       "parameters": {
@@ -12,9 +12,9 @@
       "typeVersion": 2.1,
       "position": [
         -15968,
-        -1792
+        -560
       ],
-      "id": "f050ceb9-7016-411e-9626-04f25b919358",
+      "id": "9e941903-73d0-4957-9529-ef2b63b8d18e",
       "name": "Webhook",
       "webhookId": "f83f8d1c-8a89-4ad8-9356-a932bf37ed33"
     },
@@ -26,9 +26,9 @@
       "typeVersion": 2,
       "position": [
         -15776,
-        -1792
+        -560
       ],
-      "id": "2f79e8f0-df50-4c35-80b4-eb55fcb648d6",
+      "id": "591602c6-8b93-4448-8282-9b2152231473",
       "name": "Validate Specs"
     },
     {
@@ -39,9 +39,9 @@
       "typeVersion": 2,
       "position": [
         -14992,
-        -1808
+        -576
       ],
-      "id": "0c9e14ef-bb36-4930-870f-60554404069a",
+      "id": "af6a9fbf-af87-4f44-8ac2-fa54ed3471f7",
       "name": "Parse Files"
     },
     {
@@ -52,9 +52,9 @@
       "typeVersion": 2,
       "position": [
         -15600,
-        -1808
+        -576
       ],
-      "id": "721df20f-61dd-4e48-8393-bb0e764553f8",
+      "id": "9a89d94b-4512-4564-be49-0af9c508d690",
       "name": "Inject Prompt"
     },
     {
@@ -65,9 +65,9 @@
       "typeVersion": 2,
       "position": [
         -14800,
-        -1792
+        -560
       ],
-      "id": "a1b4eaeb-d3e7-4bc9-a332-77b45d49835d",
+      "id": "ed0d3fc5-c0ac-4d84-9373-ed1c45a6fc06",
       "name": "Format response"
     },
     {
@@ -82,9 +82,9 @@
       "typeVersion": 1.5,
       "position": [
         -14400,
-        -1824
+        -592
       ],
-      "id": "e00f6a64-b80b-4679-96ec-0f5c842377b7",
+      "id": "0e0209ab-4b7b-4e13-b788-f30eb64e75b9",
       "name": "Respond to Webhook backend"
     },
     {
@@ -95,9 +95,9 @@
       "typeVersion": 2,
       "position": [
         -15392,
-        -1808
+        -576
       ],
-      "id": "af943811-2e84-4039-bdd3-de4ec2fc3182",
+      "id": "984bdd59-4b1a-4165-b842-47b985f33939",
       "name": "Build Payload"
     },
     {
@@ -108,9 +108,9 @@
       "typeVersion": 2,
       "position": [
         -14592,
-        -1792
+        -560
       ],
-      "id": "e389ee1b-cabe-47e0-bb4b-de803f86c521",
+      "id": "ab5f987c-f5fe-4cef-b6fc-d4908445d945",
       "name": "Format Standard Output"
     },
     {
@@ -121,9 +121,9 @@
       "typeVersion": 2,
       "position": [
         -15184,
-        -1808
+        -576
       ],
-      "id": "aa55b722-975f-4609-865c-91935492c469",
+      "id": "5cd60fc6-712d-4d05-b717-4ebebacc5979",
       "name": "Code in JavaScript"
     }
   ],
@@ -224,7 +224,7 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "2a9cff6a-6077-492c-83ff-34c57b6da81e",
+  "versionId": "02ebe9cd-c31a-40e8-aa8c-71a5ccd67ecc",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "c77e41168b0abc4c9e72e3dfa70fb293d0acb289b40b847421933eadc146e082"
