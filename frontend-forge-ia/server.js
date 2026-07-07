@@ -11,7 +11,7 @@ const { body, validationResult } = require('express-validator');
 const MAX_BASE64_SIZE = 15 * 1000 * 1000; // ~15M chars, borne large pour PDF/DOCX/image encodes
 const app  = express();
 const PORT = process.env.PORT || 3000;
-const APP_VERSION = '4.8.0';
+const APP_VERSION = '4.9.0';
 // URLs externalisées — surchargeables via variables d'environnement (fallback sur le VPS)
 const N8N_URL    = process.env.N8N_URL    || 'http://167.86.93.31:5688/webhook/pipeline';
 const DEPLOY_URL = process.env.DEPLOY_URL || 'http://167.86.93.31:4001';
@@ -357,8 +357,11 @@ app.get('/api/launcher', authMiddleware, (req, res) => {
 
 // ── Launcher spécifique par génération ────────────────────────────────────
 app.get('/api/specific-launcher', authMiddleware, (req, res) => {
-  const zipName = (req.query.zipname || 'ForgeIA-app-v1_0').replace(/[^a-zA-Z0-9\-_]/g, '');
-  const dn = zipName.replace(/^(?:ForgeIA|MVP)-/, '').replace(/-v[0-9_]+$/, '');
+  // IMPORTANT : conserver le point de version (v1.0) — meme assainissement que
+  // /api/create-zip, sinon le .bat cherche "...-v10.zip" et ne trouve pas le
+  // ZIP reellement telecharge "...-v1.0.zip".
+  const zipName = (req.query.zipname || 'ForgeIA-app-v1.0').replace(/[^a-zA-Z0-9\-_.]/g, '-');
+  const dn = zipName.replace(/^(?:ForgeIA|MVP)-/, '').replace(/-v[0-9._]+$/i, '');
   const lines = [
     '@echo off',
     'SETLOCAL',
