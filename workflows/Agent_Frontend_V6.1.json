@@ -1,5 +1,5 @@
 {
-  "name": "Agent Frontend V6.0",
+  "name": "Agent Frontend V6.1",
   "nodes": [
     {
       "parameters": {
@@ -22,10 +22,6 @@
         "headerParameters": {
           "parameters": [
             {
-              "name": "Authorization",
-              "value": "Bearer SpAzrxMF27dh1b6bx3HwYqoabjHL3owy"
-            },
-            {
               "name": "Content-Type",
               "value": "application/json"
             }
@@ -36,7 +32,9 @@
         "jsonBody": "={{ JSON.stringify({ model: $json.model, messages: $json.messages, temperature: $json.temperature, max_tokens: $json.max_tokens, response_format: $json.response_format }) }}",
         "options": {
           "timeout": 60000
-        }
+        },
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mistralCloudApi"
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -46,7 +44,13 @@
       ],
       "id": "db5920d2-b641-41e2-9291-9ac678c24013",
       "name": "LLM Mistral Improve",
-      "onError": "continueErrorOutput"
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "mistralCloudApi": {
+          "id": "MISTRAL_API_KEY",
+          "name": "MISTRAL_API_KEY"
+        }
+      }
     },
     {
       "parameters": {

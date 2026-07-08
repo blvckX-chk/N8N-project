@@ -1,5 +1,5 @@
 {
-  "name": "Agent Spec Normalizer V1.2",
+  "name": "Agent Spec Normalizer V1.3",
   "nodes": [
     {
       "parameters": {
@@ -52,10 +52,6 @@
         "headerParameters": {
           "parameters": [
             {
-              "name": "Authorization",
-              "value": "Bearer SpAzrxMF27dh1b6bx3HwYqoabjHL3owy"
-            },
-            {
               "name": "Content-Type",
               "value": "application/json"
             }
@@ -64,7 +60,9 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ $('Build Mistral Payload').first().json }}",
-        "options": {}
+        "options": {},
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mistralCloudApi"
       },
       "id": "2ee78ee2-8718-45d4-9b25-ea0a68ec169d",
       "name": "Mistral API",
@@ -74,7 +72,13 @@
         -976,
         224
       ],
-      "onError": "continueErrorOutput"
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "mistralCloudApi": {
+          "id": "MISTRAL_API_KEY",
+          "name": "MISTRAL_API_KEY"
+        }
+      }
     },
     {
       "parameters": {
@@ -117,10 +121,6 @@
         "headerParameters": {
           "parameters": [
             {
-              "name": "Authorization",
-              "value": "Bearer SpAzrxMF27dh1b6bx3HwYqoabjHL3owy"
-            },
-            {
               "name": "Content-Type",
               "value": "application/json"
             }
@@ -129,7 +129,9 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ $('Build Mistral Payload').first().json }}",
-        "options": {}
+        "options": {},
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mistralCloudApi"
       },
       "id": "193b2769-439d-42a4-964c-8db62a3d47af",
       "name": "Mistral API Retry",
@@ -139,7 +141,13 @@
         -480,
         384
       ],
-      "onError": "continueErrorOutput"
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "mistralCloudApi": {
+          "id": "MISTRAL_API_KEY_2",
+          "name": "MISTRAL_API_KEY_2"
+        }
+      }
     },
     {
       "parameters": {

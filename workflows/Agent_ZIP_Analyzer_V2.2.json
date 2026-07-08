@@ -1,0 +1,89 @@
+{
+  "name": "Agent ZIP Analyzer V2.2",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "zip-analyzer",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        400,
+        0
+      ],
+      "id": "54a9f55b-e235-4157-899c-f278dac920b8",
+      "name": "Webhook",
+      "webhookId": "dc3e4f7a-3b4e-4e5b-b8af-48c77a29c437"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nlet data = raw;\nif (raw.body !== undefined) {\n  let rawBody = raw.body;\n  if (typeof rawBody === 'string') {\n    rawBody = rawBody.replace(/^=+/, '').trim();\n    try { data = JSON.parse(rawBody); } catch(e) { data = raw; }\n  } else if (typeof rawBody === 'object') { data = rawBody; }\n}\n\nconst task_id    = data.task_id    || 'unknown';\nconst language   = data.language   || 'javascript';\nconst zipBase64  = data.existing_zip_base64 || null;\nconst prompt     = data.improve_prompt || data.userRequest || '';\n\nif (!zipBase64) {\n  return [{ json: { task_id, language, prompt, improve_mode: false, existing_code: null,\n    existing_routes: [], existing_stores: {}, existing_data_model: {}, existing_version: null,\n    changelog_context: '', files_found: [] } }];\n}\n\nlet existingFiles = {};\nlet migrationsFound = [];\nlet modulesFound = [];\nlet existingServerJs = '';\nlet existingAppJs = '';\n\ntry {\n  // Décoder le ZIP en binaire (gérer le préfixe data URL si présent)\n  let base64Clean = zipBase64;\n  if (typeof base64Clean === 'string' && base64Clean.indexOf(',') > 0 && base64Clean.indexOf('base64') > 0) {\n    base64Clean = base64Clean.split(',')[1];\n  }\n  const buf = Buffer.from(base64Clean, 'base64');\n  const str = buf.toString('binary');\n\n  // Sprint 4 : recenser migrations/*.sql et modules/*.routes.js (noms stockes en clair dans le ZIP)\n  (str.match(/migrations\\/[A-Za-z0-9_.\\-]+\\.sql/g) || []).forEach(function(m){ if (migrationsFound.indexOf(m) < 0) migrationsFound.push(m); });\n  (str.match(/modules\\/[A-Za-z0-9_.\\-]+\\.routes\\.js/g) || []).forEach(function(m){ if (modulesFound.indexOf(m) < 0) modulesFound.push(m); });\n\n  // Chercher les fichiers dans le ZIP par signature PK\\x03\\x04\n  const fileMarkers = ['server.js', 'frontend/app.js', 'frontend/index.html', 'README.md', 'package.json', 'schema.sql'];\n  \n  fileMarkers.forEach(marker => {\n    // Chercher le nom du fichier dans le binaire\n    const idx = str.indexOf(marker);\n    if (idx < 0) return;\n    \n    // Lire la taille du fichier depuis le header ZIP (offset 18 = taille compressée)\n    // Le nom du fichier commence à offset 30 dans le local file header\n    // Chercher le header PK\\x03\\x04 avant le nom du fichier\n    let headerIdx = idx - 30;\n    // Chercher en arrière le header signature\n    for (let i = idx; i >= Math.max(0, idx - 50); i--) {\n      if (str.charCodeAt(i) === 0x50 && str.charCodeAt(i+1) === 0x4B &&\n          str.charCodeAt(i+2) === 0x03 && str.charCodeAt(i+3) === 0x04) {\n        headerIdx = i;\n        break;\n      }\n    }\n    \n    // Lire la taille depuis offset 18 (little-endian uint32)\n    const sizeOffset = headerIdx + 18;\n    const size = str.charCodeAt(sizeOffset) |\n                 (str.charCodeAt(sizeOffset+1) << 8) |\n                 (str.charCodeAt(sizeOffset+2) << 16) |\n                 (str.charCodeAt(sizeOffset+3) << 24);\n    \n    // Lire la longueur du nom de fichier (offset 26)\n    const nameLen = str.charCodeAt(headerIdx+26) | (str.charCodeAt(headerIdx+27) << 8);\n    const extraLen = str.charCodeAt(headerIdx+28) | (str.charCodeAt(headerIdx+29) << 8);\n    \n    // Le contenu commence après le header\n    const contentStart = headerIdx + 30 + nameLen + extraLen;\n    const contentEnd = contentStart + Math.min(size, 30000);\n    \n    if (size > 0 && size < 100000 && contentEnd <= str.length) {\n      try {\n        const rawContent = str.substring(contentStart, contentEnd);\n        const content = Buffer.from(rawContent, 'binary').toString('utf8');\n        // Vérifier que le contenu est lisible (texte valide)\n        if (content.length > 10) {\n          existingFiles[marker] = content;\n        }\n      } catch(e) {}\n    }\n  });\n} catch(e) {\n  console.log('Erreur extraction ZIP:', e.message);\n}\n\n// Analyser server.js\nlet existingRoutes = [];\nlet existingStores = {};\nlet projectName = 'Application';\nlet existingVersion = '1.0';\n\nexistingServerJs = existingFiles['server.js'] || '';\nexistingAppJs    = existingFiles['frontend/app.js'] || '';\n\nif (existingServerJs) {\n  // Extraire les routes avec regex robuste\n  const routePattern = /app\\.(get|post|put|patch|delete)\\s*\\(\\s*['\"`]([^'\"`]+)['\"`]/gi;\n  let match;\n  while ((match = routePattern.exec(existingServerJs)) !== null) {\n    existingRoutes.push({ method: match[1].toUpperCase(), path: match[2] });\n  }\n  \n  // Extraire les stores\n  const storePattern = /const\\s+(store_(\\w+))\\s*=/gi;\n  while ((match = storePattern.exec(existingServerJs)) !== null) {\n    const storeName = match[2];\n    existingStores[storeName] = { store_name: storeName, required_fields: [] };\n  }\n  \n  // Extraire les required_fields pour chaque POST\n  existingRoutes.filter(r => r.method === 'POST').forEach(route => {\n    const seg = route.path.replace(/^\\//, '').split('/')[0];\n    const fieldPattern = new RegExp('app\\\\.post\\\\s*\\\\(\\\\s*[\\'\"`]' + seg.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&') + '[\\'\"`].*?const\\\\s*\\\\{([^}]+)\\\\}\\\\s*=\\\\s*req\\\\.body', 'si');\n    const fieldMatch = existingServerJs.match(fieldPattern);\n    if (fieldMatch) {\n      const fields = fieldMatch[1].split(',').map(f => f.trim()).filter(Boolean);\n      if (existingStores[seg]) {\n        existingStores[seg].required_fields = fields;\n      } else {\n        const resName = seg.replace(/s$/, '');\n        existingStores[resName] = { store_name: seg, required_fields: fields };\n      }\n    }\n  });\n}\n\n// Extraire nom projet et version depuis README + package.json\nconst readme = existingFiles['README.md'] || '';\nconst pkgRaw = existingFiles['package.json'] || '';\n\nif (readme) {\n  const titleMatch = readme.match(/^#\\s+(.+)/m);\n  if (titleMatch) projectName = titleMatch[1].trim().split(' ')[0]; // Premier mot seulement\n}\n\n// Version depuis package.json (source de vérité)\nif (pkgRaw) {\n  const pkgVersionMatch = pkgRaw.match(/\"version\"\\s*:\\s*\"(\\d+\\.\\d+)/);\n  if (pkgVersionMatch) existingVersion = pkgVersionMatch[1];\n}\n// Fallback README : chercher explicitement \"Version actuelle\" ou titre \"# Nom v1.x\"\nif (existingVersion === '1.0' && readme) {\n  const titleVersion = readme.match(/^#\\s+\\S+\\s+v(\\d+\\.\\d+)/m);\n  if (titleVersion) existingVersion = titleVersion[1];\n  else {\n    // Chercher \"Version actuelle : 1.x\" (pas dans roadmap)\n    const curVersion = readme.match(/[Vv]ersion\\s+actuelle\\s*:?\\s*(\\d+\\.\\d+)/);\n    if (curVersion) existingVersion = curVersion[1];\n  }\n}\n\n// Calculer prochaine version\nconst [major, minor] = existingVersion.split('.').map(Number);\nconst pl = prompt.toLowerCase();\nconst isMajor = pl.includes('base de donn') || pl.includes('authentification') || pl.includes('auth');\nconst nextVersion = isMajor ? (major + 1) + '.0' : major + '.' + (minor + 1);\n\n// Résumé routes pour le contexte\nconst routesSummary = existingRoutes.map(r => r.method + ' ' + r.path).join(', ');\nconst storesSummary = Object.keys(existingStores).join(', ');\n\nconst changelogContext = 'PROJET EXISTANT : ' + projectName + ' v' + existingVersion + '\\n' +\n  'PROCHAINE VERSION : v' + nextVersion + '\\n' +\n  'ROUTES EXISTANTES : ' + (routesSummary || 'aucune') + '\\n' +\n  'STORES EXISTANTS : ' + (storesSummary || 'aucun') + '\\n\\n' +\n  'CODE SERVER.JS EXISTANT :\\n' + existingServerJs.substring(0, 2000);\n\n// ── Sprint 4 : etat courant introspecte (meme format que /api/_meta) ──────\nfunction parseSchema(sql) {\n  var resources = [];\n  if (!sql) return resources;\n  var re = /CREATE TABLE IF NOT EXISTS\\s+(\\w+)\\s*\\(([\\s\\S]*?)\\);/gi;\n  var m;\n  while ((m = re.exec(sql)) !== null) {\n    var table = m[1];\n    if (table === 'users' || table === 'schema_migrations') continue;\n    var fields = {};\n    var required = [];\n    m[2].split(',').forEach(function(line) {\n      line = line.trim();\n      var cm = line.match(/^(\\w+)\\s+(TEXT|INTEGER|REAL)/i);\n      if (!cm) return;\n      var col = cm[1];\n      var typ = cm[2].toUpperCase();\n      fields[col] = (col === 'id') ? 'number' : (typ === 'TEXT' ? 'string' : 'number');\n      if (/NOT NULL/i.test(line) && ['user_id','created_at','id'].indexOf(col) < 0) required.push(col);\n    });\n    resources.push({ name: table.replace(/s$/, ''), store_name: table, fields: fields, required_fields: required });\n  }\n  return resources;\n}\nvar _schemaSql = existingFiles['schema.sql'] || '';\nvar _schemaRes = parseSchema(_schemaSql);\n// Ressources : schema.sql si parseable, sinon repli FIABLE sur les stores\n// extraits de server.js (noms + champs requis toujours disponibles).\n// Repli fiable : deriver les ressources des handlers POST de server.js\nfunction resourcesFromServer(serverJs, routes) {\n  var out = [];\n  var seen = {};\n  routes.filter(function(r){ return r.method === 'POST' && r.path.indexOf('/api/') !== 0 && r.path !== '/health'; }).forEach(function(r){\n    var seg = r.path.replace(/^\\//, '').split('/')[0];\n    if (!seg || seen[seg]) return;\n    seen[seg] = true;\n    var required = [];\n    var idx = serverJs.indexOf(\"app.post('/\" + seg + \"'\");\n    if (idx >= 0) {\n      var fm = serverJs.substring(idx, idx + 700).match(/const\\s*\\{([^}]+)\\}\\s*=\\s*req\\.body/);\n      if (fm) required = fm[1].split(',').map(function(s){ return s.trim(); }).filter(Boolean);\n    }\n    out.push({ name: seg.replace(/s$/, ''), store_name: seg, fields: {}, required_fields: required });\n  });\n  return out;\n}\nvar _resources = (_schemaRes.length > 0) ? _schemaRes : resourcesFromServer(existingServerJs, existingRoutes);\nvar current_state = {\n  app_version:    existingVersion || '1.0',\n  schema_version: Math.max(1, migrationsFound.length),\n  resources:      _resources,\n  routes:         existingRoutes.map(function(r){ return { method: r.method, path: r.path }; }),\n  modules:        modulesFound,\n  migrations:     migrationsFound\n};\n\nreturn [{\n  json: {\n    task_id, language, prompt,\n    improve_mode:       true,\n    project_name:       projectName,\n    existing_version:   existingVersion,\n    next_version:       nextVersion,\n    existing_routes:    existingRoutes,\n    existing_stores:    existingStores,\n    existing_server_js: existingServerJs.substring(0, 3000),\n    existing_app_js:    existingAppJs.substring(0, 2000),\n    changelog_context:  changelogContext,\n    files_found:        Object.keys(existingFiles),\n    current_state:      current_state\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        592,
+        0
+      ],
+      "id": "acf1fe69-f194-4471-97ad-2a00cc526e41",
+      "name": "Analyze ZIP"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        784,
+        0
+      ],
+      "id": "2071ca3e-03fc-4a85-bc65-e6f332ff0a84",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Analyze ZIP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze ZIP": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "b7eaad4b-1685-432c-bb1d-93acfbc6fda0",
+  "meta": {
+    "instanceId": "c77e41168b0abc4c9e72e3dfa70fb293d0acb289b40b847421933eadc146e082"
+  },
+  "id": "RALhcPGxIVhf6ZxS",
+  "tags": []
+}

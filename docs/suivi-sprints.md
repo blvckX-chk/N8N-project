@@ -182,3 +182,65 @@ La roadmap détaille désormais 8 sprints jusqu'à la super-application multi-ac
 Sprint 1 Persistance ✅ · Sprint 2 Auth ✅ · Sprint 3 Architecture extensible 🟡 (3.1 + 3.2 faits) ·
 Sprint 4 Introspection · Sprint 5 Mode différentiel · Sprint 6 Multi-acteurs ressources partagées ·
 Sprint 7 Temps réel (WebSocket) · Sprint 8 Agrégation.
+
+---
+
+## Sécurisation clés Mistral + failover (validé)
+
+**Artefacts** : Agent Architect V5.0, QA V5.5, Frontend V6.1, Spec Normalizer V1.3.
+
+**Changement** : les 7 nœuds HTTP Mistral des 4 agents LLM passent d'un header `Authorization: Bearer <clé en dur>` à une **authentification par credential n8n** (`mistralCloudApi`). Nœud primaire → credential `MISTRAL_API_KEY` ; nœud « Retry » → `MISTRAL_API_KEY_2` (failover réel, la topologie IF/Retry existait déjà, héritée du motif Groq).
+
+**Preuve** : 0 clé en dur restante dans les 4 JSON (`grep 'Bearer [A-Za-z0-9]{20,}'` → 0). JSON valides.
+
+**Décisions** :
+| Décision | Choix | Justification |
+|---|---|---|
+| Stockage clés | Credentials n8n (pas env, pas JSON) | Jamais dans le workflow exporté → plus de fuite git (OWASP LLM02/A02) |
+| Failover | Primaire `MISTRAL_API_KEY`, secours `MISTRAL_API_KEY_2` | Continuité si quota/incident sur une clé (comme le double compte Groq initial) |
+
+## Stabilisation QA (validé)
+
+**Artefact** : Agent QA V5.5.
+
+**Changement** : QA est repositionné comme gate **qualité** (pas sécurité — assurée par SAST/Secrets/DAST qui STOP). Un `high` de catégorie non-`security` devient **WARN** (non bloquant) au lieu de FAIL. Seul un `high` de catégorie `security` survivant au filtre de faux-positifs bloque (REWORK). Filtre de faux-positifs élargi aux concepts Sprint 2/3 (user_id, migrations, modules, cookie, middleware…).
+
+**Preuve de test** (nœud « QA Normalize & Scoring » exécuté sur entrées types) :
+```
+quality-high + verdict FAIL  -> status WARN | approved: true  (ne bloque plus)
+security-high (eval)         -> status FAIL | approved: false (bloque toujours)
+aucun probleme               -> status PASS
+```
+
+**Décision** : séparation des responsabilités (roadmap §6) — la sécurité est gatée par les agents dédiés ; QA ne doit pas bloquer sur la variance LLM d'un jugement qualité.
+
+---
+
+## Sprint 4 — Introspection de l'existant (livré)
+
+**Artefact** : Agent ZIP Analyzer V2.2.
+**Objet (roadmap §5.2)** : lire un projet généré et produire une description structurée de son état courant.
+
+**Changement (nœud `Analyze ZIP`)** : en plus des routes/version déjà extraites, l'agent produit un objet `current_state` au **même format que `/api/_meta`** :
+- `resources` : dérivées des handlers POST de server.js (nom, store_name, required_fields) — repli fiable ; enrichissement via schema.sql si parseable.
+- `routes` : toutes les routes de server.js.
+- `modules` : fichiers `modules/*.routes.js` présents dans le ZIP.
+- `migrations` : fichiers `migrations/*.sql` présents.
+- `schema_version`, `app_version`.
+
+**Preuve de test** (ZIP réel STORED d'une app générée, avec migration + module) :
+```json
+{ "app_version":"1.0", "schema_version":1,
+  "resources":[{"name":"trajet","store_name":"trajets","required_fields":["ville_depart","kilos_disponibles"]}],
+  "routes":[ 9 routes incl /api/*, /health, /trajets, DELETE /trajets/:id ],
+  "modules":["modules/010_notes.routes.js"],
+  "migrations":["migrations/002_add_notes.sql"] }
+```
+
+**Limite connue** : le parseur ZIP historique lit uniquement le format STORED (non compressé) — c'est le format produit par `/api/create-zip`, donc OK en pratique. Les TYPES de champs viennent de `/api/_meta` (runtime) plutôt que de schema.sql (extraction statique fragile).
+
+**Décision** :
+| Décision | Choix | Justification |
+|---|---|---|
+| Source des ressources | Handlers POST de server.js (repli) | Extraction fiable ; l'ancien `existing_stores` visait le backend en mémoire, obsolète avec SQLite |
+| Format de sortie | Identique à `/api/_meta` | Les 2 chemins d'introspection (statique ZIP + runtime) convergent → base cohérente pour le mode différentiel (Sprint 5) |
