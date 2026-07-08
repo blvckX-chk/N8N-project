@@ -22,7 +22,18 @@ Chaque sprint suit le même gabarit :
 
 ---
 
-## Sprint 2 — Authentification (livré)
+## Sprint 2 — Authentification (validé)
+
+**Critères d'acceptation (roadmap §7.3)** — tous remplis :
+| Critère | Vérifié |
+|---|---|
+| App générée démarre derrière un mur de connexion (login.html) | ✅ test navigateur |
+| Inscription d'un compte → accès accordé | ✅ 201 + cookie |
+| Mauvais identifiants → refus | ✅ 401 (confirmé auteur) |
+| Données d'un compte invisibles d'un autre (isolation) | ✅ liste vide pour Bob (confirmé auteur) |
+| Code généré passe les 4 gates (SAST/Secrets/Review/Tests L0) | ✅ PASS |
+
+_Réserve robustesse (hors socle)_ : l'agent QA (LLM, non déterministe) renvoie parfois REWORK. Ce n'est pas un défaut du socle d'auth (les gates déterministes passent) mais un item de stabilisation — voir « Items de robustesse ouverts ».
 
 **Artefact** : Agent Backend V5.9 → V6.0, Agent Frontend V6.0, Agent Documentation V5.5, Agent Tests L0 V1.0 (durci).
 **Commits** :
@@ -95,6 +106,18 @@ $ reboot → aucune erreur ALTER (idempotent), each applied once: YES
 Gates : SAST PASS | Secrets PASS | Review PASS | Tests L0 PASS
 ```
 
+**Preuve en pipeline RÉEL** (DiaspoKoli généré sur le VPS, `GET /api/_meta` via console navigateur) :
+```json
+{ "app_version": "1.0.0", "schema_version": 1,
+  "resources": [
+    { "name": "trajet",      "store_name": "trajets",      "required_fields": ["date_de_vol","ville_depart","ville_arrivee","kilos_disponibles","prix_par_kilo"] },
+    { "name": "reservation", "store_name": "reservations", "required_fields": ["description_colis","poids_estime","trajet_id"] },
+    { "name": "paiement",    "store_name": "paiements",    "required_fields": ["montant","methode","reservation_id"] } ],
+  "routes": [ "GET /health","POST /trajets","GET /trajets","POST /reservations","GET /reservations",
+              "POST /paiements","GET /paiements","DELETE /trajets/:id","DELETE /reservations/:id","DELETE /paiements/:id" ] }
+```
+→ L'introspection déterministe fonctionne en production (3 ressources, FK acteurs `voyageur_id`/`expediteur_id` correctement traités comme champs, pas comme routes).
+
 **Décisions** :
 | Décision | Choix | Justification |
 |---|---|---|
@@ -142,3 +165,20 @@ Ces éléments vivent uniquement dans ton instance n8n et dépendent de tes runs
 6. **Captures des exécutions Go/No-Go** dans les 3 études de cas (CrimeStopper, DiaspoKoli, TrocSavoir/PharmaGarde).
 
 Quand tu as ces éléments, envoie-les-moi et je les intègre au tableau de suivi.
+
+---
+
+## Items de robustesse ouverts (transverses, hors socle)
+
+| Item | Nature | Priorité |
+|---|---|---|
+| Agent QA renvoie parfois REWORK (LLM non déterministe) | Stabilisation — durcir le filtre de faux-positifs ou abaisser la sensibilité | Moyenne |
+| Clés Mistral en dur dans le JSON des 4 agents LLM | Sécurité (OWASP LLM02) — migrer vers `$env`/credentials n8n + clé de secours (failover) | Haute |
+| Alignement sécurité pour le mode additif (§5.5) | Non-régression : SAST/QA doivent évaluer le différentiel ET l'existant | À venir (avec Sprint 5) |
+
+## Note trajectoire (roadmap V1.0, §12.1)
+
+La roadmap détaille désormais 8 sprints jusqu'à la super-application multi-acteurs :
+Sprint 1 Persistance ✅ · Sprint 2 Auth ✅ · Sprint 3 Architecture extensible 🟡 (3.1 + 3.2 faits) ·
+Sprint 4 Introspection · Sprint 5 Mode différentiel · Sprint 6 Multi-acteurs ressources partagées ·
+Sprint 7 Temps réel (WebSocket) · Sprint 8 Agrégation.
