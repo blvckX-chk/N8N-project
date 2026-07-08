@@ -142,7 +142,6 @@
        style="text-decoration:none;background:#444;color:#fff;padding:7px 13px;border-radius:8px;font-size:12px;margin-left:8px;font-family:inherit;">
       &#9889; Launcher
     </a>
-    <button class="btn-history" id="btn-logout" onclick="logout()" style="margin-left:8px">🚪 Déconnexion</button>
   </div>
 </header>
 <main>
@@ -608,22 +607,7 @@ async function runPipeline(){
   }catch(e){finishSteps(false);renderError('Erreur pipeline : '+e.message);}
   finally{isRunning=false;btn.disabled=false;sp.classList.remove('active');bt.textContent='🚀 Générer';}
 }
-async function checkAuth(){
-  try{
-    const r=await fetch('/api/auth/me');
-    if(r.status===401){window.location.href='/login.html';return false;}
-    return true;
-  }catch(e){return true;}
-}
-async function logout(){
-  try{await fetch('/api/auth/logout',{method:'POST'});}catch(e){}
-  window.location.href='/login.html';
-}
-(async function boot(){
-  const ok=await checkAuth();
-  if(!ok)return;
-  loadApps();setInterval(loadApps,30000);
-})();
+loadApps();setInterval(loadApps,30000);
 </script>
 </body>
 </html>

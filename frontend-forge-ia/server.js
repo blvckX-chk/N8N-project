@@ -1,14 +1,8 @@
-const express        = require('express');
-const nodeFetch      = require('node-fetch');
-const path           = require('path');
-const helmet         = require('helmet');
-const rateLimit      = require('express-rate-limit');
-const cookieParser   = require('cookie-parser');
-const cors           = require('cors');
-const jwt            = require('jsonwebtoken');
-const bcrypt         = require('bcryptjs');
-const { body, validationResult } = require('express-validator');
-const MAX_BASE64_SIZE = 15 * 1000 * 1000; // ~15M chars, borne large pour PDF/DOCX/image encodes
+const express   = require('express');
+const nodeFetch = require('node-fetch');
+const path      = require('path');
+const helmet    = require('helmet');
+const rateLimit = require('express-rate-limit');
 const app  = express();
 const PORT = process.env.PORT || 3000;
 const APP_VERSION = '4.9.0';
@@ -16,32 +10,10 @@ const APP_VERSION = '4.9.0';
 const N8N_URL    = process.env.N8N_URL    || 'http://167.86.93.31:5688/webhook/pipeline';
 const DEPLOY_URL = process.env.DEPLOY_URL || 'http://167.86.93.31:4001';
 
-// ── Authentification (Sprint 2) — zero secret en dur, echec au demarrage si absent ──
-const JWT_SECRET          = process.env.JWT_SECRET;
-const ADMIN_USERNAME      = process.env.ADMIN_USERNAME;
-const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
-if (!JWT_SECRET || !ADMIN_USERNAME || !ADMIN_PASSWORD_HASH) {
-  console.error('[ERREUR] JWT_SECRET, ADMIN_USERNAME et ADMIN_PASSWORD_HASH doivent etre definis (voir .env.example).');
-  console.error('  Generer le hash : npm run hash-password -- "VotreMotDePasse"');
-  process.exit(1);
-}
-const COOKIE_NAME = 'forge_token';
-
 // ── Sécurité HTTP ─────────────────────────────────────────────────────────
 // CSP désactivée : l'UI utilise des styles/scripts inline (SPA mono-fichier).
 // Les autres protections helmet (X-Frame-Options, HSTS, noSniff...) restent actives.
 app.use(helmet({ contentSecurityPolicy: false }));
-
-// CORS : aucune origine cross-site autorisee par defaut (outil mono-origine).
-// CORS_ORIGIN (liste separee par virgules) permet d'ouvrir explicitement si besoin.
-const allowedOrigins = (process.env.CORS_ORIGIN || '').split(',').map(s => s.trim()).filter(Boolean);
-app.use(cors({
-  origin: function(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
-    return callback(new Error('Origine non autorisee (CORS)'));
-  },
-  credentials: true
-}));
 
 // Rate-limit global : protège le proxy contre les abus (100 req / 15 min / IP)
 app.use(rateLimit({
@@ -52,117 +24,14 @@ app.use(rateLimit({
   message: { error: 'Trop de requetes — reessayez dans quelques minutes.' }
 }));
 
-// Rate-limit dedie a la connexion : freine le brute-force sur le mot de passe admin
-const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Trop de tentatives de connexion — reessayez dans 15 minutes.' }
-});
-
 app.use(express.json({ limit: '10mb' }));
-app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
-
-// ── Middleware d'authentification ─────────────────────────────────────────
-function authMiddleware(req, res, next) {
-  const token = req.cookies && req.cookies[COOKIE_NAME];
-  if (!token) return res.status(401).json({ error: 'Non authentifie' });
-  try {
-    req.user = jwt.verify(token, JWT_SECRET);
-    next();
-  } catch (e) {
-    res.clearCookie(COOKIE_NAME);
-    return res.status(401).json({ error: 'Session invalide ou expiree' });
-  }
-}
-
-// ── Routes d'authentification ─────────────────────────────────────────────
-app.post('/api/auth/login',
-  loginLimiter,
-  body('username').isString().trim().isLength({ min: 1, max: 100 }),
-  body('password').isString().isLength({ min: 1, max: 200 }),
-  async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) return res.status(400).json({ error: 'Identifiants invalides' });
-
-    const { username, password } = req.body;
-    if (username !== ADMIN_USERNAME) {
-      return res.status(401).json({ error: 'Identifiants incorrects' });
-    }
-    const match = await bcrypt.compare(password, ADMIN_PASSWORD_HASH);
-    if (!match) return res.status(401).json({ error: 'Identifiants incorrects' });
-
-    const token = jwt.sign({ sub: username }, JWT_SECRET, { expiresIn: '8h' });
-    res.cookie(COOKIE_NAME, token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 8 * 60 * 60 * 1000
-    });
-    res.json({ ok: true });
-  }
-);
-
-app.post('/api/auth/logout', (req, res) => {
-  res.clearCookie(COOKIE_NAME);
-  res.json({ ok: true });
-});
-
-app.get('/api/auth/me', authMiddleware, (req, res) => {
-  res.json({ username: req.user.sub });
-});
-
-// ── Validation d'entrée ────────────────────────────────────────────────────
-function handleValidation(req, res, next) {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      error: 'Requete invalide',
-      details: errors.array().map(e => `${e.path}: ${e.msg}`)
-    });
-  }
-  next();
-}
-
-const validatePipeline = [
-  body('task_id').optional().isString().trim().isLength({ max: 100 }),
-  body('environment').optional().isIn(['staging', 'production']),
-  body('language').optional().isString().trim().isLength({ max: 50 }),
-  body('framework').optional().isString().trim().isLength({ max: 50 }),
-  body('userRequest').optional().isString().isLength({ max: 100000 }),
-  body('url').optional().isURL({ require_protocol: true }),
-  body('improve_mode').optional().isBoolean(),
-  body('improve_prompt').optional().isString().isLength({ max: 100000 }),
-  body('pdf_base64').optional().isString().isLength({ max: MAX_BASE64_SIZE }),
-  body('pdf_filename').optional().isString().isLength({ max: 255 }),
-  body('docx_base64').optional().isString().isLength({ max: MAX_BASE64_SIZE }),
-  body('docx_filename').optional().isString().isLength({ max: 255 }),
-  body('image_base64').optional().isString().isLength({ max: MAX_BASE64_SIZE }),
-  body('image_filename').optional().isString().isLength({ max: 255 }),
-  body('image_mime').optional().isString().isLength({ max: 100 }),
-  body('existing_zip_base64').optional().isString().isLength({ max: MAX_BASE64_SIZE }),
-  body('existing_zip_filename').optional().isString().isLength({ max: 255 }),
-  handleValidation
-];
-
-const appNamePattern = /^[a-z0-9-]{1,50}$/;
-const validateDeployOrImprove = [
-  body('task_id').optional().isString().trim().isLength({ max: 100 }),
-  body('app_name').optional().isString().trim().matches(appNamePattern)
-    .withMessage('app_name doit contenir uniquement des minuscules, chiffres et tirets (max 50 caracteres)'),
-  body('files').isArray({ min: 1, max: 50 }).withMessage('files doit etre un tableau de 1 a 50 fichiers'),
-  body('files.*.path').isString().trim().isLength({ min: 1, max: 255 }),
-  body('files.*.content').isString().isLength({ max: 500000 }),
-  handleValidation
-];
 
 // Stockage en mémoire des résultats en attente
 const pendingResults = {};
 
 // ── Pipeline asynchrone : lance + stocke le résultat ──────────────────────
-app.post('/api/pipeline', authMiddleware, validatePipeline, async (req, res) => {
+app.post('/api/pipeline', async (req, res) => {
   const taskId = req.body.task_id || ('TASK-' + Date.now());
   // Répondre immédiatement avec le task_id
   res.json({ pending: true, task_id: taskId });
@@ -190,31 +59,31 @@ app.post('/api/pipeline', authMiddleware, validatePipeline, async (req, res) => 
 });
 
 // ── Poll : Forge IA interroge toutes les 5s ───────────────────────────────
-app.get('/api/result/:taskId', authMiddleware, (req, res) => {
+app.get('/api/result/:taskId', (req, res) => {
   const result = pendingResults[req.params.taskId];
   if (!result) return res.json({ pending: true });
   if (result.error) return res.json({ error: result.error });
   res.json({ pending: false, data: result.data });
 });
 
-app.post('/api/deploy', authMiddleware, validateDeployOrImprove, async (req, res) => {
+app.post('/api/deploy', async (req, res) => {
   try { const r = await nodeFetch(DEPLOY_URL+'/deploy', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(req.body), timeout:120000 }); res.json(await r.json()); } catch(e) { res.status(500).json({ error: e.message }); }
 });
-app.post('/api/improve', authMiddleware, validateDeployOrImprove, async (req, res) => {
+app.post('/api/improve', async (req, res) => {
   try { const r = await nodeFetch(DEPLOY_URL+'/improve', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(req.body), timeout:120000 }); res.json(await r.json()); } catch(e) { res.status(500).json({ error: e.message }); }
 });
-app.get('/api/apps', authMiddleware, async (req, res) => {
+app.get('/api/apps', async (req, res) => {
   try { const r = await nodeFetch(DEPLOY_URL+'/apps'); res.json(await r.json()); } catch(e) { res.status(500).json({ error: e.message }); }
 });
-app.delete('/api/apps/:name', authMiddleware, async (req, res) => {
+app.delete('/api/apps/:name', async (req, res) => {
   try { const r = await nodeFetch(DEPLOY_URL+'/apps/'+req.params.name, { method:'DELETE' }); res.json(await r.json()); } catch(e) { res.status(500).json({ error: e.message }); }
 });
-app.get('/api/apps/:name/files', authMiddleware, async (req, res) => {
+app.get('/api/apps/:name/files', async (req, res) => {
   try { const r = await nodeFetch(DEPLOY_URL+'/apps/'+req.params.name+'/files'); res.json(await r.json()); } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── Création ZIP côté serveur (sans dépendance CDN) ───────────────────────
-app.post('/api/create-zip', authMiddleware, (req, res) => {
+app.post('/api/create-zip', (req, res) => {
   try {
     const { files, filename } = req.body;
     if (!files || !files.length) return res.status(400).json({ error: 'Aucun fichier' });
@@ -280,7 +149,7 @@ app.post('/api/create-zip', authMiddleware, (req, res) => {
 
 
 // ── Launcher universel ────────────────────────────────────────────────────
-app.get('/api/launcher', authMiddleware, (req, res) => {
+app.get('/api/launcher', (req, res) => {
   const lines = [
     '@echo off',
     'SETLOCAL ENABLEDELAYEDEXPANSION',
@@ -356,10 +225,9 @@ app.get('/api/launcher', authMiddleware, (req, res) => {
 });
 
 // ── Launcher spécifique par génération ────────────────────────────────────
-app.get('/api/specific-launcher', authMiddleware, (req, res) => {
+app.get('/api/specific-launcher', (req, res) => {
   // IMPORTANT : conserver le point de version (v1.0) — meme assainissement que
-  // /api/create-zip, sinon le .bat cherche "...-v10.zip" et ne trouve pas le
-  // ZIP reellement telecharge "...-v1.0.zip".
+  // /api/create-zip, sinon le .bat cherche "...-v10.zip" au lieu de "...-v1.0.zip".
   const zipName = (req.query.zipname || 'ForgeIA-app-v1.0').replace(/[^a-zA-Z0-9\-_.]/g, '-');
   const dn = zipName.replace(/^(?:ForgeIA|MVP)-/, '').replace(/-v[0-9._]+$/i, '');
   const lines = [
