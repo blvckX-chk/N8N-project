@@ -1,5 +1,5 @@
 {
-  "name": "Orchestrateur V5.9",
+  "name": "Orchestrateur V6.0",
   "nodes": [
     {
       "parameters": {
@@ -8,13 +8,13 @@
         "responseMode": "responseNode",
         "options": {}
       },
-      "id": "560e23ff-026e-4191-92c4-92615ccaf98f",
+      "id": "2d787f2d-d5b3-44d9-9a1d-02d30047bc5b",
       "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
-        -223536,
-        -25024
+        -232432,
+        -23936
       ],
       "webhookId": "4648cf15-5cca-4762-bb41-bbbce55b95a9"
     },
@@ -28,13 +28,13 @@
         "body": "=={{ JSON.stringify({\n  task_id:     $('Validate Input').first().json.task_id,\n  userRequest: $('Validate Input').first().json.userRequest\n}) }}",
         "options": {}
       },
-      "id": "f88675d4-82d2-4a72-ab34-983d1bc5fd83",
+      "id": "3be21094-483e-43ba-9849-44d5d651f8d1",
       "name": "Agent Architect",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
       "position": [
-        -216896,
-        -24992
+        -225984,
+        -23872
       ]
     },
     {
@@ -47,13 +47,13 @@
         "body": "==={{ JSON.stringify({\n  task_id:            $('Validate Input').first().json.task_id,\n  userRequest:        $('Build Backend Payload').first().json.userRequest,\n  language:           $('Validate Input').first().json.language,\n  framework:          $('Validate Input').first().json.framework,\n  improve_mode:       $('Build Backend Payload').first().json.improve_mode || false,\n  improve_prompt:     $('Build Backend Payload').first().json.improve_prompt || '',\n  architecture:       $('Build Backend Payload').first().json.architecture || {},\n  priority_endpoints: $('Build Backend Payload').first().json.priority_endpoints || [],\n  mvp_scope:          $('Build Backend Payload').first().json.mvp_scope || '',\n  data_model:         $('Build Backend Payload').first().json.data_model || {},\n  stores:             $('Build Backend Payload').first().json.stores || {},\n  existing_server_js: $('Build Backend Payload').first().json.existing_server_js || '',\n  existing_routes:    $('Build Backend Payload').first().json.existing_routes || [],\n  existing_stores:    $('Build Backend Payload').first().json.existing_stores || {},\n  existing_version:   $('Build Backend Payload').first().json.existing_version || '1.0',\n  backend_instructions: $('Build Backend Payload').first().json.backend_instructions || []\n}) }}\n",
         "options": {}
       },
-      "id": "0bd7f64f-3197-45c0-b4f2-bc0804ca9691",
+      "id": "c08d7b85-1457-44fc-b5ba-49264412d689",
       "name": "Agent Backend",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
       "position": [
-        -216384,
-        -24960
+        -225280,
+        -23872
       ]
     },
     {
@@ -66,13 +66,13 @@
         "body": "==={{ JSON.stringify({\n  task_id:            $('Validate Input').first().json.task_id,\n  userRequest:        $('Validate Input').first().json.userRequest,\n  improve_mode:       $('Build Frontend Payload').first().json.improve_mode || false,\n  architecture:       $('Build Frontend Payload').first().json.architecture || {},\n  priority_endpoints: $('Build Frontend Payload').first().json.priority_endpoints || [],\n  mvp_scope:          $('Build Frontend Payload').first().json.mvp_scope || '',\n  project_name:       $('Build Frontend Payload').first().json.project_name || '',\n  data_model:         $('Build Frontend Payload').first().json.data_model || {},\n  stores:             $('Build Frontend Payload').first().json.stores || {},\n  frontend_instructions: $('Build Frontend Payload').first().json.frontend_instructions || []\n}) }}",
         "options": {}
       },
-      "id": "30328c71-1029-4624-a37b-15be70a3854f",
+      "id": "9ec2c5a2-de35-4c4b-b3c2-f2e0207d0d94",
       "name": "Agent Frontend",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
       "position": [
-        -215904,
-        -24976
+        -224800,
+        -23888
       ]
     },
     {
@@ -82,10 +82,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -220624,
-        -24960
+        -229520,
+        -23872
       ],
-      "id": "f8bc64cf-2a9f-4a74-a270-6f409deb129e",
+      "id": "1e16aef6-c758-4266-9300-1bd3458eaab0",
       "name": "Validate Input"
     },
     {
@@ -95,10 +95,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -216720,
-        -24992
+        -225616,
+        -24016
       ],
-      "id": "7e1411ab-fba7-4dc1-b8ab-582d818dd0e4",
+      "id": "d02a75b2-6dd5-42f2-b84c-dc97669a4a16",
       "name": "Build Backend Payload"
     },
     {
@@ -108,10 +108,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -216208,
-        -24960
+        -225104,
+        -23872
       ],
-      "id": "44a47258-ce50-4f0a-834a-390bfa5d6692",
+      "id": "b8a07d58-8404-4302-ba4f-6d27a2b94fb7",
       "name": "Build Frontend Payload"
     },
     {
@@ -121,10 +121,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -214672,
-        -25392
+        -223568,
+        -24304
       ],
-      "id": "3206aaca-d1a9-4c12-b24e-d211cfa71f77",
+      "id": "c8303043-4fd6-4468-93c7-4b46f6ceed5b",
       "name": "Build Review Payload"
     },
     {
@@ -134,10 +134,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -214704,
-        -25232
+        -223600,
+        -24144
       ],
-      "id": "d257cb7b-c640-4f7a-a892-e4bc27749dd3",
+      "id": "f6f74c13-b3ae-4408-94db-baae753debe5",
       "name": "Build QA Payload"
     },
     {
@@ -147,10 +147,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -214704,
-        -25056
+        -223600,
+        -23968
       ],
-      "id": "206e5c77-aeac-4e9f-bba8-b05a1cd19f2b",
+      "id": "a86d3411-e9d1-40cd-9757-d8f48d41ee44",
       "name": "Build SAST Payload"
     },
     {
@@ -166,10 +166,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        -214416,
-        -25392
+        -223312,
+        -24304
       ],
-      "id": "18d15932-4aed-4cde-b12a-8ead0d99d838",
+      "id": "8eab93cc-e2fc-4d0d-af75-83e5627e5d80",
       "name": "Agent Code Review"
     },
     {
@@ -185,10 +185,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        -214384,
-        -25056
+        -223280,
+        -23968
       ],
-      "id": "37221d00-8a23-4e79-8163-6252ee28dfb7",
+      "id": "7676a1e9-6df9-4983-8a5a-b3a1f4f8a6ce",
       "name": "Agent SAST"
     },
     {
@@ -198,10 +198,10 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
       "position": [
-        -214176,
-        -25280
+        -223072,
+        -24192
       ],
-      "id": "ff3839e8-0e2d-405b-b452-63cf5aaa2dd8",
+      "id": "2a3d04d3-eb85-44ba-91b5-ce0a170d2ae6",
       "name": "Merge"
     },
     {
@@ -211,10 +211,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -213984,
-        -25408
+        -222880,
+        -24320
       ],
-      "id": "17c11fd5-009f-45ca-9980-4de3ad913d64",
+      "id": "5a33f77d-a4a7-4bf5-ab3c-7e1fb06e77be",
       "name": "Build SCA Payload"
     },
     {
@@ -230,10 +230,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        -213840,
-        -25408
+        -222736,
+        -24320
       ],
-      "id": "f18aa0ac-dc67-4192-8e97-93a589a283cd",
+      "id": "abc028eb-0c27-4f4d-a875-b48bebf7d1a7",
       "name": "Agent SCA"
     },
     {
@@ -243,10 +243,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -213984,
-        -25232
+        -222880,
+        -24144
       ],
-      "id": "54336ebb-9e9e-4a5f-b7b8-4f6a1d0412d9",
+      "id": "a3c8d923-0a87-42cc-9358-78ac331b5fd1",
       "name": "Build Secrets Payload"
     },
     {
@@ -262,10 +262,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        -213808,
-        -25232
+        -222704,
+        -24144
       ],
-      "id": "800b74e9-6789-4b4b-9823-678b3410cef6",
+      "id": "19a6f76a-0c59-4191-83c4-4032ff1cbb72",
       "name": "Agent Secrets"
     },
     {
@@ -275,10 +275,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -213968,
-        -25056
+        -222864,
+        -23968
       ],
-      "id": "dd952b09-f8ac-43f7-a076-fe6179d631ef",
+      "id": "225cd6f9-44a3-46e4-bc86-edab77773503",
       "name": "Build DAST Payload"
     },
     {
@@ -294,10 +294,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        -213808,
-        -25056
+        -222704,
+        -23968
       ],
-      "id": "ac9df987-3de6-4aa5-9956-62f524624e08",
+      "id": "a0d6233e-50a4-4b1a-8900-4a0b6a4ab9b4",
       "name": "Agent DAST"
     },
     {
@@ -307,10 +307,10 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
       "position": [
-        -213584,
-        -25280
+        -222480,
+        -24192
       ],
-      "id": "820984bc-9336-43fa-8877-2a09bd803f04",
+      "id": "0612823f-2c52-42ac-b36a-285388906af1",
       "name": "Merge1"
     },
     {
@@ -326,10 +326,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        -214400,
-        -25232
+        -223296,
+        -24144
       ],
-      "id": "a37d63f6-b286-48aa-9694-f918d6492152",
+      "id": "91124398-4aa1-4421-9144-76fdc21b931a",
       "name": "Agent QA"
     },
     {
@@ -339,10 +339,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -213408,
-        -25264
+        -222304,
+        -24176
       ],
-      "id": "7386ac7a-7594-4e30-ad41-d648822c6d2a",
+      "id": "22c34a43-b948-4edc-b6e0-96c2ca395d3f",
       "name": "Build GoNoGo Payload"
     },
     {
@@ -358,10 +358,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        -213248,
-        -25264
+        -222144,
+        -24176
       ],
-      "id": "c2e8d662-2436-4b22-84c9-b7b63e479ec2",
+      "id": "742294b9-3a9e-41ea-aa4f-f04d12032a27",
       "name": "Agent Go/No-Go"
     },
     {
@@ -392,10 +392,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        -213072,
-        -25264
+        -221968,
+        -24176
       ],
-      "id": "6d0424f5-9f2e-4004-ae3b-12e5a33ffda5",
+      "id": "8ed6bd37-25c4-463d-bd0b-9b6ce7dcd50b",
       "name": "If — CONTINUE ?"
     },
     {
@@ -411,10 +411,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        -212880,
-        -25376
+        -221776,
+        -24288
       ],
-      "id": "cf1030fb-3829-478d-9b4b-0d4ba4b4a021",
+      "id": "69d79313-92e3-4da4-8df7-35783e4039c4",
       "name": "Agent DevOps/Deploy"
     },
     {
@@ -424,10 +424,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -212880,
-        -25168
+        -221776,
+        -24080
       ],
-      "id": "37b26dd1-6848-407e-8985-52d5174d27c0",
+      "id": "728f8b2b-17e2-4a1f-a334-aef8f03ceb07",
       "name": "Respond STOP"
     },
     {
@@ -439,10 +439,10 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        -212672,
-        -25168
+        -221568,
+        -24080
       ],
-      "id": "4923315d-51ac-4f4f-b384-4efc554a5a04",
+      "id": "a937c272-f8d1-4f66-8894-4fdecb23c6bd",
       "name": "Respond to Webhook"
     },
     {
@@ -452,10 +452,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -212672,
-        -25376
+        -221568,
+        -24288
       ],
-      "id": "692b31ed-dcc8-42ea-a893-583378535c34",
+      "id": "4592903c-0783-452e-a1d8-387d32ceb839",
       "name": "Build Monitoring Payload"
     },
     {
@@ -471,10 +471,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        -212496,
-        -25376
+        -221392,
+        -24288
       ],
-      "id": "607fc711-c676-4cb9-a267-232e2997f108",
+      "id": "624696cc-1d58-46a3-a8eb-4e4c06cf4dfc",
       "name": "Agent Monitoring"
     },
     {
@@ -505,10 +505,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        -212336,
-        -25376
+        -221232,
+        -24288
       ],
-      "id": "9018fb2f-8e22-4b74-8651-63c11e4d9f2e",
+      "id": "f8be117d-0708-434f-8e86-4286e2b28f24",
       "name": "If HEALTHY"
     },
     {
@@ -518,10 +518,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -212160,
-        -25472
+        -221056,
+        -24384
       ],
-      "id": "83ab575d-c7c5-45e8-ad1a-fdc12d829335",
+      "id": "12bc52ac-bf27-4fe2-be9d-03276ff166d3",
       "name": "Build Cost Payload"
     },
     {
@@ -537,10 +537,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        -212000,
-        -25472
+        -220896,
+        -24384
       ],
-      "id": "afe5f0d3-9709-4006-a37c-293283d148e3",
+      "id": "70c52b3b-ee90-4e9a-a33f-a51fd47e281a",
       "name": "Agent Cost & Performance"
     },
     {
@@ -550,10 +550,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -212160,
-        -25296
+        -221056,
+        -24208
       ],
-      "id": "eca126df-e303-4eaf-944a-183562d6edb6",
+      "id": "58e0b111-4861-400b-9966-5788fdc31bb2",
       "name": "Build Runtime Payload"
     },
     {
@@ -569,10 +569,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        -211984,
-        -25296
+        -220880,
+        -24208
       ],
-      "id": "658c40d0-ba11-458e-b922-e60023fedd5e",
+      "id": "3f3ba723-921c-439c-93d3-ceb2da10b7ec",
       "name": "Agent Runtime Feedback"
     },
     {
@@ -580,10 +580,10 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
       "position": [
-        -211776,
-        -25376
+        -220672,
+        -24288
       ],
-      "id": "d5d41051-adeb-4b0e-a254-76fd1a97a36e",
+      "id": "710bd24b-051f-4c86-afe5-252d4ba87e1c",
       "name": "Merge2"
     },
     {
@@ -593,10 +593,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -211632,
-        -25376
+        -220528,
+        -24288
       ],
-      "id": "d0104871-0e45-4700-bd1c-fefd49dc2405",
+      "id": "f82867f3-cb30-42dc-8cba-94dc2b9d2346",
       "name": "Build Doc Payload"
     },
     {
@@ -606,10 +606,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -211168,
-        -25376
+        -220064,
+        -24288
       ],
-      "id": "9e0b3218-be71-41ea-b019-57c702ac52b0",
+      "id": "41309737-f33d-4dc4-88f3-b7bc2fa6cfec",
       "name": "Build Knowledge Payload"
     },
     {
@@ -625,10 +625,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        -211008,
-        -25376
+        -219904,
+        -24288
       ],
-      "id": "1539582f-7de9-4668-b1a0-9c6ccbd0bd32",
+      "id": "2be2cf4f-84b2-443a-ae40-b2d01a41ced0",
       "name": "Agent Knowledge/Memory"
     },
     {
@@ -640,23 +640,23 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        -210688,
-        -25376
+        -219584,
+        -24288
       ],
-      "id": "de343243-0bfa-47fe-bcab-9c6f0bb48d66",
+      "id": "ad5ccf7c-338a-409e-bc12-858f3384c12a",
       "name": "Respond Final"
     },
     {
       "parameters": {
-        "jsCode": "const initial    = $('Validate Input').first().json;\nconst gonogo     = $('Agent Go/No-Go').first().json;\n// Agent Architect peut ne pas être exécuté (chemin déterministe)\nlet archData = {};\ntry { archData = $('Agent Architect').first().json; } catch(e) {\n  try { archData = $('Build Architect Payload').first().json; } catch(e2) {}\n}\nconst arch = archData;\nconst backend    = $('Agent Backend').first().json;\nconst frontend   = $('Agent Frontend').first().json;\nconst devops     = $('Agent DevOps/Deploy').first().json;\nconst monitoring = $('Agent Monitoring').first().json;\nconst doc        = $('Agent Documentation').first().json;\n\n// Inclure backend + frontend + documentation dans le ZIP\nconst allFiles = [\n  ...(backend.files  || []),\n  ...(frontend.files || []),\n  ...(doc.files      || []),\n  // Scripts de démarrage local dynamiques\n  ...(function() {\n    const _artifacts = arch.artifacts || arch.architecture || {};\n    const pn = _artifacts.project_name || initial.project_name || 'Application';\n    return [\n      {\n        path: 'start.sh',\n        content: '#!/bin/bash\\n'\n          + '# Démarrage ' + pn + ' sur Linux/Mac\\n'\n          + '# PRÉ-REQUIS : Node.js >= 16 installé (https://nodejs.org)\\n'\n          + 'if ! command -v node &> /dev/null; then\\n'\n          + '  echo \"Node.js non trouvé. Installe-le depuis https://nodejs.org\"\\n'\n          + '  exit 1\\n'\n          + 'fi\\n'\n          + 'echo \"Node.js OK : $(node -v)\"\\n'\n          + 'echo \"Installation des dépendances...\"\\n'\n          + 'npm install\\n'\n          + 'echo \"Démarrage du serveur...\"\\n'\n          + 'echo \"Ouvre http://localhost:3000 dans ton navigateur\"\\n'\n          + 'node server.js\\n'\n      },\n      {\n        path: 'start.bat',\n        content: '@echo off\\n'\n          + 'REM Démarrage ' + pn + ' sur Windows\\n'\n          + 'REM PRÉ-REQUIS : Node.js >= 16 installé (https://nodejs.org)\\n'\n          + 'where node >nul 2>nul\\n'\n          + 'if %ERRORLEVEL% neq 0 (\\n'\n          + '  echo.\\n'\n          + '  echo  Node.js non trouve. Installe-le depuis : https://nodejs.org\\n'\n          + '  echo  Choisis la version LTS et coche \"Add to PATH\"\\n'\n          + '  echo  Apres installation, relance start.bat\\n'\n          + '  echo.\\n'\n          + '  pause\\n'\n          + '  exit /b 1\\n'\n          + ')\\n'\n          + 'echo Node.js OK && node -v\\n'\n          + 'echo Installation des dependances...\\n'\n          + 'call npm install\\n'\n          + 'echo Demarrage de ' + pn + '...\\n'\n          + 'echo Ouvre http://localhost:3000 dans ton navigateur\\n'\n          + 'node server.js\\n'\n          + 'pause\\n'\n      }\n    ];\n  })()\n];\n\nconst deployUrl = devops.deployment_url || devops.service_url || devops.url || null;\n\nconst _finalArtifacts = arch.artifacts || arch.architecture || {};\nlet _projectName = '';\n// Priorité : display_name du Normalizer (nettoyé) > _deterministic_artifacts > fallbacks\ntry {\n  const _normOut = $('Agent Spec Normalizer').first().json;\n  _projectName = _normOut.display_name || _normOut.project_name || '';\n} catch(e) {}\nif (!_projectName) {\n  try { _projectName = $('Build Architect Payload').first().json._deterministic_artifacts?.project_name || ''; } catch(e2) {}\n}\nif (!_projectName) _projectName = _finalArtifacts.project_name || arch.project_name || initial.project_name || 'Application';\nconst _version = initial.improve_mode ? (initial.next_version || '1.1') : '1.0';\nconst _zipName = 'ForgeIA-' + _projectName.replace(/[^a-zA-Z0-9]/g, '') + '-v' + _version.replace(/\\./g, '_');\n\nreturn [{\n  json: {\n    success:      true,\n    pipeline:     \"SDLC Multi-Agent\",\n    task_id:      initial.task_id,\n    project_name: _projectName,\n    zip_name:     _zipName,\n    input_type:   initial.input_type   || 'direct',\n    decision:     gonogo.decision,\n    completed_at: new Date().toISOString(),\n    summary:      `Pipeline terminé avec succès — décision : ${gonogo.decision}`,\n    results: {\n      architecture:  arch.artifacts || arch.architecture || {},\n      files:         allFiles,\n      files_count:   allFiles.length,\n      documentation: (doc.files || []).find(f => f.path === 'README.md') || null,\n      deployment: {\n        url:         deployUrl,\n        environment: initial.environment,\n        status:      monitoring.monitoring_status || 'HEALTHY',\n        deployed_at: devops.deployed_at || new Date().toISOString()\n      }\n    },\n    metrics: {\n      language:          initial.language,\n      framework:         initial.framework,\n      environment:       initial.environment,\n      gonogo_score:      gonogo.overall_score || null,\n      monitoring_status: monitoring.monitoring_status || 'HEALTHY'\n    }\n  }\n}];"
+        "jsCode": "const initial    = $('Validate Input').first().json;\nconst gonogo     = $('Agent Go/No-Go').first().json;\n// Agent Architect peut ne pas être exécuté (chemin déterministe)\nlet archData = {};\ntry { archData = $('Agent Architect').first().json; } catch(e) {\n  try { archData = $('Build Architect Payload').first().json; } catch(e2) {}\n}\nconst arch = archData;\nconst backend    = $('Agent Backend').first().json;\nconst frontend   = $('Agent Frontend').first().json;\nconst devops     = $('Agent DevOps/Deploy').first().json;\nconst monitoring = $('Agent Monitoring').first().json;\nconst doc        = $('Agent Documentation').first().json;\n\n// Inclure backend + frontend + documentation dans le ZIP\nconst allFiles = [\n  ...(backend.files  || []),\n  ...(frontend.files || []),\n  ...(doc.files      || []),\n  // Scripts de démarrage local dynamiques\n  ...(function() {\n    const _artifacts = arch.artifacts || arch.architecture || {};\n    const pn = _artifacts.project_name || initial.project_name || 'Application';\n    return [\n      {\n        path: 'start.sh',\n        content: '#!/bin/bash\\n'\n          + '# Démarrage ' + pn + ' sur Linux/Mac\\n'\n          + '# PRÉ-REQUIS : Node.js >= 16 installé (https://nodejs.org)\\n'\n          + 'if ! command -v node &> /dev/null; then\\n'\n          + '  echo \"Node.js non trouvé. Installe-le depuis https://nodejs.org\"\\n'\n          + '  exit 1\\n'\n          + 'fi\\n'\n          + 'echo \"Node.js OK : $(node -v)\"\\n'\n          + 'echo \"Installation des dépendances...\"\\n'\n          + 'npm install\\n'\n          + 'echo \"Démarrage du serveur...\"\\n'\n          + 'echo \"Ouvre http://localhost:3000 dans ton navigateur\"\\n'\n          + 'node server.js\\n'\n      },\n      {\n        path: 'start.bat',\n        content: '@echo off\\n'\n          + 'REM Démarrage ' + pn + ' sur Windows\\n'\n          + 'REM PRÉ-REQUIS : Node.js >= 16 installé (https://nodejs.org)\\n'\n          + 'where node >nul 2>nul\\n'\n          + 'if %ERRORLEVEL% neq 0 (\\n'\n          + '  echo.\\n'\n          + '  echo  Node.js non trouve. Installe-le depuis : https://nodejs.org\\n'\n          + '  echo  Choisis la version LTS et coche \"Add to PATH\"\\n'\n          + '  echo  Apres installation, relance start.bat\\n'\n          + '  echo.\\n'\n          + '  pause\\n'\n          + '  exit /b 1\\n'\n          + ')\\n'\n          + 'echo Node.js OK && node -v\\n'\n          + 'echo Installation des dependances...\\n'\n          + 'call npm install\\n'\n          + 'echo Demarrage de ' + pn + '...\\n'\n          + 'echo Ouvre http://localhost:3000 dans ton navigateur\\n'\n          + 'node server.js\\n'\n          + 'pause\\n'\n      }\n    ];\n  })()\n];\n\nconst deployUrl = devops.deployment_url || devops.service_url || devops.url || null;\n\nconst _finalArtifacts = arch.artifacts || arch.architecture || {};\nlet _projectName = '';\n// Priorité : display_name du Normalizer (nettoyé) > _deterministic_artifacts > fallbacks\ntry {\n  const _normOut = $('Agent Spec Normalizer').first().json;\n  _projectName = _normOut.project_name || _normOut.display_name || '';\n} catch(e) {}\nif (!_projectName) {\n  try { _projectName = $('Build Architect Payload').first().json._deterministic_artifacts?.project_name || ''; } catch(e2) {}\n}\nif (!_projectName) _projectName = _finalArtifacts.project_name || arch.project_name || initial.project_name || 'Application';\nlet _version = initial.improve_mode ? (initial.next_version || '1.1') : '1.0';\nif (!/^\\d+\\.\\d+$/.test(String(_version))) _version = '1.0';  // format attendu X.Y\n// Si _projectName est une phrase, extraire le mot le plus significatif (nom propre probable)\nlet _cleanName = _projectName.trim();\nif (_cleanName.indexOf(' ') !== -1) {\n  const _words = _cleanName.split(/\\s+/).filter(w => w.length > 2 && !/^(la|le|les|un|une|des|pour|de|du|et|the|for|app|application|plateforme|platform|systeme|system)$/i.test(w));\n  _cleanName = _words.sort((a,b) => b.length - a.length)[0] || _cleanName;\n}\n_cleanName = _cleanName.replace(/[^a-zA-Z0-9]/g, '');\nconst _zipName = 'ForgeIA-' + _cleanName + '-v' + _version.replace(/\\./g, '_');\n\nreturn [{\n  json: {\n    success:      true,\n    pipeline:     \"SDLC Multi-Agent\",\n    task_id:      initial.task_id,\n    project_name: _projectName,\n    zip_name:     _zipName,\n    input_type:   initial.input_type   || 'direct',\n    decision:     gonogo.decision,\n    completed_at: new Date().toISOString(),\n    summary:      `Pipeline terminé avec succès — décision : ${gonogo.decision}`,\n    results: {\n      architecture:  arch.artifacts || arch.architecture || {},\n      files:         allFiles,\n      files_count:   allFiles.length,\n      documentation: (doc.files || []).find(f => f.path === 'README.md') || null,\n      deployment: {\n        url:         deployUrl,\n        environment: initial.environment,\n        status:      monitoring.monitoring_status || 'HEALTHY',\n        deployed_at: devops.deployed_at || new Date().toISOString()\n      }\n    },\n    metrics: {\n      language:          initial.language,\n      framework:         initial.framework,\n      environment:       initial.environment,\n      gonogo_score:      gonogo.overall_score || null,\n      monitoring_status: monitoring.monitoring_status || 'HEALTHY'\n    }\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -210848,
-        -25376
+        -219744,
+        -24288
       ],
-      "id": "abab9703-ad1f-41b4-8561-9822b8104fed",
+      "id": "55f58552-bdcd-4411-b0b4-1b67f3e8455f",
       "name": "Build Final Response"
     },
     {
@@ -672,10 +672,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        -211312,
-        -25376
+        -220208,
+        -24288
       ],
-      "id": "e11d21a5-4355-4f1d-bfba-2481b57fc575",
+      "id": "9b2c93cf-482a-421b-8f12-6d99f39c437c",
       "name": "Agent Documentation"
     },
     {
@@ -685,10 +685,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -223360,
-        -25024
+        -232256,
+        -23936
       ],
-      "id": "0de626c3-e3ad-4089-9620-55ad604493d3",
+      "id": "1c4d1bf0-b560-4313-99fb-bebb840dd2fb",
       "name": "Detect Input"
     },
     {
@@ -719,10 +719,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        -222960,
-        -25024
+        -231856,
+        -23936
       ],
-      "id": "02327f31-f982-468a-abc1-3cb0771b3434",
+      "id": "3af259bd-e7ae-4d7d-8d50-5d1d57664393",
       "name": "IF PDF?"
     },
     {
@@ -732,10 +732,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -222224,
-        -25280
+        -231120,
+        -24192
       ],
-      "id": "e4a901a0-3e85-42fa-9041-b51cfe23d50d",
+      "id": "dc373cac-716e-40e7-9397-99913ddb1ad9",
       "name": "Build PDF Context"
     },
     {
@@ -766,10 +766,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        -222720,
-        -24944
+        -231616,
+        -23856
       ],
-      "id": "bb9ebcca-22cb-4840-afe2-76957c1d03c0",
+      "id": "6bc7ee33-df42-4406-9974-6792e2ddf0db",
       "name": "IF DOCX?"
     },
     {
@@ -779,10 +779,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -222224,
-        -25104
+        -231120,
+        -24016
       ],
-      "id": "6b09b5a2-f326-4d7e-aeca-9f25c8f8f461",
+      "id": "40d9eed9-ae71-47f5-949b-464e395ee859",
       "name": "Build DOCX Context"
     },
     {
@@ -813,10 +813,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        -222496,
-        -24880
+        -231392,
+        -23792
       ],
-      "id": "a44baab8-c78d-40a4-b13d-3e16f31d18da",
+      "id": "621770aa-6d15-4a61-afc4-49a19f87cf7a",
       "name": "IF URL?"
     },
     {
@@ -833,10 +833,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        -222144,
-        -24928
+        -231040,
+        -23840
       ],
-      "id": "d2406661-d56c-4e73-a215-71081fdba799",
+      "id": "3cb2a524-d81c-4369-9b11-d04485330c5b",
       "name": "Fetch URL Content"
     },
     {
@@ -846,10 +846,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -221872,
-        -24928
+        -230768,
+        -23840
       ],
-      "id": "15aa44d1-055b-472e-8ab3-459091227312",
+      "id": "941e7a4e-ceeb-465b-9738-093b4914c987",
       "name": "Build URL Context"
     },
     {
@@ -880,10 +880,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        -222144,
-        -24736
+        -231040,
+        -23648
       ],
-      "id": "4662b172-18cc-45ae-8a49-b4c5c6da9812",
+      "id": "3ce9f569-e6f0-43bb-b2da-592280e74ce4",
       "name": "IF IMAGE?"
     },
     {
@@ -893,10 +893,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -221456,
-        -24816
+        -230352,
+        -23728
       ],
-      "id": "1f92c86e-80a5-43ce-9ccf-b003fe844100",
+      "id": "d03dcc75-43e5-4615-9984-e37c24e49650",
       "name": "Build Image Context"
     },
     {
@@ -906,10 +906,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -221504,
-        -24608
+        -230400,
+        -23520
       ],
-      "id": "3c0f0601-3544-49c6-a053-3fd103eede59",
+      "id": "26d3ec2f-6c94-4835-928d-1945f125929f",
       "name": "Build Direct Context"
     },
     {
@@ -917,10 +917,10 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
       "position": [
-        -221120,
-        -24976
+        -230016,
+        -23888
       ],
-      "id": "926a210e-ad11-4a85-bdce-145b4538be55",
+      "id": "95333e09-2903-4fcd-8114-a6ffb2a0c960",
       "name": "Merge Input Paths"
     },
     {
@@ -930,10 +930,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -223184,
-        -25024
+        -232080,
+        -23936
       ],
-      "id": "c6cb79a2-9424-476b-ab67-4e3051a4f2d7",
+      "id": "6c656f2e-3ee5-4cee-b78f-14b59cd9f935",
       "name": "Sanitize Input"
     },
     {
@@ -943,10 +943,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -221744,
-        -24752
+        -230640,
+        -23664
       ],
-      "id": "16653433-dbb8-4c40-8310-e953702361b2",
+      "id": "afdb2fd0-0f14-4c60-86e4-88cb82f73e5d",
       "name": "Extract Image Text"
     },
     {
@@ -954,10 +954,10 @@
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        -218704,
-        -24944
+        -227600,
+        -23856
       ],
-      "id": "d3787aa4-d9f1-4fc6-a974-620e5e3a3cc6",
+      "id": "9d0892c9-b973-4a41-96f4-ef96260edf95",
       "name": "Wait — Architect",
       "webhookId": "cec3f8f4-875b-49dc-b914-75736f9a7d50"
     },
@@ -968,10 +968,10 @@
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        -216544,
-        -24976
+        -225440,
+        -23888
       ],
-      "id": "109699af-0195-495b-97ac-f204a9bd7c17",
+      "id": "04da8090-ebe7-446f-ae53-bcd89c4dc091",
       "name": "Wait — Backend",
       "webhookId": "212796db-01d1-41b2-90a2-a26e450b8378"
     },
@@ -982,10 +982,10 @@
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        -216048,
-        -24976
+        -224944,
+        -23888
       ],
-      "id": "6933260e-e9cd-4ce2-9393-d09427089e06",
+      "id": "fc369dac-ab84-483e-94b8-28bc8cbf81f1",
       "name": "Wait — Frontend",
       "webhookId": "54a51a89-a4ca-4c1a-8f2e-23e88467ff8c"
     },
@@ -994,10 +994,10 @@
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        -214544,
-        -25392
+        -223440,
+        -24304
       ],
-      "id": "adbfe2b3-da04-4d82-b60a-730caf4aa38c",
+      "id": "fd6efe16-0a73-4acb-8f4c-490fa5cb6078",
       "name": "Wait — Code Review",
       "webhookId": "6a217d9a-46c6-4b83-9102-6879fdce8fa5"
     },
@@ -1006,10 +1006,10 @@
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        -214544,
-        -25232
+        -223440,
+        -24144
       ],
-      "id": "5b7df95d-dec1-4be2-b31e-6538053bb7ea",
+      "id": "26cde10a-625a-48f3-903f-7ab8f1c37679",
       "name": "Wait — QA",
       "webhookId": "a0950285-807b-45e6-8293-b00b65afe24c"
     },
@@ -1018,10 +1018,10 @@
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        -214544,
-        -25056
+        -223440,
+        -23968
       ],
-      "id": "eebf5b88-e736-4ed0-8b44-d8a21fb5b736",
+      "id": "52ae5698-dd0b-40c5-96a1-8ab005e3de78",
       "name": "Wait — SAST",
       "webhookId": "4b4d212c-5b31-4eae-aafb-e5c7789d0636"
     },
@@ -1032,10 +1032,10 @@
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        -211488,
-        -25376
+        -220384,
+        -24288
       ],
-      "id": "4b92a1ab-cf2c-410b-b7f4-10138cfed330",
+      "id": "af5bc8bc-912d-46d8-83d9-2ef6f9dfab70",
       "name": "Wait — Documentation",
       "webhookId": "e7f69f72-3982-4c90-ad0c-a63a331cc683"
     },
@@ -1046,10 +1046,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -222496,
-        -25040
+        -231392,
+        -23952
       ],
-      "id": "da99cf44-7eea-42e9-85f7-12aa01fdc6ea",
+      "id": "5e809fb0-c2aa-4137-aaa2-7c0a97da7a99",
       "name": "Extract DOCX Text"
     },
     {
@@ -1059,10 +1059,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -222720,
-        -25120
+        -231616,
+        -24032
       ],
-      "id": "7919ed6c-e327-4482-b3d4-a9820ef62939",
+      "id": "702401db-2d3a-4d4c-a331-7488a2cad77d",
       "name": "Extract PDF Text"
     },
     {
@@ -1072,10 +1072,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -217888,
-        -25344
+        -226784,
+        -24256
       ],
-      "id": "d69507f9-f322-48f6-93d3-91bbdeca2667",
+      "id": "62eec263-b939-424e-ac04-e96969de052a",
       "name": "Build ZIP Payload"
     },
     {
@@ -1093,10 +1093,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        -217728,
-        -25344
+        -226624,
+        -24256
       ],
-      "id": "ed70b170-eaf0-46da-b955-b49155776c23",
+      "id": "0476af1f-77cf-4bc4-82fe-b34dfe9893eb",
       "name": "Agent ZIP Analyzer"
     },
     {
@@ -1127,10 +1127,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        -218560,
-        -24960
+        -227456,
+        -23872
       ],
-      "id": "e1071c4e-e387-415f-9d74-afa8ddee1a8b",
+      "id": "473ab1ff-c676-42f3-91ac-0e068d6dd97d",
       "name": "If — Improve Mode ?"
     },
     {
@@ -1140,10 +1140,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -217536,
-        -25344
+        -226432,
+        -24256
       ],
-      "id": "5e64ff23-1d13-490d-8059-9dbc1bee0791",
+      "id": "53194ba3-08ca-4cd9-a43b-350bf40eb2ef",
       "name": "Build VM Payload"
     },
     {
@@ -1161,23 +1161,23 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        -217344,
-        -25344
+        -226240,
+        -24256
       ],
-      "id": "017962d7-019d-4d62-ba3f-3579016db4d7",
+      "id": "fef7c515-aa7a-4a48-a57c-0e352cfd7657",
       "name": "Agent Version Manager"
     },
     {
       "parameters": {
         "jsCode": "const initial = $('Validate Input').first().json;\nreturn [{\n  json: {\n    task_id:     initial.task_id,\n    // specs_context = toujours le PDF complet, même en mode amélioration\n    userRequest: initial.specs_context || initial.userRequest\n  }\n}];"
       },
-      "id": "b939ee17-bba0-4969-8c1c-9231b41cc6b9",
+      "id": "e9fc3560-9386-421d-a96a-899a31fd51bb",
       "name": "Build Spec Linter Payload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -220464,
-        -24960
+        -229360,
+        -23872
       ]
     },
     {
@@ -1190,13 +1190,13 @@
         "body": "=={{ JSON.stringify({task_id: $json.task_id, userRequest: $json.userRequest}) }}",
         "options": {}
       },
-      "id": "b2aa1797-8728-47eb-96bc-3ad1e26138d5",
+      "id": "3daa8599-76cc-4aa3-94b6-9fa05f505184",
       "name": "Agent Spec Linter",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
       "position": [
-        -220336,
-        -24960
+        -229232,
+        -23872
       ]
     },
     {
@@ -1224,26 +1224,26 @@
         },
         "options": {}
       },
-      "id": "1b5d6b49-6ec7-4b3e-963f-48389ce5d83a",
+      "id": "bf379e94-c7e1-40c4-b583-92d0e8b4300f",
       "name": "IF LINTER PASS?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        -220128,
-        -24960
+        -229024,
+        -23872
       ]
     },
     {
       "parameters": {
         "jsCode": "const initial = $('Validate Input').first().json;\nconst linter  = $input.first().json;\nreturn [{\n  json: {\n    success:       false,\n    pipeline:      'SDLC Multi-Agent',\n    task_id:       initial.task_id,\n    stage:         'SPEC_LINTER',\n    decision:      'BLOCKED',\n    linter_status: linter.linter_status,\n    errors:        linter.errors   || [],\n    warnings:      linter.warnings || [],\n    summary:       linter.summary  || 'Spec invalide — pipeline bloque',\n    message:       'Pipeline arrete avant l Architect. Corrigez les erreurs et relancez.',\n    checked_at:    linter.checked_at || new Date().toISOString()\n  }\n}];"
       },
-      "id": "cbd4a43a-9349-4f9c-8359-f5dcd90ee4d3",
+      "id": "fb56a001-cab8-452b-8247-37752663166e",
       "name": "Respond Linter Error",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -219808,
-        -24880
+        -228704,
+        -23792
       ]
     },
     {
@@ -1252,26 +1252,26 @@
         "responseBody": "={{ $json }}",
         "options": {}
       },
-      "id": "fbf11bfb-b8e8-41a4-a0b6-25f9d45d22aa",
+      "id": "dfee76d6-0602-4fa7-9c23-c567798ed820",
       "name": "Respond Linter Webhook",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        -219584,
-        -24880
+        -228480,
+        -23792
       ]
     },
     {
       "parameters": {
         "jsCode": "const initial  = $('Validate Input').first().json;\nconst backend  = $('Agent Backend').first().json;\nconst frontend = $('Agent Frontend').first().json;\nreturn [{\n  json: {\n    task_id:   initial.task_id,\n    language:  initial.language,\n    framework: initial.framework,\n    files: [\n      ...(backend.files  || []),\n      ...(frontend.files || [])\n    ]\n  }\n}];"
       },
-      "id": "1b86de51-85d7-4300-bf44-108c54adfb28",
+      "id": "a54a91ef-c7b4-494a-b5d1-add8cfd30ec2",
       "name": "Build Tests L0 Payload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -215744,
-        -24976
+        -224640,
+        -23888
       ]
     },
     {
@@ -1284,13 +1284,13 @@
         "body": "=={{ JSON.stringify({task_id: $json.task_id, language: $json.language, framework: $json.framework, files: $json.files}) }}",
         "options": {}
       },
-      "id": "ec38fa23-9581-4efd-accf-8e715e6d1021",
+      "id": "de7dba2d-0bad-4b91-b85c-210240cc9219",
       "name": "Agent Tests L0",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
       "position": [
-        -215568,
-        -24976
+        -224464,
+        -23888
       ]
     },
     {
@@ -1318,26 +1318,26 @@
         },
         "options": {}
       },
-      "id": "939048dc-d644-4504-a9f6-ec4bc8c84fae",
+      "id": "7ae94f3a-aafc-45b6-ac62-98cc440db76c",
       "name": "IF TESTS L0 PASS?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        -215392,
-        -24960
+        -224288,
+        -23872
       ]
     },
     {
       "parameters": {
         "jsCode": "const initial = $('Validate Input').first().json;\nconst testsL0 = $input.first().json;\nreturn [{\n  json: {\n    success:         false,\n    pipeline:        'SDLC Multi-Agent',\n    task_id:         initial.task_id,\n    stage:           'TESTS_L0',\n    decision:        'BLOCKED',\n    tests_l0_status: testsL0.tests_l0_status,\n    results:         testsL0.results  || [],\n    summary:         testsL0.summary  || 'Tests L0 echoues — pipeline bloque',\n    message:         'Le code genere ne passe pas les tests statiques. Pipeline arrete avant Code Review/QA/SAST.',\n    checked_at:      testsL0.checked_at || new Date().toISOString()\n  }\n}];"
       },
-      "id": "6c190be2-fa7a-4a13-91fa-fd9cd5dfb9bd",
+      "id": "21f4aa74-3900-474d-ad94-d5856e494eab",
       "name": "Respond Tests L0 Error",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -214656,
-        -24656
+        -223552,
+        -23568
       ]
     },
     {
@@ -1346,39 +1346,39 @@
         "responseBody": "={{ $json }}",
         "options": {}
       },
-      "id": "58a9f79a-7128-46c7-b28c-8cae9c920672",
+      "id": "e87acf6b-517e-436b-b6b5-86655e7aa0f6",
       "name": "Respond Tests L0 Webhook",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        -214464,
-        -24656
+        -223360,
+        -23568
       ]
     },
     {
       "parameters": {
         "jsCode": "const initial = $('Validate Input').first().json;\nif (initial.improve_mode) {\n  return [{ json: { task_id: initial.task_id, normalized: false,\n    normalized_userRequest: initial.specs_context || initial.userRequest,\n    structured_context: '', language: initial.language || 'javascript',\n    framework: initial.framework || 'express', _skipped: 'improve_mode' } }];\n}\nreturn [{ json: { task_id: initial.task_id,\n  userRequest: initial.specs_context || initial.userRequest,\n  language: initial.language || 'javascript', framework: initial.framework || 'express' } }];"
       },
-      "id": "af6b9038-8356-45c0-a2d9-42c4a47aebc9",
+      "id": "24b427ae-133c-41b1-b295-29855f568924",
       "name": "Build Spec Normalizer Payload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -219792,
-        -25232
+        -228688,
+        -24144
       ]
     },
     {
       "parameters": {
         "jsCode": "const normData = $input.first().json;\nconst initial  = $('Validate Input').first().json;\nconst sc = (normData.structured_context && normData.structured_context.length > 20)\n  ? normData.structured_context : '';\n\n// ── Construire les artifacts déterministes depuis structured_context ──────────\n// Ces données sont les INVARIANTS — le LLM ne peut pas les modifier\nlet deterministicArtifacts = null;\nif (sc && !initial.improve_mode) {\n  try {\n    const norm = JSON.parse(sc);\n    if (norm && Array.isArray(norm.resources) && norm.resources.length > 0) {\n      // Nom technique du Spec Normalizer (ex: \"diaspokoli-marketplace\")\n      const rawPn = norm.project_name || 'Application';\n      // Essayer d'extraire le vrai nom d'affichage :\n      // 1. display_name du Normalizer V1.1 (déjà nettoyé)\n      // 2. Première ligne de specs_context si c'est un nom court propre\n      let pn = normData.display_name || rawPn;\n      try {\n        const specsText = initial.specs_context || initial.userRequest || '';\n        const firstLines = specsText.split('\\n').map(l => l.trim()).filter(l => l.length > 1);\n        const firstLine  = firstLines[0] || '';\n        const firstWords = firstLine.split(/\\s+/);\n        const lastWord   = (firstWords[firstWords.length - 1] || '').toLowerCase();\n        const PREP_FR    = ['de','du','la','le','les','et','ou','pour','avec','sur','par','web','une','un'];\n        const isCleanName = firstLine.length < 25\n          && /^[A-ZÀ-Ü]/.test(firstLine)\n          && !/[:|=\\t]/.test(firstLine)\n          && firstWords.length <= 2\n          && !PREP_FR.includes(lastWord);\n        if (isCleanName) pn = firstLine;\n      } catch(e) {}\n      const endpoints = [{ method: 'GET', path: '/health', description: 'health check' }];\n      (norm.routes || []).filter(r => r.path !== '/health').slice(0, 6).forEach(r => {\n        endpoints.push({ method: r.method, path: r.path, description: r.description || (r.method + ' ' + r.path) });\n      });\n      const dataModel = {};\n      const stores    = {};\n      (norm.resources || []).forEach(res => {\n        const fields = Object.assign({ id: 'number', created_at: 'string' }, res.fields || {});\n        dataModel[res.name] = fields;\n        stores[res.name]    = {\n          store_name:     res.name_plural || (res.name + 's'),\n          required_fields: (res.required_fields || []).filter(f => !['id','created_at'].includes(f))\n        };\n      });\n      deterministicArtifacts = { project_name: pn, priority_endpoints: endpoints,\n        data_model: dataModel, stores: stores };\n    }\n  } catch(e) {}\n}\n\n// ── Toujours envoyer au LLM Architect (même si structured_context valide) ────\n// Le LLM enrichit : mvp_scope, deferred, abuse_cases, architecture\n// Les invariants (endpoints, stores, data_model) sont protégés par Build Backend Payload\nconst userRequest = (normData.normalized_userRequest && normData.normalized_userRequest.length > 20)\n  ? normData.normalized_userRequest\n  : (initial.specs_context || initial.userRequest);\n\nreturn [{ json: {\n  _deterministic_architect:  false,  // toujours LLM\n  _deterministic_artifacts:  deterministicArtifacts,  // invariants pour Build Backend\n  task_id:           initial.task_id,\n  userRequest:       userRequest,\n  structured_context: sc,\n  specs_context:     initial.specs_context || initial.userRequest,\n  project_name:      normData.project_name || '',\n  language:          initial.language    || 'javascript',\n  framework:         initial.framework   || 'express',\n  environment:       initial.environment || 'staging',\n  improve_mode:      initial.improve_mode || false,\n  improve_prompt:    initial.improve_mode ? (initial.improve_prompt || initial.userRequest) : '',\n  existing_routes:   initial.existing_routes  || [],\n  existing_stores:   initial.existing_stores  || {},\n  existing_version:  initial.existing_version || '1.0',\n  next_version:      initial.next_version     || '1.1',\n  changelog_context: initial.changelog_context || '',\n  backend_instructions:  initial.backend_instructions  || [],\n  frontend_instructions: initial.frontend_instructions || []\n}}];"
       },
-      "id": "52ad681c-8740-43c5-b24a-60f062bee2ad",
+      "id": "8acf3770-45d6-4fb6-9a15-93e24948b6a3",
       "name": "Build Architect Payload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -219440,
-        -25232
+        -228336,
+        -24144
       ]
     },
     {
@@ -1391,13 +1391,13 @@
         "body": "={{ JSON.stringify({task_id: $json.task_id, userRequest: $json.userRequest, language: $json.language, framework: $json.framework}) }}",
         "options": {}
       },
-      "id": "828869bc-5b30-46b0-a66a-c58836d9cc64",
+      "id": "eb481170-3930-42b3-93e6-fc96b9ffd400",
       "name": "Agent Spec Normalizer",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
       "position": [
-        -219632,
-        -25232
+        -228528,
+        -24144
       ]
     },
     {
@@ -1425,13 +1425,13 @@
         },
         "options": {}
       },
-      "id": "0f178acd-1439-4b6f-b58b-168bfc2df529",
+      "id": "b21da51b-f161-4425-9871-a1765e112ba4",
       "name": "IF Deterministic Architect?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        -219248,
-        -25232
+        -228144,
+        -24144
       ]
     }
   ],
@@ -2403,7 +2403,7 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "3fb65c05-6bbe-423e-8f35-da41b492d2d2",
+  "versionId": "25e7bf07-9e6b-4040-a0ae-b5794fce7955",
   "meta": {
     "instanceId": "c77e41168b0abc4c9e72e3dfa70fb293d0acb289b40b847421933eadc146e082"
   },
