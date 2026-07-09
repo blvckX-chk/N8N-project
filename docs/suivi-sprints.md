@@ -301,3 +301,33 @@ Améliorations d'ergonomie et d'autonomie utilisateur (100 % panneau de contrôl
 |---|---|
 | Skip PASS plutôt que FAIL en production | Ne pas exécuter de DAST sur la prod est la bonne pratique ; bloquer le pipeline serait un faux négatif. La note `dast_skipped` garde la traçabilité. |
 | Corriger le `throw` plutôt que retirer le garde | Le garde reste utile (empêche tout test intrusif prod), mais doit répondre proprement, pas crasher. |
+
+---
+
+## Sprint sécurité S-B — Durcissement des apps générées (livré)
+
+**Artefacts** : Agent Frontend V6.2, Agent Backend V6.3.
+
+**Défaut corrigé** : les apps générées désactivaient la CSP (`helmet({ contentSecurityPolicy: false })`) → aucune défense XSS (OWASP A03).
+
+**Changements** :
+- **Backend (`Inject Prompt`)** : CSP stricte via helmet — `default-src 'self'`, **`script-src 'self'`** (aucun inline), `style-src 'self' 'unsafe-inline'`, `object-src 'none'`, `base-uri 'self'`, `frame-ancestors 'none'`, `form-action 'self'`, `img-src 'self' data:` + `Referrer-Policy: no-referrer`, HSTS, `X-Content-Type-Options`, `X-Frame-Options` (défauts helmet). Route dédiée `GET /login.html` qui sert la page avec une **CSP par nonce** (nonce cryptographique régénéré à chaque requête, injecté dans le `<script>`), placée avant `express.static`.
+- **Frontend (`Build Payload`)** : suppression de **tout le JS inline** de l'app principale (handlers `onclick` refresh/logout/suppression, `onsubmit="return false;"`) remplacé par de la **délégation d'événements** (`data-refresh` / `data-del` + `data-id` / `#btn-logout`) dans `app.js`. L'app respecte donc `script-src 'self'` sans `unsafe-inline`.
+
+**Preuves (génération réelle CrimeStopper via harness + runtime helmet)** :
+```
+/            -> Content-Security-Policy: ... script-src 'self' ...  + HSTS, nosniff, X-Frame-Options, no-referrer
+/login.html  -> script-src 'nonce-u05niBi79mCHBMAiewBfeA=='   (req 1)
+/login.html  -> script-src 'nonce-KbFD49zl0oUTzlD7bJbf3g=='   (req 2, nonce different)
+login.html   -> <script nonce="TgqqGPHHZ/NEXQEcp7iwLg==">   (nonce injecte dans la balise)
+index.html   -> 0 onclick, 0 onsubmit, 3 data-refresh, 1 #btn-logout
+app.js       -> 0 onclick, delegation presente ; node --check OK
+server.js    -> node --check OK
+```
+
+| Décision | Arbitrage |
+|---|---|
+| `script-src 'self'` (pas `unsafe-inline`) | Vraie défense XSS ; impose de retirer le JS inline — fait via délégation |
+| `style-src` garde `'unsafe-inline'` | Les styles inline (attributs `style=`, `<style>` de login) sont à faible risque ; les retirer tous serait coûteux pour un gain marginal. Documenté. |
+| login.html en **nonce** plutôt qu'externalisé | Page servie statiquement ; le nonce par requête donne une CSP stricte sans toucher l'assemblage des fichiers (moins de surface de régression) |
+| Route login avant `express.static` | Sinon le fichier statique serait servi en premier et la CSP par nonce ignorée |
