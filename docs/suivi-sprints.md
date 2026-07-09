@@ -244,3 +244,21 @@ aucun probleme               -> status PASS
 |---|---|---|
 | Source des ressources | Handlers POST de server.js (repli) | Extraction fiable ; l'ancien `existing_stores` visait le backend en mémoire, obsolète avec SQLite |
 | Format de sortie | Identique à `/api/_meta` | Les 2 chemins d'introspection (statique ZIP + runtime) convergent → base cohérente pour le mode différentiel (Sprint 5) |
+
+### Défaut corrigé — propagation du ZIP en mode amélioration (Orchestrateur V5.8 → V5.9)
+
+**Symptôme** : en mode « Améliorer » (spec PDF + ZIP existant), le ZIP Analyzer renvoyait toujours la branche « pas de ZIP » (`improve_mode:false`, `files_found:[]`, pas de `current_state`), alors que le ZIP était bien envoyé par le frontend.
+
+**Diagnostic** (par inspection des sorties de nœuds sur une exécution réelle) :
+- Sortie `Webhook` : `existing_zip_base64` **présent** (77 Ko).
+- Sortie `Validate Input` : `existing_zip_base64` = **null**, mais `specs_context` rempli.
+- Cause racine : les nœuds `Detect Input` puis `Build PDF Context` **reconstruisent un objet allégé** (texte de specs extrait) qui **omet** les gros payloads binaires. `Validate Input` lit cet objet → le ZIP est déjà perdu → l'`IF Improve Mode ?` route bien (car `improve_mode` survit) mais `Build ZIP Payload` retombe sur sa branche « génération normale » faute de `existing_zip_base64`.
+
+**Correctif** : `Validate Input` relit désormais les payloads binaires (`existing_zip_base64`, `existing_zip_filename`, `pdf_base64`) **directement depuis le nœud `Webhook`** (source de vérité du run) — même idiome que `Extract PDF Text` (`$('Webhook').first().json.body`). Correctif à point unique, robuste vis-à-vis de la chaîne d'extraction.
+
+**Preuve** : simulation de la chaîne (`Validate Input` → `Build ZIP Payload`) avec les formes de données réelles → `existing_zip_base64` transmis, `improve_mode:true`, ZIP relayé à l'analyzer. Vérification runtime attendue côté n8n : sortie `Analyze ZIP` avec `improve_mode:true`, `files_found` non vide et `current_state` peuplé.
+
+| Décision | Arbitrage |
+|---|---|
+| Relire depuis `Webhook` plutôt que réparer `Detect Input`/`Build *Context` | Point unique, ne dépend pas des branches d'extraction (PDF/DOCX/image), cohérent avec le pattern existant |
+| Ne pas propager le ZIP dans toute la chaîne | Évite de trimballer 77 Ko+ de base64 à travers tous les nœuds intermédiaires ; seul le consommateur (`Validate Input`) le relit à la demande |
