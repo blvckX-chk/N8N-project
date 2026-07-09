@@ -658,7 +658,28 @@ function renderResult(data,elapsed){
   document.getElementById('result-content').innerHTML=`<div class="result-header"><span class="badge ${bClass}">${bLabel}</span><span class="result-meta">${elapsed}s · ${esc(data.task_id||'—')}</span></div><div class="result-card"><strong>Résumé</strong><div style="font-size:12px;line-height:1.6">${esc(data.summary||'—')}</div></div>${blockHtml}${filesHtml}<button class="raw-toggle" onclick="document.getElementById('raw-out').classList.toggle('visible')">{ } JSON brut</button><pre class="raw" id="raw-out">${esc(JSON.stringify(data,null,2))}</pre>`;
   if(files.length)showFile(0);
 }
-function renderError(msg){document.getElementById('result-empty').style.display='none';document.getElementById('result-content').style.display='block';document.getElementById('result-content').innerHTML=`<div class="result-header"><span class="badge error">✗ ERREUR</span></div><div class="error-box">${esc(msg)}</div>`;}
+// Diagnostic client : erreurs purement front (formulaire, reseau local, timeout)
+function diagnoseClient(msg){
+  var s=String(msg||'').toLowerCase();
+  var R=[
+    {m:/(veuillez|fournis|décris|decris|manquante|sélectionner|selectionner|entrer une description)/,cause:"Entrée incomplète dans le formulaire.",fix:"Complète le champ signalé (description, fichier de specs, ou les 3 champs du mode Améliorer) puis relance."},
+    {m:/(failed to fetch|networkerror|load failed|err_connection)/,cause:"Le panneau n'a pas pu joindre son propre serveur /api.",fix:"Vérifie que le service ForgeIA tourne, puis recharge la page (Ctrl+Shift+R)."},
+    {m:/(delai depasse|délai|timeout)/,cause:"Aucune réponse du pipeline dans le temps imparti (7 min).",fix:"Le traitement continue peut-être côté n8n : ouvre l'Historique dans 1-2 min, ou regarde la dernière exécution dans n8n."}
+  ];
+  var h=R.find(function(x){return x.m.test(s);});
+  return h?{cause:h.cause,fix:h.fix}:null;
+}
+function renderError(msg, extra){
+  extra = extra || diagnoseClient(msg) || {};
+  document.getElementById('result-empty').style.display='none';
+  document.getElementById('result-content').style.display='block';
+  var html='<div class="result-header"><span class="badge error">✗ ERREUR</span>'+(extra.status?'<span class="result-meta">HTTP '+esc(extra.status)+'</span>':'')+(extra.elapsed_ms?'<span class="result-meta">'+(extra.elapsed_ms/1000).toFixed(1)+'s</span>':'')+'</div>';
+  html+='<div class="error-box">'+esc(msg)+'</div>';
+  if(extra.cause){html+='<div class="result-card" style="border-color:var(--warning)"><strong style="color:var(--warning)">⚠️ Cause probable</strong><div style="font-size:12px;line-height:1.65">'+esc(extra.cause)+'</div></div>';}
+  if(extra.fix){html+='<div class="result-card" style="border-color:var(--success)"><strong style="color:var(--success)">💡 Solution suggérée</strong><div style="font-size:12px;line-height:1.65">'+esc(extra.fix)+'</div></div>';}
+  if(extra.detail){html+='<button class="raw-toggle" onclick="document.getElementById(\'err-detail\').classList.toggle(\'visible\')">{ } Détails techniques</button><pre class="raw" id="err-detail">'+esc(extra.detail)+'</pre>';}
+  document.getElementById('result-content').innerHTML=html;
+}
 
 // ── Run ────────────────────────────────────────────────────────────────────
 async function runPipeline(){
@@ -687,7 +708,7 @@ async function runPipeline(){
       try{
         const pr=await fetch('/api/result/'+taskId);
         const pd=await pr.json();
-        if(pd.error)throw new Error(pd.error);
+        if(pd.error){finishSteps(false);renderError(pd.error,{cause:pd.cause,fix:pd.fix,detail:pd.detail,status:pd.status,elapsed_ms:pd.elapsed_ms});return;}
         if(!pd.pending&&pd.data){
           const elapsed=((Date.now()-start)/1000).toFixed(1);
           finishSteps(pd.data.success);

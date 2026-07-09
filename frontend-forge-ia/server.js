@@ -30,12 +30,51 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Stockage en mémoire des résultats en attente
 const pendingResults = {};
 
+// ── Diagnostic : associe une signature d'erreur à une cause + solution ────
+// Objectif : donner le maximum de contexte pour debugger sans ouvrir n8n a l aveugle.
+function diagnose(sig) {
+  const s = String(sig || '').toLowerCase();
+  const R = [
+    { m: /(reponse vide|réponse vide|empty|respond final|invalid json in response body|non-json|unexpected end)/,
+      cause: "Un agent du pipeline s'est arrete en erreur (souvent un throw dans un noeud Code) : l'execution n'a jamais atteint le noeud Respond Final, donc n8n a renvoye un corps vide/non-JSON.",
+      fix: "Ouvre n8n → Executions → la derniere execution en rouge → repere le noeud fautif (surligne) et lis son message. Coupables frequents : DAST (env production), QA, ou un noeud Validate Input qui throw. Corrige le noeud pour qu'il RENVOIE un JSON d'erreur au lieu de throw." },
+    { m: /(econnrefused|connect|fetch failed|network|enotfound|socket hang up|getaddrinfo)/,
+      cause: "Impossible de joindre un service : n8n (webhook), l'extracteur PDF (3002) ou le service de deploiement (4001) ne repond pas.",
+      fix: "Verifie que les conteneurs tournent sur le VPS (docker ps) et que N8N_URL/DEPLOY_URL pointent vers les bons ports. Teste le webhook a la main (curl)." },
+    { m: /(etimedout|timeout|delai depasse|délai)/,
+      cause: "Le pipeline a depasse le delai : soit un agent LLM est lent, soit un noeud est bloque en boucle.",
+      fix: "Regarde si l'execution est encore 'running' dans n8n. Si un agent LLM rame, c'est la latence Mistral ; relance. Si un noeud est bloque, ouvre l'execution pour voir lequel." },
+    { m: /(credential|unauthorized|401|forbidden|403|api key|apikey)/,
+      cause: "Un appel LLM a ete refuse : credential Mistral non selectionne sur le noeud HTTP, ou cle invalide/expiree.",
+      fix: "Ouvre le noeud HTTP LLM concerne dans n8n et re-selectionne le credential (MISTRAL_API_KEY / MISTRAL_API_KEY_2). Verifie que la cle est valide." },
+    { m: /(task_id requis|task_id|validation|invalide|required)/,
+      cause: "Charge utile mal formee a l'entree du pipeline (champ requis manquant).",
+      fix: "Verifie la source d'entree (specs presentes ? ZIP fourni en mode Ameliorer ?). Regarde le noeud Validate Input dans l'orchestrateur." },
+    { m: /(rate|429|too many)/,
+      cause: "Limite de debit atteinte (rate-limit) cote LLM ou service.",
+      fix: "Attends quelques minutes puis relance. Le failover Mistral (2e cle) devrait absorber une partie des refus." }
+  ];
+  const hit = R.find(x => x.m.test(s));
+  return hit ? { cause: hit.cause, fix: hit.fix } : {
+    cause: "Erreur non categorisee.",
+    fix: "Ouvre n8n → Executions → derniere execution en rouge pour lire le noeud et le message exacts." };
+}
+
 // ── Pipeline asynchrone : lance + stocke le résultat ──────────────────────
 app.post('/api/pipeline', async (req, res) => {
   const taskId = req.body.task_id || ('TASK-' + Date.now());
   // Répondre immédiatement avec le task_id
   res.json({ pending: true, task_id: taskId });
   // Lancer la requête n8n en arrière-plan
+  const _t0 = Date.now();
+  const store = (error, detail, status) => {
+    const d = diagnose(error + ' ' + (detail || ''));
+    pendingResults[taskId] = {
+      error, detail: detail || null, status: status || null,
+      cause: d.cause, fix: d.fix,
+      elapsed_ms: Date.now() - _t0, ts: Date.now()
+    };
+  };
   try {
     const r = await nodeFetch(N8N_URL, {
       method: 'POST',
@@ -45,16 +84,21 @@ app.post('/api/pipeline', async (req, res) => {
     });
     const text = await r.text();
     if (!text || !text.trim()) {
-      pendingResults[taskId] = { error: 'n8n a retourné une réponse vide. Vérifier le noeud Respond Final dans l orchestrateur.', ts: Date.now() };
+      store('n8n a retourne une reponse vide (HTTP ' + r.status + ').',
+            'Le webhook a repondu sans corps. Cela arrive quand un agent throw avant le noeud Respond Final.', r.status);
       return;
     }
     let data;
     try { data = JSON.parse(text); }
-    catch(pe) { pendingResults[taskId] = { error: 'Réponse non-JSON: ' + text.substring(0,300), ts: Date.now() }; return; }
+    catch(pe) {
+      store('Reponse non-JSON de n8n (HTTP ' + r.status + ').',
+            'Extrait brut : ' + text.substring(0, 500), r.status);
+      return;
+    }
     pendingResults[taskId] = { data, ts: Date.now() };
     setTimeout(() => { delete pendingResults[taskId]; }, 600000);
   } catch(e) {
-    pendingResults[taskId] = { error: e.message, ts: Date.now() };
+    store('Echec de l appel au pipeline n8n : ' + e.message, (e && e.code) ? ('code=' + e.code) : null, null);
   }
 });
 
@@ -62,7 +106,10 @@ app.post('/api/pipeline', async (req, res) => {
 app.get('/api/result/:taskId', (req, res) => {
   const result = pendingResults[req.params.taskId];
   if (!result) return res.json({ pending: true });
-  if (result.error) return res.json({ error: result.error });
+  if (result.error) return res.json({
+    error: result.error, detail: result.detail || null, status: result.status || null,
+    cause: result.cause || null, fix: result.fix || null, elapsed_ms: result.elapsed_ms || null
+  });
   res.json({ pending: false, data: result.data });
 });
 
