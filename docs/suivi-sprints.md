@@ -331,3 +331,42 @@ server.js    -> node --check OK
 | `style-src` garde `'unsafe-inline'` | Les styles inline (attributs `style=`, `<style>` de login) sont à faible risque ; les retirer tous serait coûteux pour un gain marginal. Documenté. |
 | login.html en **nonce** plutôt qu'externalisé | Page servie statiquement ; le nonce par requête donne une CSP stricte sans toucher l'assemblage des fichiers (moins de surface de régression) |
 | Route login avant `express.static` | Sinon le fichier statique serait servi en premier et la CSP par nonce ignorée |
+
+---
+
+## Sprint sécurité S-C — Attestation OWASP/ASVS + DAST réel (livré)
+
+**Artefacts** : Agent Backend V6.4 (SECURITY.md), Agent DAST V1.2 (analyse du vrai code), Orchestrateur V6.2 (wiring server.js → DAST).
+
+**1. Attestation `SECURITY.md`** (Backend `Parse Files`, déterministe) : chaque app générée embarque un rapport mappant ses contrôles réels sur **OWASP Top 10 2021** + **ASVS 4.0**. L'analyse est faite **sur le code généré** (regex sur `server.js`), pas sur des hypothèses — donc l'attestation reflète l'app réelle.
+
+**2. DAST réel** : l'agent DAST n'est plus « simulé » (mot-clé `simulate`). L'Orchestrateur (`Build DAST Payload`) lui transmet le `server.js` généré (`$('Agent Backend').json.files`), et `DAST Normalize & Scoring` inspecte 10 contrôles concrets, chacun mappé OWASP :
+
+**Preuve (2 apps réelles passées au nœud DAST)** :
+```
+HARDENED (S-B)  -> status PASS,  score 100, 0 finding
+VULNERABLE      -> status FAIL,  score 14
+   CRITIQUES : A01 authMiddleware absent, A01 isolation user_id absente,
+               A03 SQL non parametree, A05 CSP desactivee, A07 cookie sans HttpOnly,
+               A02 secret JWT en dur
+   WARNINGS  : A07 SameSite, A07 rate-limit, A03 validation
+```
+
+| Décision | Arbitrage |
+|---|---|
+| DAST par analyse du code plutôt que live HTTP | La DAST tourne comme gate AVANT déploiement ; analyser le server.js généré donne un verdict réel sans dépendre d'une URL déployée |
+| Attestation basée sur regex du code réel | Reflète l'app effectivement générée (pas un template figé) ; traçable |
+
+## Sprint sécurité S-D — Sécurité du pipeline (OWASP LLM Top 10 2025) (livré)
+
+**Artefact** : Orchestrateur V6.2 (`Sanitize Input` durci).
+
+Renforcement de la défense **anti-prompt-injection** (OWASP LLM01) : patterns élargis (override d'instructions, changement de rôle/DAN, exfiltration de prompt/clé/secret, accès `process.env`/`require`/`child_process`, délimiteurs de prompt, jailbreak). L'entrée suspecte est **rejetée avant tout appel LLM**.
+
+**Preuve (unitaire sur la fonction)** :
+```
+Attaques    : 6/6 REJETE  (ignore previous instructions, disregard/print api key,
+              DAN, new system prompt, process.env.MISTRAL_API_KEY, --- END OF SYSTEM PROMPT ---)
+Legitimes   : 3/3 ACCEPTE (specs signalements / covoiturage / liste deroulante)
+```
+→ Zéro faux positif sur des specs métier réelles.
