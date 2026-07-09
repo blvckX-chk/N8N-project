@@ -262,3 +262,27 @@ aucun probleme               -> status PASS
 |---|---|
 | Relire depuis `Webhook` plutôt que réparer `Detect Input`/`Build *Context` | Point unique, ne dépend pas des branches d'extraction (PDF/DOCX/image), cohérent avec le pattern existant |
 | Ne pas propager le ZIP dans toute la chaîne | Évite de trimballer 77 Ko+ de base64 à travers tous les nœuds intermédiaires ; seul le consommateur (`Validate Input`) le relit à la demande |
+
+---
+
+## Sprint 4 — validé en production ✅
+
+Run réel en mode « Améliorer » (CrimeStopper v1.0, après correctif Orchestrateur) : sortie `Analyze ZIP` avec `improve_mode:true`, `files_found:[server.js, app.js, index.html, README.md, package.json]` et **`current_state` peuplé** (3 ressources `signalement`/`intervention`/`typologie` avec `required_fields`, 15 routes, `schema_version:1`). L'introspection statique est opérationnelle → matière première du mode différentiel (Sprint 5).
+
+## UX / socle produit — panneau ForgeIA (frontend v5.0.0)
+
+Améliorations d'ergonomie et d'autonomie utilisateur (100 % panneau de contrôle, hors apps générées) :
+
+| Changement | Détail |
+|---|---|
+| `Environnement` rendu **fonctionnel** | `staging`/`production` propagé de l'UI → Orchestrateur (`Build Backend Payload`) → agent Backend (`Validate Specs` → `Parse Files`) → **`NODE_ENV` du `.env` généré**. `production` ⇒ cookies de session `secure:true`. |
+| `Langage` / `Framework` | Options conservées mais **JavaScript/Express seuls actifs** ; Python/TypeScript/FastAPI/NestJS marqués « (à venir) » (désactivés). Honnêteté sur le périmètre réel (générateurs déterministes mono-stack). |
+| Entrées **Image** et **URL** retirées | Sources « best-effort » bruitées ; on garde Texte / PDF / DOCX / Améliorer (specs structurées = génération fiable). |
+| Launcher **générique** retiré | Doublon inutile ; seul le launcher **spécifique par ZIP** (`/api/specific-launcher`) est conservé. |
+| Aide & refonte visuelle | Bannière d'accueil « comment ça marche » (3 étapes), texte d'aide par onglet, tooltips (environnement/langage/framework, boutons ZIP/Launcher), refonte SaaS moderne (palette dégradée, animations CSS, illustration SVG). |
+| Pas de bouton « Stop » | Décision assumée : un stop « doux » (abandon UI seul) laisserait le pipeline consommer des tokens côté serveur ; un stop « dur » exigerait clé API n8n + suivi d'`execution id`. Reporté. |
+
+## Roadmap — extensions de génération (au-delà du socle web)
+
+- **Générateurs multi-stack** : Python/FastAPI, TypeScript/NestJS. Nécessite de nouveaux générateurs déterministes par stack (agents Backend/Frontend/Architect dédiés). Plusieurs sprints.
+- **Générateur de client mobile** (React Native / Flutter, type Yango / Gozem / UberEats) : produit une UI mobile **en consommant `/api/_meta` + `current_state`** (l'introspection déjà validée aux Sprints 3–4 est précisément la fondation requise). Jalons intermédiaires côté backend : géolocalisation, temps réel (WebSocket), paiement.
