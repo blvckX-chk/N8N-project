@@ -286,3 +286,18 @@ Améliorations d'ergonomie et d'autonomie utilisateur (100 % panneau de contrôl
 
 - **Générateurs multi-stack** : Python/FastAPI, TypeScript/NestJS. Nécessite de nouveaux générateurs déterministes par stack (agents Backend/Frontend/Architect dédiés). Plusieurs sprints.
 - **Générateur de client mobile** (React Native / Flutter, type Yango / Gozem / UberEats) : produit une UI mobile **en consommant `/api/_meta` + `current_state`** (l'introspection déjà validée aux Sprints 3–4 est précisément la fondation requise). Jalons intermédiaires côté backend : géolocalisation, temps réel (WebSocket), paiement.
+
+### Défaut corrigé — DAST crashait le pipeline en `production` (Agent DAST → V1.1)
+
+**Symptôme** : run en environnement `production` bloqué à l'agent DAST ; nœud HTTP `Agent DAST` de l'Orchestrateur en erreur `Invalid JSON in response body`, puis frontend « n8n a retourné une réponse vide ».
+
+**Cause racine** : `Validate Input` (DAST) faisait un `throw` dur si `environment === 'production'`. Un `throw` dans un nœud Code fait renvoyer au webhook une réponse d'erreur non-JSON → le nœud HTTP appelant échoue → le pipeline s'arrête avant `Respond Final`. Défaut **latent** exposé par le Sprint « environment réel » : `environment` traverse désormais le pipeline (`Build DAST Payload` → `initial.environment`) et l'utilisateur a testé `production`.
+
+**Correctif** : DAST **saute proprement** l'analyse en production (bonne pratique : pas de tests dynamiques intrusifs sur la prod) et renvoie `status:PASS` + `dast_skipped:true` + note explicite, au lieu de `throw`. Le pipeline continue.
+
+**Preuve** (simulation des 2 nœuds, entrée `environment:production`) : `Validate Input` ne throw plus (`dast_skipped:true`) → `Normalize` → `status:PASS`, `approved_for_pipeline:true`, summary « DAST non execute : tests dynamiques interdits en environnement production ».
+
+| Décision | Arbitrage |
+|---|---|
+| Skip PASS plutôt que FAIL en production | Ne pas exécuter de DAST sur la prod est la bonne pratique ; bloquer le pipeline serait un faux négatif. La note `dast_skipped` garde la traçabilité. |
+| Corriger le `throw` plutôt que retirer le garde | Le garde reste utile (empêche tout test intrusif prod), mais doit répondre proprement, pas crasher. |
