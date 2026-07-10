@@ -113,12 +113,28 @@ app.get('/api/result/:taskId', (req, res) => {
   res.json({ pending: false, data: result.data });
 });
 
-app.post('/api/deploy', async (req, res) => {
-  try { const r = await nodeFetch(DEPLOY_URL+'/deploy', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(req.body), timeout:120000 }); res.json(await r.json()); } catch(e) { res.status(500).json({ error: e.message }); }
-});
-app.post('/api/improve', async (req, res) => {
-  try { const r = await nodeFetch(DEPLOY_URL+'/improve', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(req.body), timeout:120000 }); res.json(await r.json()); } catch(e) { res.status(500).json({ error: e.message }); }
-});
+// Proxy vers le service de deploiement (VPS:4001) tolerant au non-JSON : on remonte
+// l extrait brut + une cause probable au lieu de casser sur "Unexpected token <".
+async function proxyDeploy(pathName, req, res) {
+  try {
+    const r = await nodeFetch(DEPLOY_URL + pathName, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(req.body), timeout:120000 });
+    const t = await r.text();
+    try { return res.json(JSON.parse(t)); }
+    catch(pe) {
+      return res.status(502).json({
+        success: false,
+        error: 'Le service de deploiement (' + DEPLOY_URL + ') a renvoye une reponse non-JSON (HTTP ' + r.status + ').',
+        detail: (t || '').slice(0, 300),
+        fix: 'Verifie que ' + DEPLOY_URL + ' est joignable depuis le panneau (pas seulement depuis le VPS) : reseau/pare-feu, bind sur 0.0.0.0 et non localhost. Si le panneau tourne sur Replit, son egress vers cette IP peut etre bloque.'
+      });
+    }
+  } catch(e) {
+    const d = diagnose(e.message);
+    res.status(500).json({ success:false, error: e.message, cause: d.cause, fix: d.fix });
+  }
+}
+app.post('/api/deploy',  (req, res) => proxyDeploy('/deploy',  req, res));
+app.post('/api/improve', (req, res) => proxyDeploy('/improve', req, res));
 app.get('/api/apps', async (req, res) => {
   try { const r = await nodeFetch(DEPLOY_URL+'/apps'); res.json(await r.json()); } catch(e) { res.status(500).json({ error: e.message }); }
 });
