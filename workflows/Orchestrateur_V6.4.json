@@ -1,5 +1,5 @@
 {
-  "name": "Orchestrateur V6.3",
+  "name": "Orchestrateur V6.4",
   "nodes": [
     {
       "parameters": {
@@ -270,7 +270,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const initial = $('Validate Input').first().json;\n// Agent Architect peut ne pas être exécuté (chemin déterministe)\nlet archData = {};\ntry { archData = $('Agent Architect').first().json; } catch(e) {\n  try { archData = $('Build Architect Payload').first().json; } catch(e2) {}\n}\nconst arch = archData;\nconst artifacts = arch.artifacts || arch;\nconst endpoints = artifacts.priority_endpoints || [];\n\n// Construire les vrais endpoints depuis l'Architect\nconst realEndpoints = endpoints\n  .filter(ep => ep.path !== '/health')\n  .map(ep => ep.path.replace(/:id/g, '1'));\n\n\n// Recuperer le server.js genere pour un DAST base sur le vrai code\nlet _serverJs = '';\ntry { const _bk = $('Agent Backend').first().json; const _sf = (_bk.files || []).find(function(f){ return f.path === 'server.js'; }); if (_sf) _serverJs = _sf.content || ''; } catch(e) {}\n\nreturn [{\n  json: {\n    task_id:     initial.task_id,\n    server_js:   _serverJs,\n    environment: initial.environment,\n    target_url:  'http://localhost:3000',\n    endpoints:   realEndpoints.length ? realEndpoints : ['/health'],\n    simulate:    'pass'\n  }\n}];"
+        "jsCode": "const initial = $('Validate Input').first().json;\n// Agent Architect peut ne pas être exécuté (chemin déterministe)\nlet archData = {};\ntry { archData = $('Agent Architect').first().json; } catch(e) {\n  try { archData = $('Build Architect Payload').first().json; } catch(e2) {}\n}\nconst arch = archData;\nconst artifacts = arch.artifacts || arch;\nconst endpoints = artifacts.priority_endpoints || [];\n\n// Construire les vrais endpoints depuis l'Architect\nconst realEndpoints = endpoints\n  .filter(ep => ep.path !== '/health')\n  .map(ep => ep.path.replace(/:id/g, '1'));\n\n\n// Recuperer le server.js genere pour un DAST base sur le vrai code (robuste aux formes)\nlet _serverJs = '';\ntry {\n  var _bk = $('Agent Backend').first().json || {};\n  var _files = _bk.files || (_bk.json && _bk.json.files) || (_bk.data && _bk.data.files) || [];\n  if (Array.isArray(_files)) {\n    var _sf = _files.find(function(f){ return f && typeof f.path === 'string' && f.path.replace(/^.*\\//, '') === 'server.js'; });\n    if (_sf) _serverJs = _sf.content || '';\n  }\n} catch(e) {}\n\nreturn [{\n  json: {\n    task_id:     initial.task_id,\n    server_js:   _serverJs,\n    server_js_len: _serverJs.length,\n    environment: initial.environment,\n    target_url:  'http://localhost:3000',\n    endpoints:   realEndpoints.length ? realEndpoints : ['/health'],\n    simulate:    'pass'\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,

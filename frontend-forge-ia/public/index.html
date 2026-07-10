@@ -321,6 +321,26 @@ const PIPELINE_URL='/api/pipeline',DEPLOY_URL='/api/deploy',IMPROVE_URL='/api/im
 const HISTORY_KEY='forge_ia_history';
 // Échappement HTML — protège contre l'injection via données venant du pipeline (noms de fichiers, résumés, erreurs)
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+// Lit une reponse en tolerant le non-JSON (ex: page HTML d erreur) et remonte un detail exploitable
+async function apiFetchJson(url, opts){
+  const r = await fetch(url, opts);
+  const t = await r.text();
+  try { return { ok:r.ok, status:r.status, data: JSON.parse(t) }; }
+  catch(e){
+    const looksHtml = /^\s*</.test(t);
+    const err = new Error('Réponse non-JSON (HTTP '+r.status+')'+(looksHtml?' — le serveur a renvoyé du HTML, pas du JSON':''));
+    err.snippet = (t||'').slice(0,180).replace(/\s+/g,' ').trim();
+    err.status = r.status;
+    err.fix = 'Le service de déploiement (VPS:4001) est injoignable depuis le panneau, ou le panneau ne route pas /api/deploy (build obsolète). Vérifie DEPLOY_URL et que le panneau exécute bien server.js.';
+    throw err;
+  }
+}
+function _deployErrBox(e){
+  var h='<div class="error-box">❌ '+esc(e.message||'Erreur');
+  if(e.snippet) h+='<div style="margin-top:8px;color:var(--muted);font-size:10px">réponse reçue : '+esc(e.snippet)+'…</div>';
+  if(e.fix) h+='<div style="margin-top:8px;color:var(--success)">💡 '+esc(e.fix)+'</div>';
+  return h+'</div>';
+}
 let currentTab='text',fileData={},isRunning=false,currentFiles=[],currentTaskId='',deployedAppName=null,currentZipName=null;
 
 const TAB_HINTS={
@@ -585,11 +605,11 @@ async function deployApp(){
   btn.disabled=true;btn.textContent='⏳ Déploiement...';
   document.getElementById('deploy-result').innerHTML='<div class="deploy-card" style="color:var(--muted)">⏳ Déploiement en cours...</div>';
   try{
-    const r=await fetch(DEPLOY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task_id:currentTaskId,app_name:currentTaskId.toLowerCase().replace(/[^a-z0-9]/g,'-').substring(0,30),files:currentFiles})});
-    const d=await r.json();
+    const _res=await apiFetchJson(DEPLOY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task_id:currentTaskId,app_name:currentTaskId.toLowerCase().replace(/[^a-z0-9]/g,'-').substring(0,30),files:currentFiles})});
+    const d=_res.data;
     if(d.success){btn.textContent='✅ Déployé !';btn.style.background='#059669';deployedAppName=d.app_name;const ib=document.getElementById('btn-improve');if(ib)ib.style.display='inline-block';loadApps();document.getElementById('deploy-result').innerHTML=`<div class="deploy-card"><div style="color:var(--success);font-weight:bold;margin-bottom:8px">✅ Application déployée</div><div>🌐 <a href="${d.url}" target="_blank">${d.url}</a></div><div>❤️ <a href="${d.health_url}" target="_blank">${d.health_url}</a></div><div style="color:var(--muted)">📁 ${d.files_deployed} fichiers · port ${d.port}</div></div>`;}
-    else{btn.textContent='❌ Erreur';btn.disabled=false;document.getElementById('deploy-result').innerHTML=`<div class="error-box">❌ ${d.error||'?'}</div>`;}
-  }catch(e){btn.textContent='❌ Erreur';btn.disabled=false;document.getElementById('deploy-result').innerHTML=`<div class="error-box">❌ ${e.message}</div>`;}
+    else{btn.textContent='❌ Erreur';btn.disabled=false;document.getElementById('deploy-result').innerHTML=`<div class="error-box">❌ ${esc(d.error||'?')}</div>`;}
+  }catch(e){btn.textContent='❌ Erreur';btn.disabled=false;document.getElementById('deploy-result').innerHTML=_deployErrBox(e);}
 }
 async function improveApp(){
   if(!deployedAppName){alert("Sélectionnez d'abord une app.");return;}
@@ -597,11 +617,11 @@ async function improveApp(){
   const btn=document.getElementById('btn-improve');btn.disabled=true;btn.textContent='⏳ Amélioration...';
   document.getElementById('deploy-result').innerHTML='<div class="deploy-card" style="color:var(--muted)">⏳ Amélioration...</div>';
   try{
-    const r=await fetch(IMPROVE_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({app_name:deployedAppName,task_id:currentTaskId,files:currentFiles})});
-    const d=await r.json();
+    const _res=await apiFetchJson(IMPROVE_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({app_name:deployedAppName,task_id:currentTaskId,files:currentFiles})});
+    const d=_res.data;
     if(d.success){btn.textContent='✅ Amélioré !';btn.style.background='#0891b2';document.getElementById('deploy-result').innerHTML=`<div class="deploy-card"><div style="color:var(--accent2);font-weight:bold;margin-bottom:8px">🔧 Itération ${d.iteration}</div><div>🌐 <a href="${d.url}" target="_blank">${d.url}</a></div></div>`;loadApps();}
-    else{btn.textContent='❌ Erreur';btn.disabled=false;document.getElementById('deploy-result').innerHTML=`<div class="error-box">❌ ${d.error}</div>`;}
-  }catch(e){btn.textContent='❌ Erreur';btn.disabled=false;document.getElementById('deploy-result').innerHTML=`<div class="error-box">❌ ${e.message}</div>`;}
+    else{btn.textContent='❌ Erreur';btn.disabled=false;document.getElementById('deploy-result').innerHTML=`<div class="error-box">❌ ${esc(d.error||'?')}</div>`;}
+  }catch(e){btn.textContent='❌ Erreur';btn.disabled=false;document.getElementById('deploy-result').innerHTML=_deployErrBox(e);}
 }
 
 // ── Apps ───────────────────────────────────────────────────────────────────
