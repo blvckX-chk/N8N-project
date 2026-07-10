@@ -370,3 +370,13 @@ Attaques    : 6/6 REJETE  (ignore previous instructions, disregard/print api key
 Legitimes   : 3/3 ACCEPTE (specs signalements / covoiturage / liste deroulante)
 ```
 → Zéro faux positif sur des specs métier réelles.
+
+---
+
+## Corrections & consolidation (retours de test)
+
+**Orchestrateur V6.3, Agent DAST V1.3.**
+
+1. **Sanitize Input ne crashe plus le pipeline** (défaut du même type que DAST-prod) : sur détection d'injection il faisait un `throw` → réponse webhook vide → « réponse vide » côté panneau. Désormais il **neutralise** les motifs d'injection (remplacés par `[filtre]`) et **continue** (OWASP LLM01 : défense sans interruption de service), avec `security_flags: ['prompt_injection_neutralized']`. Testé : injection → neutralisée (pas de crash), spec légitime → intacte.
+2. **Rapport de sécurité consolidé** : `Build Final Response` agrège les verdicts de **tous les gates** (SAST, SCA, Secrets, Code Review, DAST, QA, Tests L0, Go/No-Go) et les **annexe au `SECURITY.md`** de l'app. Le rapport final = attestation OWASP/ASVS (contrôles code) **+** tableau des résultats de gates du pipeline.
+3. **DAST auditable** : la sortie expose `analysis_mode` (`code_analysis` si le vrai `server.js` a été analysé, `skipped_production`, ou `heuristic` en repli) → on peut confirmer qu'un PASS vient bien d'une analyse du code réel.
