@@ -380,3 +380,18 @@ Legitimes   : 3/3 ACCEPTE (specs signalements / covoiturage / liste deroulante)
 1. **Sanitize Input ne crashe plus le pipeline** (défaut du même type que DAST-prod) : sur détection d'injection il faisait un `throw` → réponse webhook vide → « réponse vide » côté panneau. Désormais il **neutralise** les motifs d'injection (remplacés par `[filtre]`) et **continue** (OWASP LLM01 : défense sans interruption de service), avec `security_flags: ['prompt_injection_neutralized']`. Testé : injection → neutralisée (pas de crash), spec légitime → intacte.
 2. **Rapport de sécurité consolidé** : `Build Final Response` agrège les verdicts de **tous les gates** (SAST, SCA, Secrets, Code Review, DAST, QA, Tests L0, Go/No-Go) et les **annexe au `SECURITY.md`** de l'app. Le rapport final = attestation OWASP/ASVS (contrôles code) **+** tableau des résultats de gates du pipeline.
 3. **DAST auditable** : la sortie expose `analysis_mode` (`code_analysis` si le vrai `server.js` a été analysé, `skipped_production`, ou `heuristic` en repli) → on peut confirmer qu'un PASS vient bien d'une analyse du code réel.
+
+---
+
+## Défaut corrigé — DAST n'analysait jamais le vrai code (Orchestrateur V6.5)
+
+**Symptôme** : malgré `Build DAST Payload` correct (transmettant `server_js`), l'agent DAST restait en `analysis_mode: heuristic` — il n'analysait pas le code réel.
+
+**Cause racine** : le nœud HTTP `Agent DAST` de l'Orchestrateur avait un **body figé** qui reconstruisait sa charge utile depuis `$('Validate Input')` (`simulate:'pass'`, endpoints en dur) et **ignorait totalement `Build DAST Payload`** — donc `server_js` n'était jamais envoyé.
+
+**Correctif** : body du nœud `Agent DAST` = `={{ JSON.stringify($json) }}` → transmet la sortie de `Build DAST Payload` (avec `server_js`). Prouvé : DAST → `analysis_mode: code_analysis`, `server_js_len: 371`, PASS.
+
+## Registre des versions d'agents (demandé pour la traçabilité)
+
+- **DAST V1.4** : expose `_version` + `server_js_len` reçu (auto-diagnostic).
+- **Orchestrateur V6.5** (`Build Final Response`) : agrège le `_version` de chaque agent (défensif, `n/a` si absent) → `metrics.agent_versions` dans la réponse finale **et** une section « Versions des agents » dans `SECURITY.md`. Permet de vérifier les versions actives directement dans la sortie du pipeline (le nom du workflow dans n8n ne change pas à l'import de nœuds — le registre est la source fiable).
