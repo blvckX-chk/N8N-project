@@ -1,0 +1,31 @@
+# Forge IA — panneau de contrôle + microservice Semgrep, à lancer sur le VPS
+# à côté de n8n (déjà en place). Les URLs pointent vers les services publiés
+# sur l'hôte (n8n:5688, deploy:4001) via host.docker.internal.
+#
+#   docker compose -f docker-compose.forge.yml up -d --build
+#
+services:
+  forge-panel:
+    build: ./frontend-forge-ia
+    container_name: forge-panel
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - N8N_URL=http://host.docker.internal:5688/webhook/pipeline
+      - DEPLOY_URL=http://host.docker.internal:4001
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  semgrep-scanner:
+    build: ./services/semgrep-scanner
+    container_name: forge-semgrep
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      # Rulesets (surchargeable) : OWASP Top 10 + JS + audit sécurité + secrets
+      - SEMGREP_CONFIGS=p/owasp-top-ten,p/javascript,p/security-audit,p/secrets
