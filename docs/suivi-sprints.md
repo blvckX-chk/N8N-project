@@ -395,3 +395,18 @@ Legitimes   : 3/3 ACCEPTE (specs signalements / covoiturage / liste deroulante)
 
 - **DAST V1.4** : expose `_version` + `server_js_len` reçu (auto-diagnostic).
 - **Orchestrateur V6.5** (`Build Final Response`) : agrège le `_version` de chaque agent (défensif, `n/a` si absent) → `metrics.agent_versions` dans la réponse finale **et** une section « Versions des agents » dans `SECURITY.md`. Permet de vérifier les versions actives directement dans la sortie du pipeline (le nom du workflow dans n8n ne change pas à l'import de nœuds — le registre est la source fiable).
+
+---
+
+## Sprint sécurité S-A — Vrais outils (partie 1 : SCA réel + SBOM)
+
+**Découverte** : l'agent SCA était **déjà branché sur l'API publique OSV.dev** (`/v1/querybatch`) et correctement câblé (son nœud HTTP référence bien `Build SCA Payload`). Donc la SCA fait déjà de la **détection de CVE réelles**, sans Docker.
+
+**Artefacts** : Agent SCA V5.1, Agent Backend V6.5.
+
+**1. SCA améliorée (V5.1)** : `querybatch` ne renvoyant que l'`id`, on retrouve le **paquet et la version réels** en alignant les résultats sur l'ordre des requêtes ; chaque finding porte désormais `package`, `version`, l'`id` CVE/GHSA et le lien **advisory OSV** (`https://osv.dev/vulnerability/<id>`). Testé (réponse OSV mockée au format réel) : `jsonwebtoken@8.5.1` → finding avec paquet/version/lien corrects.
+> Limite connue : `querybatch` ne fournit pas la sévérité → findings en « medium » par défaut. Enrichissement possible via `/v1/vulns/{id}` (futur).
+
+**2. SBOM CycloneDX (Backend V6.5)** : chaque app générée embarque un **`bom.json`** au format **CycloneDX 1.5** (déterministe depuis `package.json`, avec `purl` `pkg:npm/<name>@<version>`). OWASP A06 (transparence chaîne d'approvisionnement). Testé : 5 composants, purls valides.
+
+**Pourquoi n8n plutôt que Docker pour ces deux-là** : SCA = API OSV (données CVE réelles, aucune install) ; SBOM = génération déterministe standard. Restent pour Docker (fidélité max) : **Semgrep** (SAST). Secrets = upgrade entropie possible sans Docker.
