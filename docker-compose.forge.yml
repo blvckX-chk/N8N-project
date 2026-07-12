@@ -10,7 +10,7 @@ services:
     container_name: forge-panel
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3100:3000"   # hote 3100 -> conteneur 3000 (3000 deja pris par ugs-api)
     environment:
       - NODE_ENV=production
       - PORT=3000
@@ -24,7 +24,7 @@ services:
     container_name: forge-semgrep
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "8010:8000"   # hote 8010 -> conteneur 8000 (8000 deja pris par forge-nex-api)
     environment:
       - PORT=8000
       # Rulesets (surchargeable) : OWASP Top 10 + JS + audit sécurité + secrets
