@@ -410,3 +410,15 @@ Legitimes   : 3/3 ACCEPTE (specs signalements / covoiturage / liste deroulante)
 **2. SBOM CycloneDX (Backend V6.5)** : chaque app générée embarque un **`bom.json`** au format **CycloneDX 1.5** (déterministe depuis `package.json`, avec `purl` `pkg:npm/<name>@<version>`). OWASP A06 (transparence chaîne d'approvisionnement). Testé : 5 composants, purls valides.
 
 **Pourquoi n8n plutôt que Docker pour ces deux-là** : SCA = API OSV (données CVE réelles, aucune install) ; SBOM = génération déterministe standard. Restent pour Docker (fidélité max) : **Semgrep** (SAST). Secrets = upgrade entropie possible sans Docker.
+
+## S-A partie 2 — Secrets (entropie) + SAST renforcé (déterministe, sans Docker)
+
+**Artefacts** : Agent Secrets Scanning V5.1, Agent SAST V5.2.
+
+**Secrets V5.1** : ajout d'une **détection par entropie de Shannon** (approche gitleaks) — repère les littéraux à forte entropie (≥ 4.0 bits/car, longueur ≥ 20) affectés à une variable sensible, en plus des ~18 patterns nommés existants. Placeholders (`changeme`, `your_key`, `${...}`) exclus. Testé : secret réel (entropie 5.0) détecté, **code généré propre reste PASS (0 faux positif)**.
+
+**SAST V5.2** : ajout des règles manquantes majeures — **A03 Injection SQL** (concaténation/interpolation dans une requête), **A03 eval / new Function**, **A03 XSS réfléchi** (`res.send(req...)`), **A02 secret JWT en dur**. S'ajoutent aux règles existantes (SSRF, prototype pollution, path traversal, crypto faible, command injection, CORS, helmet…). Testé : app durcie (requêtes paramétrées) → PASS 0 FP ; code vulnérable → FAIL (SQLI-001 + EVAL-001 + XSS-001).
+
+`_version` ajouté à SCA, Secrets, SAST, Backend, DAST (le registre se remplit).
+
+**État S-A** : SCA (OSV réel) ✅, SBOM ✅, Secrets (entropie) ✅, SAST déterministe renforcé ✅. Reste **Semgrep en Docker** (fidélité max) — à faire avec la gestion du bouton Déployer / VPS.
