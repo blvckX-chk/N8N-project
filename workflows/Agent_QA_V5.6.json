@@ -1,5 +1,5 @@
 {
-  "name": "Agent QA V5.5",
+  "name": "Agent QA V5.6",
   "nodes": [
     {
       "parameters": {
@@ -254,7 +254,10 @@
           "id": "MISTRAL_API_KEY",
           "name": "MISTRAL_API_KEY"
         }
-      }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
     },
     {
       "parameters": {
@@ -480,7 +483,10 @@
           "id": "MISTRAL_API_KEY_2",
           "name": "MISTRAL_API_KEY_2"
         }
-      }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
     },
     {
       "parameters": {

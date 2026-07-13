@@ -437,3 +437,9 @@ Legitimes   : 3/3 ACCEPTE (specs signalements / covoiturage / liste deroulante)
 **Preuve (merge testé)** : Semgrep OK → SQLI-001 conservé + eval ajouté + doublon dédoublonné, score = min(70,40)=40. Semgrep KO → repli déterministe, `semgrep_available:false`, pas de blocage.
 
 → **S-A complet** : SCA (OSV) · SBOM · Secrets (entropie) · SAST (déterministe + Semgrep). Sécurité (S-A/B/C/D) bouclée.
+
+## Robustesse LLM + nom d'app déployée (retours de test)
+
+**Nom d'app déployée** (panneau v5.2.2) : `deployApp` utilise désormais **`getProjectName()`** (ex. `diaspokoli`) au lieu du `task_id` pour `app_name`.
+
+**Failover Mistral** : le câblage est **correct** (vérifié : primaire échec/invalide → retry clé 2 → succès rejoint le flux principal ; deux clés épuisées → fallback). Le relais ne « soulage » pas un **rate-limit** si les deux clés sont sur le **même compte Mistral** (limite partagée). Amélioration livrée : **`retryOnFail` (3 essais, 3 s)** sur tous les nœuds Mistral (Architect V5.1, QA V5.6, Frontend V6.3 — qui gagne aussi la résilience, Normalizer V1.4) → un 429 transitoire se rejoue avant de basculer sur la 2ᵉ clé. **Note** : pour que la 2ᵉ clé ajoute réellement du quota, elle doit venir d'un **compte Mistral distinct** (ou d'un palier payant) ; deux clés d'un même compte partagent la même limite.

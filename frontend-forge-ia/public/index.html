@@ -612,7 +612,8 @@ async function deployApp(){
   btn.disabled=true;btn.textContent='⏳ Déploiement...';
   document.getElementById('deploy-result').innerHTML='<div class="deploy-card" style="color:var(--muted)">⏳ Déploiement en cours...</div>';
   try{
-    const _res=await apiFetchJson(DEPLOY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task_id:currentTaskId,app_name:currentTaskId.toLowerCase().replace(/[^a-z0-9]/g,'-').substring(0,30),files:currentFiles})});
+    const _appName=((typeof getProjectName==='function'&&getProjectName())||currentTaskId).toLowerCase().replace(/[^a-z0-9]/g,'-').replace(/^-+|-+$/g,'').substring(0,30)||'app';
+    const _res=await apiFetchJson(DEPLOY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task_id:currentTaskId,app_name:_appName,files:currentFiles})});
     const d=_res.data;
     if(d.success){btn.textContent='✅ Déployé !';btn.style.background='#059669';deployedAppName=d.app_name;const ib=document.getElementById('btn-improve');if(ib)ib.style.display='inline-block';loadApps();document.getElementById('deploy-result').innerHTML=`<div class="deploy-card"><div style="color:var(--success);font-weight:bold;margin-bottom:8px">✅ Application déployée</div><div>🌐 <a href="${d.url}" target="_blank">${d.url}</a></div><div>❤️ <a href="${d.health_url}" target="_blank">${d.health_url}</a></div><div style="color:var(--muted)">📁 ${d.files_deployed} fichiers · port ${d.port}</div></div>`;}
     else{btn.textContent='❌ Erreur';btn.disabled=false;document.getElementById('deploy-result').innerHTML=_dataErrBox(d);}
