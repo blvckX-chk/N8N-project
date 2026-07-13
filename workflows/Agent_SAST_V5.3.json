@@ -1,5 +1,5 @@
 {
-  "name": "Agent SAST V5.2",
+  "name": "Agent SAST V5.3",
   "nodes": [
     {
       "parameters": {
@@ -198,6 +198,41 @@
       ],
       "id": "bc89cec3-1895-48c6-ac6f-fa93c63e5856",
       "name": "Respond to Webhook review"
+    },
+    {
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -1004,
+        -24
+      ],
+      "id": "2a5305eb-50d6-4c8f-82eb-9f48303e20ea",
+      "name": "Semgrep Scan",
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true,
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8010/scan",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"task_id\": ($('Validate Input').first().json.task_id || 'sast'), \"files\": ((Array.isArray($('Validate Input').first().json.files) && $('Validate Input').first().json.files.length) ? $('Validate Input').first().json.files : [{ \"path\": \"server.js\", \"content\": ($('Validate Input').first().json.code || '') }]) } }}",
+        "options": {
+          "timeout": 120000
+        }
+      }
+    },
+    {
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -824,
+        -64
+      ],
+      "id": "fd2a970b-faa3-4cf5-954b-4df150ed9bed",
+      "name": "Merge SAST",
+      "parameters": {
+        "jsCode": "const det = $('SAST Analysis').first().json;\nlet sem = {};\ntry { sem = $input.first().json; } catch(e) {}\nconst semOk = !!(sem && sem.engine === 'semgrep' && Array.isArray(sem.critical_issues));\n\nfunction _key(i){ return (i.rule || '') + '|' + (i.file || '') + '|' + String(i.description || '').slice(0, 50); }\nlet critical = Array.isArray(det.critical_issues) ? det.critical_issues.slice() : [];\nlet warnings = Array.isArray(det.warnings) ? det.warnings.slice() : [];\nconst seen = {};\ncritical.concat(warnings).forEach(function(i){ seen[_key(i)] = true; });\n\n// Union : Semgrep vient EN COMPLEMENT, il n enleve jamais un finding deterministe.\nif (semOk) {\n  (sem.critical_issues || []).forEach(function(i){ i.engine = 'semgrep'; var k = _key(i); if (!seen[k]) { critical.push(i); seen[k] = true; } });\n  (sem.warnings || []).forEach(function(i){ i.engine = 'semgrep'; var k = _key(i); if (!seen[k]) { warnings.push(i); seen[k] = true; } });\n}\n\n// Score = min des deux moteurs (Semgrep ne peut jamais RELEVER le score).\nconst detScore = (det.global_score != null) ? det.global_score : 100;\nconst semScore = (semOk && sem.global_score != null) ? sem.global_score : 100;\nconst mergedScore = Math.max(0, 100 - critical.length * 25 - warnings.length * 5);\nconst globalScore = Math.min(detScore, semScore, mergedScore);\n\nconst status = critical.length > 0 ? 'FAIL' : (warnings.length > 0 ? 'WARN' : 'PASS');\n\nreturn [{ json: {\n  agent: 'Agent SAST',\n  _version: '5.3',\n  task_id: det.task_id || 'unknown',\n  status: status,\n  global_score: globalScore,\n  approved_for_pipeline: status !== 'FAIL',\n  language: det.language || 'javascript',\n  critical_issues: critical,\n  warnings: warnings,\n  engines: semOk ? ['deterministic', 'semgrep'] : ['deterministic'],\n  semgrep_available: semOk,\n  recommendations: det.recommendations || (critical.length > 0 ? ['Corriger les vulnerabilites avant deploiement'] : ['Code conforme SAST']),\n  dimensions: { security: { score: globalScore }, quality: (det.dimensions && det.dimensions.quality) || { score: 100 } },\n  summary: (critical.length > 0 ? (critical.length + ' vulnerabilite(s) critique(s) OWASP') : (warnings.length > 0 ? (warnings.length + ' avertissement(s)') : 'Aucune vulnerabilite SAST detectee')) + (semOk ? ' [deterministe + semgrep]' : ' [deterministe seul, semgrep indisponible]'),\n  timestamp: new Date().toISOString()\n}}];"
+      }
     }
   ],
   "pinData": {},
@@ -239,7 +274,7 @@
       "main": [
         [
           {
-            "node": "Switch",
+            "node": "Semgrep Scan",
             "type": "main",
             "index": 0
           }
@@ -265,6 +300,28 @@
         [
           {
             "node": "Respond to Webhook review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Semgrep Scan": {
+      "main": [
+        [
+          {
+            "node": "Merge SAST",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge SAST": {
+      "main": [
+        [
+          {
+            "node": "Switch",
             "type": "main",
             "index": 0
           }

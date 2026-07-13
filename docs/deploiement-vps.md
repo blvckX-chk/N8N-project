@@ -84,13 +84,17 @@ Teste : ouvre `http://167.86.93.31:3100`, génère une app, clique **Déployer**
 
 ---
 
-## 4. Câbler l'agent SAST sur Semgrep
+## 4. Câbler l'agent SAST sur Semgrep — FAIT (Agent SAST V5.3)
 
-Une fois §2 validé (Semgrep répond), **dis-le-moi** : je te livre l'agent **SAST** avec un nœud HTTP qui appelle
-`http://host.docker.internal:8010/scan` (même schéma que l'extracteur PDF `:3002`) et fusionne les résultats Semgrep
-avec le SAST déterministe. Tu ré-importeras juste cet agent.
+L'agent **`Agent_SAST_V5.3.json`** est livré : il ajoute un nœud HTTP `Semgrep Scan` qui appelle
+`http://host.docker.internal:8010/scan`, puis un nœud `Merge SAST` qui **fusionne** les résultats Semgrep
+avec le SAST déterministe :
+- **Union + dédoublonnage** des findings ; Semgrep vient **en complément** et n'enlève jamais un finding déterministe (SQLI-001 reste garanti).
+- **Score = min** des deux moteurs (Semgrep ne peut jamais relever le score).
+- **Repli** : si Semgrep est injoignable, le SAST déterministe seul fait foi (aucun blocage du pipeline).
 
-*(On procède dans cet ordre pour te livrer un agent déjà testé contre un service qui répond, plutôt qu'à l'aveugle.)*
+**À faire** : ré-importe `Agent_SAST_V5.3.json` dans n8n. Vérifie ensuite dans la sortie du nœud `Merge SAST` :
+`"_version": "5.3"`, `"engines": ["deterministic","semgrep"]` et `"semgrep_available": true`.
 
 ---
 

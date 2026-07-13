@@ -422,3 +422,18 @@ Legitimes   : 3/3 ACCEPTE (specs signalements / covoiturage / liste deroulante)
 `_version` ajouté à SCA, Secrets, SAST, Backend, DAST (le registre se remplit).
 
 **État S-A** : SCA (OSV réel) ✅, SBOM ✅, Secrets (entropie) ✅, SAST déterministe renforcé ✅. Reste **Semgrep en Docker** (fidélité max) — à faire avec la gestion du bouton Déployer / VPS.
+
+## S-A partie 3 — Semgrep (vraie SAST) + fix timeout Déploiement
+
+**Artefacts** : `frontend-forge-ia/server.js` (timeout), Agent SAST V5.3, microservice Semgrep (déjà livré).
+
+**1. Fix timeout Déployer** : `proxyDeploy` (/api/deploy, /api/improve) utilise désormais un **AbortController à 120s** (le déploiement prend 6-15s : npm install) au lieu de l'option `timeout` de node-fetch, et **garantit `task_id`** dans le corps transmis (le service renvoie 400 sinon).
+
+**2. SAST V5.3 — câblage Semgrep** : nœud HTTP `Semgrep Scan` (`http://host.docker.internal:8010/scan`) + nœud `Merge SAST` :
+- **Union + dédoublonnage** des findings ; Semgrep **en complément**, n'enlève jamais un finding déterministe (SQLI-001 garanti, car Semgrep communautaire rate la SQLi Express).
+- **Score = min** des deux moteurs.
+- **Repli** : Semgrep injoignable → déterministe seul, pas de blocage (`onError: continueRegularOutput`, `alwaysOutputData`).
+
+**Preuve (merge testé)** : Semgrep OK → SQLI-001 conservé + eval ajouté + doublon dédoublonné, score = min(70,40)=40. Semgrep KO → repli déterministe, `semgrep_available:false`, pas de blocage.
+
+→ **S-A complet** : SCA (OSV) · SBOM · Secrets (entropie) · SAST (déterministe + Semgrep). Sécurité (S-A/B/C/D) bouclée.

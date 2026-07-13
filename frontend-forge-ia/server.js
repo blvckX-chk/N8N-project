@@ -116,8 +116,20 @@ app.get('/api/result/:taskId', (req, res) => {
 // Proxy vers le service de deploiement (VPS:4001) tolerant au non-JSON : on remonte
 // l extrait brut + une cause probable au lieu de casser sur "Unexpected token <".
 async function proxyDeploy(pathName, req, res) {
+  // Le deploiement prend 6-15s (npm install) -> timeout genereux via AbortController.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 120000);
   try {
-    const r = await nodeFetch(DEPLOY_URL + pathName, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(req.body), timeout:120000 });
+    // Le service de deploiement exige task_id (il renvoie 400 sinon).
+    const payload = (req.body && req.body.task_id)
+      ? req.body
+      : { ...(req.body || {}), task_id: 'TASK-' + Date.now() };
+    const r = await nodeFetch(DEPLOY_URL + pathName, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
     const t = await r.text();
     try { return res.json(JSON.parse(t)); }
     catch(pe) {
@@ -129,8 +141,13 @@ async function proxyDeploy(pathName, req, res) {
       });
     }
   } catch(e) {
-    const d = diagnose(e.message);
-    res.status(500).json({ success:false, error: e.message, cause: d.cause, fix: d.fix });
+    const _msg = (e.name === 'AbortError')
+      ? 'Le service de deploiement a depasse le delai de 120s.'
+      : e.message;
+    const d = diagnose(_msg);
+    res.status(500).json({ success: false, error: _msg, cause: d.cause, fix: d.fix });
+  } finally {
+    clearTimeout(timer);
   }
 }
 app.post('/api/deploy',  (req, res) => proxyDeploy('/deploy',  req, res));
