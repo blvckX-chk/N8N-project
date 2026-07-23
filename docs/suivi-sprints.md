@@ -443,3 +443,17 @@ Legitimes   : 3/3 ACCEPTE (specs signalements / covoiturage / liste deroulante)
 **Nom d'app déployée** (panneau v5.2.2) : `deployApp` utilise désormais **`getProjectName()`** (ex. `diaspokoli`) au lieu du `task_id` pour `app_name`.
 
 **Failover Mistral** : le câblage est **correct** (vérifié : primaire échec/invalide → retry clé 2 → succès rejoint le flux principal ; deux clés épuisées → fallback). Le relais ne « soulage » pas un **rate-limit** si les deux clés sont sur le **même compte Mistral** (limite partagée). Amélioration livrée : **`retryOnFail` (3 essais, 3 s)** sur tous les nœuds Mistral (Architect V5.1, QA V5.6, Frontend V6.3 — qui gagne aussi la résilience, Normalizer V1.4) → un 429 transitoire se rejoue avant de basculer sur la 2ᵉ clé. **Note** : pour que la 2ᵉ clé ajoute réellement du quota, elle doit venir d'un **compte Mistral distinct** (ou d'un palier payant) ; deux clés d'un même compte partagent la même limite.
+
+---
+
+## Sprint 5 — Mode différentiel (cœur livré + testé)
+
+**Artefacts** : `workflows/_sprint5_increment_generator.js` (générateur d'incréments), `docs/sprint5-differentiel.md` (conception).
+
+**Principe** : en mode Améliorer, comparer `current_state` (Sprint 4) à la spec cible et ne générer que le **delta** en **incréments additifs** (`migrations/*.sql` + `modules/*.routes.js`), chargés par le socle Sprint 3 sans toucher au code existant.
+
+**Cœur déterministe** `computeIncrements(current_state, target)` : diff (ressources ajoutées / inchangées) + génération migration + module CRUD (scopé `user_id`, validé) au format du module loader.
+
+**Preuve** : CrimeStopper + spec ajoutant `commentaire` → migration `002_add_commentaires.sql` + module `010_commentaires.routes.js` uniquement ; 3 ressources inchangées ; module généré valide (`node --check`). Cas noop → 0 fichier.
+
+**Reste à câbler** (décision en cours) : sortie en **ZIP complet** (passthrough existant + incréments, nécessite d'étendre le ZIP Analyzer) **ou** en **incrément seul** (patch déposé dans l'app).
