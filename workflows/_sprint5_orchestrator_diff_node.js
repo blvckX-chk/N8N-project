@@ -1,26 +1,55 @@
 // ============================================================================
-// SPRINT 5 — Générateur d'incréments (mode différentiel) — Approche A + frontend
+// SPRINT 5 — Nœud Orchestrateur "Build Differential Output" (Approche A)
 // ----------------------------------------------------------------------------
-// Entrée  : current_state (introspection Sprint 4) + target (spec cible)
-// Sortie  : uniquement le DELTA, sous forme de fichiers additifs
-//           - migrations/NNN_add_<store>.sql        (nouvelle table)
-//           - modules/NNN_<store>.routes.js         (routes CRUD scopées user_id)
-//           - frontend/ui_<store>.js                (section UI additive, CSP-safe)
-//           + injection <section> + <script> dans frontend/index.html (existant)
-//           + plan du diff (resources ajoutées / inchangées / routes ajoutées)
-// Principe : purement additif (sûr). On ne réécrit jamais un fichier métier existant.
-//            index.html est seulement AUGMENTÉ (section + script), jamais réécrit.
-//            S'appuie sur le socle Sprint 3 (migrations versionnées + module loader)
-//            et sur les conventions de app.js (globals escapeHtml/showFeedback,
-//            délégation d'événements data-refresh / data-del).
+// À COLLER dans un Code node de l'Orchestrateur, placé APRÈS l'Agent Architect
+// (donc après l'Agent ZIP Analyzer), sur la branche mode Améliorer.
 //
-// Fonctions exportées :
-//   computeIncrements(current_state, target) -> { mode, diff, increment_files,
-//                                                 frontend_files, html_injection, new_resources }
-//   mergeFiles(existingFiles, result)        -> tableau complet [{path, content}]
-//                                                (existant passthrough + incréments
-//                                                 backend + frontend + index.html augmenté)
+// Entrées (lues via références de nœuds, tolérant aux formes {body}/{json}) :
+//   - Agent ZIP Analyzer  -> current_state (avec all_files) — cf. ZIP Analyzer V2.3
+//   - Agent Architect     -> artifacts.stores + artifacts.data_model (spec cible)
+//
+// Sortie ($json) :
+//   { differential: true, mode, diff, files: [ {path, content} ... ], new_resources }
+//   `files` = APP COMPLÈTE (existant préservé + incréments backend + frontend + index.html augmenté).
+//
+// Câblage dans Build Final Response (1 ligne) : si $json.differential, utiliser
+//   `$json.files` comme allFiles au lieu de backend.files + frontend.files.
+//   (Voir docs/sprint5-differentiel.md, section « Câblage ».)
 // ============================================================================
+
+// ---- lecture robuste d'une sortie de nœud (HTTP Request ou Code) ----
+function _readNode(name) {
+  var j = null;
+  try { j = $(name).first().json; } catch (e) { return null; }
+  if (!j) return null;
+  // HTTP Request : le corps peut être sous .body (objet ou string JSON)
+  if (j.body !== undefined) {
+    if (typeof j.body === 'string') { try { return JSON.parse(j.body.replace(/^=+/, '').trim()); } catch (e) { return j; } }
+    if (typeof j.body === 'object') return j.body;
+  }
+  return j;
+}
+
+// ---- spec cible depuis l'Architect ----
+function deriveTarget(architect) {
+  architect = architect || {};
+  var art = architect.artifacts || {};
+  var stores = art.stores || {};
+  var dm = art.data_model || {};
+  var resources = Object.keys(stores).map(function (resName) {
+    var st = stores[resName] || {};
+    var fields = {};
+    var f = dm[resName] || {};
+    Object.keys(f).forEach(function (k) { if (k !== 'id' && k !== 'created_at') fields[k] = f[k]; });
+    return {
+      name: resName,
+      store_name: st.store_name || (resName + 's'),
+      fields: fields,
+      required_fields: st.required_fields || []
+    };
+  });
+  return { resources: resources };
+}
 
 function computeIncrements(current_state, target) {
   current_state = current_state || {};
@@ -258,15 +287,6 @@ function computeIncrements(current_state, target) {
   };
 }
 
-// ============================================================================
-// mergeFiles — Approche A : reconstitue l'app COMPLÈTE.
-//   existingFiles : tous les fichiers de l'app existante (passthrough ZIP Analyzer)
-//   result        : sortie de computeIncrements
-// Renvoie le tableau complet [{path, content}] :
-//   existant (inchangé) + incréments backend + frontend/ui_*.js + index.html augmenté.
-// index.html n'est jamais réécrit : on insère la <section> avant </main> (repli </body>)
-// et le <script> avant </body>. Idempotent : ne réinjecte pas une ressource déjà présente.
-// ============================================================================
 function mergeFiles(existingFiles, result) {
   existingFiles = existingFiles || [];
   result = result || {};
@@ -311,5 +331,47 @@ function mergeFiles(existingFiles, result) {
   return out;
 }
 
-// Export pour test Node ; en n8n on colle le corps dans un Code node.
-if (typeof module !== 'undefined' && module.exports) module.exports = { computeIncrements: computeIncrements, mergeFiles: mergeFiles };
+// ---- exécution ----
+var _zip = _readNode('Agent ZIP Analyzer') || {};
+var current_state = _zip.current_state || (_zip.json && _zip.json.current_state) || {};
+var _architect = _readNode('Agent Architect') || {};
+var _passthrough = $input.first() ? $input.first().json : {};
+
+// GARDE-FOU : n'activer le mode différentiel QUE si on améliore une app existante
+// (improve_mode + fichiers existants extraits). Sinon -> régénération complète normale.
+var _hasExisting = current_state && Array.isArray(current_state.all_files) && current_state.all_files.length > 0;
+var _improve = _zip.improve_mode === true && _hasExisting;
+if (!_improve) {
+  return [{ json: Object.assign({}, _passthrough, {
+    differential: false,
+    mode: 'full_regen',
+    reason: _hasExisting ? 'improve_mode absent' : 'aucun fichier existant extrait'
+  }) }];
+}
+
+var target = deriveTarget(_architect);
+var result = computeIncrements(current_state, target);
+
+// Additif v1 : on ne prend le raccourci différentiel QUE s'il y a de NOUVELLES ressources.
+// Un changement non-additif (nouveau champ, renommage, UI...) -> régénération complète (sûr).
+if (result.mode !== 'differential') {
+  return [{ json: Object.assign({}, _passthrough, {
+    differential: false,
+    mode: 'full_regen',
+    reason: 'aucune nouvelle ressource (changement non-additif) -> regeneration complete',
+    diff: result.diff
+  }) }];
+}
+
+var files = mergeFiles(current_state.all_files, result);
+
+return [{
+  json: {
+    differential: true,
+    mode: result.mode,
+    diff: result.diff,
+    files: files,
+    new_resources: result.new_resources,
+    task_id: (_zip.task_id || _architect.task_id || 'unknown')
+  }
+}];

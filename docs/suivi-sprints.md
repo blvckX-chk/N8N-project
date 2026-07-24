@@ -174,7 +174,7 @@ Quand tu as ces éléments, envoie-les-moi et je les intègre au tableau de suiv
 |---|---|---|
 | Agent QA renvoie parfois REWORK (LLM non déterministe) | Stabilisation — durcir le filtre de faux-positifs ou abaisser la sensibilité | Moyenne |
 | Clés Mistral en dur dans le JSON des 4 agents LLM | Sécurité (OWASP LLM02) — migrer vers `$env`/credentials n8n + clé de secours (failover) | Haute |
-| Alignement sécurité pour le mode additif (§5.5) | Non-régression : SAST/QA doivent évaluer le différentiel ET l'existant | À venir (avec Sprint 5) |
+| Alignement sécurité pour le mode additif (§5.5) | Sprint 5 : les incréments sont **déterministes** (mêmes patterns sûrs que le socle — requêtes préparées, `user_id`, validation), donc sécurisés par construction sans SAST par-run ; l'existant conserve ses attestations d'origine. **Reste** : brancher SAST/QA sur les `modules/*.routes.js` générés pour une preuve explicite (aujourd'hui SAST scanne le `server.js` régénéré par l'agent Backend). | Moyenne (v2) |
 
 ## Note trajectoire (roadmap V1.0, §12.1)
 
@@ -446,14 +446,26 @@ Legitimes   : 3/3 ACCEPTE (specs signalements / covoiturage / liste deroulante)
 
 ---
 
-## Sprint 5 — Mode différentiel (cœur livré + testé)
+## Sprint 5 — Mode différentiel (Approche A + section frontend) — LIVRÉ ✅
 
-**Artefacts** : `workflows/_sprint5_increment_generator.js` (générateur d'incréments), `docs/sprint5-differentiel.md` (conception).
+**Artefacts** : `workflows/_sprint5_increment_generator.js` (générateur + `mergeFiles`),
+`workflows/_sprint5_orchestrator_diff_node.js` (nœud Orchestrateur, source), 
+`workflows/Agent_ZIP_Analyzer_V2.3.json`, `workflows/Orchestrateur_V6.6.json`,
+`docs/sprint5-differentiel.md` (conception + câblage).
 
-**Principe** : en mode Améliorer, comparer `current_state` (Sprint 4) à la spec cible et ne générer que le **delta** en **incréments additifs** (`migrations/*.sql` + `modules/*.routes.js`), chargés par le socle Sprint 3 sans toucher au code existant.
+**Principe** : en mode Améliorer, comparer `current_state` (Sprint 4) à la spec cible et ne générer que le **delta** en **incréments additifs**, chargés par le socle Sprint 3 sans toucher au code existant. **Décision : Approche A** (ré-émission de l'app complète = existant préservé + incréments) **avec section frontend**.
 
-**Cœur déterministe** `computeIncrements(current_state, target)` : diff (ressources ajoutées / inchangées) + génération migration + module CRUD (scopé `user_id`, validé) au format du module loader.
+**Cœur déterministe** :
+- `computeIncrements(current_state, target)` → diff (ajoutées/inchangées) + `migrations/NNN_add_<store>.sql` + `modules/NNN_<store>.routes.js` (CRUD scopé `user_id`, validé) + `frontend/ui_<store>.js` + plan d'injection `index.html`.
+- `mergeFiles(existingFiles, result)` → **app complète** : passthrough existant + incréments backend + fichiers frontend + `index.html` **augmenté** (`<section>` avant `</main>`, `<script>` avant `</body>` ; jamais réécrit ; idempotent).
+- **Section frontend CSP-safe** : `ui_<store>.js` autonome servi depuis `'self'` (0 handler inline), réutilise `escapeHtml`/`showFeedback` et la délégation `data-refresh`/`data-del` de `app.js` (non modifié) ; routes `/<store>` (conventions Backend).
 
-**Preuve** : CrimeStopper + spec ajoutant `commentaire` → migration `002_add_commentaires.sql` + module `010_commentaires.routes.js` uniquement ; 3 ressources inchangées ; module généré valide (`node --check`). Cas noop → 0 fichier.
+**Câblage pipeline** :
+- **ZIP Analyzer V2.3** : extrait **tous** les fichiers (central directory, STORED+DEFLATE) → `all_files` (+ dans `current_state`) ; `resources` complet = schema + **toutes migrations** + routes (dédup) → une table déjà créée par un incrément n'est plus vue comme neuve.
+- **Orchestrateur V6.6** : nœud `Build Differential Output` entre `Agent Knowledge/Memory` et `Build Final Response` ; `Build Final Response` patché (si `differential`, `allFiles` = fusion). Garde-fous : création neuve ou changement non-additif → régénération complète (jamais détournée).
 
-**Reste à câbler** (décision en cours) : sortie en **ZIP complet** (passthrough existant + incréments, nécessite d'étendre le ZIP Analyzer) **ou** en **incrément seul** (patch déposé dans l'app).
+**Preuves (tests Node, `node --check` + assertions)** : CrimeStopper + spec ajoutant une ressource (avec champ numérique) → 1 migration `003_add_*` + 1 module `011_*` + 1 `ui_*.js` ; ressources existantes (dont une créée par migration) inchangées ; `mergeFiles` → app complète (10 existants + 3 nouveaux), `index.html` augmenté, sections existantes intactes ; `ui_*.js` sans inline, boutons `data-del`, numériques coercés `Number` ; STORED **et** DEFLATE extraits à 10/10 avec contenu intact ; garde-fous création/non-additif validés ; override `Build Final Response` (existant préservé, doc + `start.sh/.bat` conservés). Cas `noop` → régénération complète.
+
+**À importer côté n8n** : `Agent_ZIP_Analyzer_V2.3.json` puis `Orchestrateur_V6.6.json` (re-sélectionner credentials Mistral après import).
+
+**Limites v1 (assumées)** : additif seul (ajout de ressources). Non-additif (nouveau champ, renommage, refonte UI) → régénération complète LLM. Piste v2 : `ALTER TABLE` additif pour l'ajout de champ.
