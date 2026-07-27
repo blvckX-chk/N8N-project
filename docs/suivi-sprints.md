@@ -175,6 +175,7 @@ Quand tu as ces éléments, envoie-les-moi et je les intègre au tableau de suiv
 | Agent QA renvoie parfois REWORK (LLM non déterministe) | Stabilisation — durcir le filtre de faux-positifs ou abaisser la sensibilité | Moyenne |
 | Clés Mistral en dur dans le JSON des 4 agents LLM | Sécurité (OWASP LLM02) — migrer vers `$env`/credentials n8n + clé de secours (failover) | Haute |
 | Alignement sécurité pour le mode additif (§5.5) | Sprint 5 : les incréments sont **déterministes** (mêmes patterns sûrs que le socle — requêtes préparées, `user_id`, validation), donc sécurisés par construction sans SAST par-run ; l'existant conserve ses attestations d'origine. **Reste** : brancher SAST/QA sur les `modules/*.routes.js` générés pour une preuve explicite (aujourd'hui SAST scanne le `server.js` régénéré par l'agent Backend). | Moyenne (v2) |
+| Multi-acteurs / ressources partagées | **LIVRÉ (Sprint 6, mode partagé)** — ressource `shared` = lecture non filtrée + provenance `created_by`. Voir section Sprint 6. | ✅ |
 
 ## Note trajectoire (roadmap V1.0, §12.1)
 
@@ -466,6 +467,37 @@ Legitimes   : 3/3 ACCEPTE (specs signalements / covoiturage / liste deroulante)
 
 **Preuves (tests Node, `node --check` + assertions)** : CrimeStopper + spec ajoutant une ressource (avec champ numérique) → 1 migration `003_add_*` + 1 module `011_*` + 1 `ui_*.js` ; ressources existantes (dont une créée par migration) inchangées ; `mergeFiles` → app complète (10 existants + 3 nouveaux), `index.html` augmenté, sections existantes intactes ; `ui_*.js` sans inline, boutons `data-del`, numériques coercés `Number` ; STORED **et** DEFLATE extraits à 10/10 avec contenu intact ; garde-fous création/non-additif validés ; override `Build Final Response` (existant préservé, doc + `start.sh/.bat` conservés). Cas `noop` → régénération complète.
 
-**À importer côté n8n** : `Agent_ZIP_Analyzer_V2.3.json` puis `Orchestrateur_V6.6.json` (re-sélectionner credentials Mistral après import).
+**À importer côté n8n** : `Agent_ZIP_Analyzer_V2.3.json` puis `Orchestrateur_V6.7.json` (re-sélectionner credentials Mistral après import).
 
 **Limites v1 (assumées)** : additif seul (ajout de ressources). Non-additif (nouveau champ, renommage, refonte UI) → régénération complète LLM. Piste v2 : `ALTER TABLE` additif pour l'ajout de champ.
+
+## Sprint 6 — Ressources partagées (multi-acteurs) — LIVRÉ ✅
+
+**Motivation** : le socle isole par défaut chaque donnée par `user_id` (Sprint 2, anti-IDOR).
+Or certaines specs décrivent un **inventaire/référentiel partagé** entre plusieurs acteurs
+(ex. PharmaGarde : le gestionnaire alimente médicaments/stocks, le pharmacien les consulte pour
+dispenser). L'isolation `user_id` casse alors le scénario (le pharmacien ne verrait pas les stocks
+du gestionnaire). Sprint 6 introduit un **mode partagé par ressource**.
+
+**Sémantique du mode partagé** (`shared: true` sur une ressource) :
+- Schéma : colonne de **provenance `created_by INTEGER NOT NULL REFERENCES users(id)`** (au lieu de la colonne de cloisonnement `user_id`).
+- Lecture (`GET` liste et `/:id`) : **non filtrée** → tous les acteurs authentifiés voient toutes les lignes.
+- Écriture (`POST`) : enregistre `created_by = req.user.sub` (traçabilité, conforme §8.4 du doc).
+- Suppression (`DELETE`) : **réservée au créateur** (`WHERE id = ? AND created_by = ?`) — conservateur pour des données de santé.
+- Par **défaut `shared:false`** → comportement historique inchangé (isolation `user_id`). Rétro-compatible.
+
+**Plumbing (bout en bout)** :
+- **Normalizer V1.5** : nouvelle règle de prompt — le LLM pose `shared:true` pour un référentiel/inventaire/catalogue lu par tous les acteurs, `false` pour une donnée privée du créateur. Le champ transite automatiquement via `structured_context` (résources passées telles quelles).
+- **Architect V5.2** : propage `shared` dans `stores[<res>].shared` + expose `artifacts.shared_resources`.
+- **Backend V6.6** : `cfg.shared` (depuis `stores[].shared` **ou** l'override `shared_resources`) branche schéma + 4 routes.
+- **Orchestrateur V6.7** : `Build Backend Payload` transmet `shared_resources` (override déterministe possible via webhook, ceinture + bretelles).
+- **Sprint 5 (générateur d'incréments)** : les incréments sur une ressource partagée sont eux aussi partagés (migration `created_by`, `GET` non filtré, `DELETE` créateur-seul).
+
+**Preuves (tests Node, `node --check` + assertions)** :
+- Backend V6.6 partagé : `stocks` → `created_by`, `GET /stocks` sans filtre `user_id`, `POST` insère `created_by`, `DELETE` créateur-seul ; contrôle **rétro-compat** (sans flag → `user_id` partout) ; FK→404 et positivité conservés ; `server.js` valide.
+- Chaîne **auto** Normalizer(shared) → Architect V5.2 → Backend V6.6 : les 3 tables PharmaGarde en `created_by`, **`GET /stocks` renvoie tous les stocks** (scénario 4.3 débloqué), sans override manuel.
+- Générateur d'incréments : ressource partagée vs privée dans la même passe → branchement correct ; modules valides.
+
+**À importer côté n8n** : `Agent_Spec_Normalizer_V1.5.json`, `Agent_Architect_V5.2.json`, `Agent_Backend_V6.6.json`, `Orchestrateur_V6.7.json` (re-sélectionner credentials Mistral après import).
+
+**Note (correctifs d'évaluation)** : la revue du code Backend a confirmé deux points **déjà couverts** (contrairement à une première estimation) : la **vérification d'existence FK → 404** (contrôle `SELECT id FROM <parent> WHERE id=?` avant insert) et la **positivité des nombres → 400**. Restent non couverts (cross-entité/temporel) : cohérence `sous_ordonnance` dispensation/médicament, `date_peremption` future, `quantite_delivree <= stock disponible`, décrément de stock, 2FA, RBAC par rôle.

@@ -36,19 +36,22 @@ function deriveTarget(architect) {
   var art = architect.artifacts || {};
   var stores = art.stores || {};
   var dm = art.data_model || {};
+  var sharedList = art.shared_resources || [];
   var resources = Object.keys(stores).map(function (resName) {
     var st = stores[resName] || {};
+    var storeName = st.store_name || (resName + 's');
     var fields = {};
     var f = dm[resName] || {};
     Object.keys(f).forEach(function (k) { if (k !== 'id' && k !== 'created_at') fields[k] = f[k]; });
     return {
       name: resName,
-      store_name: st.store_name || (resName + 's'),
+      store_name: storeName,
       fields: fields,
-      required_fields: st.required_fields || []
+      required_fields: st.required_fields || [],
+      shared: (st.shared === true) || (sharedList.indexOf(storeName) >= 0)
     };
   });
-  return { resources: resources };
+  return { resources: resources, shared_resources: sharedList };
 }
 
 function computeIncrements(current_state, target) {
@@ -104,8 +107,14 @@ function computeIncrements(current_state, target) {
       required.forEach(function (f) { fields[f] = 'string'; });
       fieldNames = required.slice();
     }
+    // Mode partagé (Sprint 6) : ressource référentiel/inventaire consultable par tous
+    // les acteurs authentifiés. Colonne de provenance `created_by`, lecture non filtrée,
+    // suppression réservée au créateur. Sinon (défaut) : isolation par `user_id`.
+    var shared = (r.shared === true) ||
+      (Array.isArray(target.shared_resources) && target.shared_resources.indexOf(store) >= 0);
+    var ownerCol = shared ? 'created_by' : 'user_id';
 
-    // ---- migration SQL (colonnes métier + user_id + created_at) ----
+    // ---- migration SQL (colonnes métier + colonne propriétaire + created_at) ----
     migNum += 1;
     var migName = 'migrations/' + pad(migNum) + '_add_' + store + '.sql';
     var cols = [];
@@ -114,7 +123,7 @@ function computeIncrements(current_state, target) {
       var notNull = (required.indexOf(f) >= 0) ? ' NOT NULL' : '';
       cols.push('  ' + f + ' ' + sqlType(fields[f]) + notNull);
     });
-    cols.push('  user_id INTEGER NOT NULL REFERENCES users(id)');
+    cols.push('  ' + ownerCol + ' INTEGER NOT NULL REFERENCES users(id)');
     cols.push("  created_at TEXT DEFAULT (datetime('now'))");
     var sql = '-- Increment Sprint 5 : table ' + store + '\n' +
       'CREATE TABLE IF NOT EXISTS ' + store + ' (\n' + cols.join(',\n') + '\n);\n';
@@ -123,7 +132,7 @@ function computeIncrements(current_state, target) {
     // ---- module routes.js (factory chargée par le socle Sprint 3) ----
     modNum += 1;
     var modName = 'modules/' + pad(modNum) + '_' + store + '.routes.js';
-    var insCols = ['user_id'].concat(fieldNames);
+    var insCols = [ownerCol].concat(fieldNames);
     var insPlace = insCols.map(function () { return '?'; }).join(', ');
     var insVals = ['req.user.sub'].concat(fieldNames.map(function (f) { return 'req.body.' + f; }));
     var reqCheck = required.length
@@ -146,15 +155,19 @@ function computeIncrements(current_state, target) {
     L.push("    } catch (e) { console.error('[POST /" + store + "]', e.message); res.status(500).json({ message: 'Erreur interne' }); }");
     L.push('  });');
     L.push("  app.get('/" + store + "', authMiddleware, function (req, res) {");
-    L.push("    try { res.json(db.prepare('SELECT * FROM " + store + " WHERE user_id = ? ORDER BY id ASC').all(req.user.sub)); }");
+    if (shared) {
+      L.push("    try { res.json(db.prepare('SELECT * FROM " + store + " ORDER BY id ASC').all()); }");
+    } else {
+      L.push("    try { res.json(db.prepare('SELECT * FROM " + store + " WHERE user_id = ? ORDER BY id ASC').all(req.user.sub)); }");
+    }
     L.push("    catch (e) { console.error('[GET /" + store + "]', e.message); res.status(500).json({ message: 'Erreur interne' }); }");
     L.push('  });');
     L.push("  app.delete('/" + store + "/:id', authMiddleware, function (req, res) {");
     L.push('    try {');
     L.push('      var id = parseInt(req.params.id, 10);');
-    L.push("      var found = db.prepare('SELECT id FROM " + store + " WHERE id = ? AND user_id = ?').get(id, req.user.sub);");
+    L.push("      var found = db.prepare('SELECT id FROM " + store + " WHERE id = ? AND " + ownerCol + " = ?').get(id, req.user.sub);");
     L.push("      if (!found) return res.status(404).json({ message: 'Introuvable' });");
-    L.push("      db.prepare('DELETE FROM " + store + " WHERE id = ? AND user_id = ?').run(id, req.user.sub);");
+    L.push("      db.prepare('DELETE FROM " + store + " WHERE id = ? AND " + ownerCol + " = ?').run(id, req.user.sub);");
     L.push("      res.json({ message: 'Supprime' });");
     L.push("    } catch (e) { console.error('[DELETE /" + store + "]', e.message); res.status(500).json({ message: 'Erreur interne' }); }");
     L.push('  });');
