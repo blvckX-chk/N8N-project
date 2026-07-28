@@ -20,14 +20,30 @@ optimisé pour l'hébergement web. »
 4. **Déploiement automatisé** : FTP/SFTP mutualisé **ou** API static hosting
    (Netlify / Vercel / Cloudflare Pages / GitHub Pages).
 
-## Décisions ouvertes
+## Décisions (tranchées — MVP livré)
 
-| Sujet | Options | À trancher |
+| Sujet | Choix | Justification |
 |---|---|---|
-| Moteur de génération | Pipeline n8n (réutiliser Forge IA) vs service Node autonome | — |
-| Rendu | Templates statiques paramétrés vs génération LLM du HTML complet | — |
-| Formulaire de contact | Service tiers (Formspree) vs fonction serverless vs mail PHP | — |
-| Cible de déploiement prioritaire pour la démo | Netlify (API simple) vs FTP mutualisé | — |
+| Moteur de génération | **Service Node autonome, zéro dépendance** | Self-contained, démontrable sans infra n8n ; `fetch` natif pour l'IA/déploiement |
+| Contenu | **IA Mistral si clé, sinon repli déterministe** | Run-and-go : marche hors-ligne, l'IA enrichit quand disponible (avec retry) |
+| Rendu | **Templates statiques paramétrés** (HTML/CSS/JS déterministes) + contenu IA | Contrôle total du markup (SEO/CSP/perf/accessibilité), pas de HTML LLM imprévisible |
+| Formulaire de contact | **`mailto` par défaut**, action serveur optionnelle (Formspree…) | 100 % statique par défaut ; pas de backend requis pour héberger |
+| Déploiement démo | **Netlify (API)** + artefact **ZIP** pour FTP mutualisé | Netlify = automatisé en 1 clic ; ZIP = proche de l'hébergement classique |
+
+## État — MVP livré ✅
+
+Générateur complet (`generator/`), 3 cibles de déploiement (`deploy/`), panneau web
+(`public/index.html` + `server.js`), CLI (`cli.js`), tests (`tests/smoke.js`, 29
+assertions). Site généré : responsive, SEO (JSON-LD, sitemap, robots), CSP stricte par
+hash, config d'hébergement (`.htaccess`/`_headers`), rapport d'optimisation.
+
+## Pistes v2
+
+- Multi-pages (au-delà du single-page) avec navigation réelle.
+- Déploiement FTP/SFTP direct depuis le panneau (aujourd'hui : ZIP à uploader).
+- Upload de logo/images réelles (aujourd'hui : placeholders SVG thématiques).
+- Cibles supplémentaires : Vercel, Cloudflare Pages, GitHub Pages.
+- Aperçu multi-thèmes côte à côte avant choix.
 
 ## Réutilisable depuis Forge IA
 
