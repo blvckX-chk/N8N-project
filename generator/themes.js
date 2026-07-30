@@ -65,8 +65,10 @@ const ALIASES = {
   realestate: 'realestate', immobilier: 'realestate', agence: 'realestate', construction: 'realestate', btp: 'realestate'
 };
 
-function resolveTheme(sector, override) {
-  const key = ALIASES[String(sector || '').toLowerCase()] || 'default';
+function resolveTheme(sector, override, forcedName) {
+  // Priorité : nom de thème forcé (s'il existe) > alias déduit du secteur > défaut.
+  const forced = forcedName && THEMES[String(forcedName).toLowerCase()] ? String(forcedName).toLowerCase() : null;
+  const key = forced || ALIASES[String(sector || '').toLowerCase()] || 'default';
   const base = { ...THEMES[key], name: key };
   if (override && typeof override === 'object') {
     if (override.primary) base.primary = override.primary;
@@ -76,4 +78,5 @@ function resolveTheme(sector, override) {
   return base;
 }
 
-module.exports = { resolveTheme, THEMES, ALIASES };
+const THEME_NAMES = Object.keys(THEMES);
+module.exports = { resolveTheme, THEMES, ALIASES, THEME_NAMES };

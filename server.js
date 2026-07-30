@@ -17,6 +17,7 @@ const path = require('path');
 const { generateSite } = require('./generator');
 const { buildPreview } = require('./generator/preview');
 const { createZip } = require('./deploy/zip');
+const { THEME_NAMES } = require('./generator/themes');
 
 const PORT = process.env.PORT || 3200;
 const MAX_BODY = 6 * 1024 * 1024; // 6 Mo
@@ -35,10 +36,19 @@ function readBody(req) {
   });
 }
 
+// Transport JSON des fichiers : le binaire (images) voyage en base64.
+function encodeFiles(files) {
+  return files.map(f => Buffer.isBuffer(f.content)
+    ? { path: f.path, content: f.content.toString('base64'), binary: true }
+    : { path: f.path, content: String(f.content), binary: false });
+}
 function safeFiles(input) {
   if (!Array.isArray(input)) throw new Error('files manquant');
   return input.filter(f => f && typeof f.path === 'string' && typeof f.content === 'string')
-    .map(f => ({ path: f.path.replace(/^\/+/, '').replace(/\.\.+/g, ''), content: f.content }));
+    .map(f => ({
+      path: f.path.replace(/^\/+/, '').replace(/\.\.+/g, ''),
+      content: f.binary ? Buffer.from(f.content, 'base64') : f.content
+    }));
 }
 
 const server = http.createServer(async (req, res) => {
@@ -54,11 +64,26 @@ const server = http.createServer(async (req, res) => {
       const preview = buildPreview(result.files);
       return send(res, 200, {
         ok: true, name: result.name, slug: result.slug,
-        files: result.files.map(f => ({ path: f.path, content: f.content })),
+        files: encodeFiles(result.files),
         report: result.report, meta: result.meta,
         content_source: result.content_source, ai_used: result.ai_used, ai_error: result.ai_error,
         preview
       });
+    }
+
+    if (req.method === 'GET' && req.url === '/api/themes') {
+      return send(res, 200, { ok: true, themes: THEME_NAMES });
+    }
+
+    if (req.method === 'POST' && req.url === '/api/preview-themes') {
+      const body = await readBody(req);
+      const names = Array.isArray(body.themes) && body.themes.length ? body.themes : THEME_NAMES;
+      const out = [];
+      for (const name of names.slice(0, 8)) {
+        const r = await generateSite({ ...body, theme: name, layout: 'single' }, { siteUrl: '', theme: name });
+        out.push({ theme: name, preview: buildPreview(r.files) });
+      }
+      return send(res, 200, { ok: true, previews: out });
     }
 
     if (req.method === 'POST' && req.url === '/api/zip') {
@@ -75,12 +100,25 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && req.url === '/api/deploy') {
       const body = await readBody(req);
       const target = body.target || 'netlify';
-      if (target !== 'netlify') return send(res, 400, { ok: false, error: `Cible non supportée: ${target}` });
-      if (!process.env.NETLIFY_AUTH_TOKEN) return send(res, 400, { ok: false, error: 'NETLIFY_AUTH_TOKEN non configuré sur le serveur', fix: 'Définis la variable d\'environnement NETLIFY_AUTH_TOKEN puis relance le serveur.' });
       const files = safeFiles(body.files);
-      const { deployNetlify } = require('./deploy/netlify');
-      const dep = await deployNetlify(files, { siteName: body.siteName, siteId: body.siteId });
-      return send(res, 200, { ok: true, ...dep });
+
+      if (target === 'netlify') {
+        if (!process.env.NETLIFY_AUTH_TOKEN) return send(res, 400, { ok: false, error: 'NETLIFY_AUTH_TOKEN non configuré sur le serveur', fix: 'Définis NETLIFY_AUTH_TOKEN dans .env puis relance le serveur.' });
+        const { deployNetlify } = require('./deploy/netlify');
+        return send(res, 200, { ok: true, target, ...(await deployNetlify(files, { siteName: body.siteName, siteId: body.siteId })) });
+      }
+      if (target === 'vercel') {
+        if (!process.env.VERCEL_TOKEN) return send(res, 400, { ok: false, error: 'VERCEL_TOKEN non configuré sur le serveur', fix: 'Définis VERCEL_TOKEN dans .env puis relance le serveur.' });
+        const { deployVercel } = require('./deploy/vercel');
+        return send(res, 200, { ok: true, target, ...(await deployVercel(files, { name: body.siteName })) });
+      }
+      if (target === 'ftp') {
+        const { deployFtp } = require('./deploy/ftp');
+        const cfg = body.ftp || {};
+        if (!cfg.host || !cfg.user || !cfg.password) return send(res, 400, { ok: false, error: 'Paramètres FTP manquants (host, user, password).' });
+        return send(res, 200, { ok: true, target, ...(await deployFtp(files, cfg)) });
+      }
+      return send(res, 400, { ok: false, error: `Cible non supportée: ${target}` });
     }
 
     return send(res, 404, { ok: false, error: 'Not found' });

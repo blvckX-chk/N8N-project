@@ -5,6 +5,7 @@
 
 const ALL_SECTIONS = ['hero', 'about', 'services', 'gallery', 'testimonials', 'pricing', 'contact'];
 const LANGS = ['fr', 'en'];
+const LAYOUTS = ['single', 'multi'];
 
 function str(v, max) {
   if (v == null) return '';
@@ -41,11 +42,23 @@ function normalizeBrief(input) {
   const contact = raw.contact && typeof raw.contact === 'object' ? raw.contact : {};
   const social = raw.social && typeof raw.social === 'object' ? raw.social : {};
 
+  let layout = str(raw.layout, 10).toLowerCase();
+  if (!LAYOUTS.includes(layout)) layout = 'single';
+
+  // Visuels : data URI acceptés (les URLs externes sont ignorées pour préserver la CSP).
+  const isDataUri = s => typeof s === 'string' && /^data:image\//i.test(s.trim());
+  const logo = isDataUri(raw.logo) ? raw.logo.trim() : '';
+  const images = Array.isArray(raw.images) ? raw.images.filter(isDataUri).slice(0, 12) : [];
+
   return {
     name,
     slug: slugify(raw.slug || name),
     sector,
     language,
+    layout,
+    theme: str(raw.theme, 24).toLowerCase(),
+    logo,
+    images,
     tagline: str(raw.tagline || raw.slogan, 140),
     description: str(raw.description || raw.about, 1200),
     services: arr(raw.services, 8),
@@ -72,4 +85,4 @@ function normalizeBrief(input) {
   };
 }
 
-module.exports = { normalizeBrief, slugify, ALL_SECTIONS, LANGS };
+module.exports = { normalizeBrief, slugify, ALL_SECTIONS, LANGS, LAYOUTS };

@@ -51,6 +51,11 @@
   .frame-bar{display:flex;align-items:center;gap:6px;padding:8px 12px;background:var(--surface2);border-bottom:1px solid var(--border)}
   .dot{width:10px;height:10px;border-radius:50%}
   iframe{width:100%;height:66vh;border:0;background:#fff;display:block}
+  .theme-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+  .theme-card{border:1px solid var(--border);border-radius:12px;overflow:hidden;cursor:pointer;background:#fff;transition:border-color .15s,transform .15s}
+  .theme-card:hover{border-color:var(--primary);transform:translateY(-3px)}
+  .theme-card .theme-cap{padding:8px 12px;font-family:var(--mono);font-size:12px;color:var(--text);background:var(--surface2);text-transform:capitalize}
+  .theme-card iframe{height:340px;pointer-events:none}
   .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:14px 0}
   .stat{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px}
   .stat .n{font-size:20px;font-weight:800}
@@ -93,6 +98,14 @@
         <select id="f-lang"><option value="fr">Français</option><option value="en">English</option></select>
       </div>
     </div>
+    <div class="row2">
+      <div><label class="lbl">Mise en page</label>
+        <select id="f-layout"><option value="single">Une page (single)</option><option value="multi">Multi-pages</option></select>
+      </div>
+      <div><label class="lbl">Thème</label>
+        <select id="f-theme"><option value="">Auto (secteur)</option></select>
+      </div>
+    </div>
     <label class="lbl">Slogan</label>
     <input id="f-tagline" placeholder="Une phrase d'accroche"/>
     <label class="lbl">Description</label>
@@ -101,6 +114,11 @@
     <textarea id="f-services" placeholder="Conseil&#10;Livraison&#10;Support"></textarea>
     <label class="lbl">Sections</label>
     <div class="checks" id="f-sections"></div>
+    <div class="row2">
+      <div><label class="lbl">Logo (optionnel)</label><input type="file" id="f-logo" accept="image/*"/></div>
+      <div><label class="lbl">Images galerie</label><input type="file" id="f-images" accept="image/*" multiple/></div>
+    </div>
+    <div class="hint" id="img-note"></div>
     <div class="row2">
       <div><label class="lbl">CTA — libellé</label><input id="f-cta-label" placeholder="Nous contacter"/></div>
       <div><label class="lbl">CTA — lien</label><input id="f-cta-href" placeholder="#contact"/></div>
@@ -130,6 +148,7 @@
       </div>
     </details>
     <button class="btn" id="btn-gen"><span class="spin" id="spin"></span><span id="btn-txt">✨ Générer le site</span></button>
+    <button class="btn btn-sec" id="btn-compare" style="margin-top:8px">🎨 Comparer les thèmes</button>
     <div class="hint">L'IA (Mistral) rédige le contenu si une clé est configurée côté serveur ; sinon un contenu de qualité est généré automatiquement.</div>
   </div>
 
@@ -160,15 +179,27 @@ function val(id){return document.getElementById(id).value.trim();}
 function lines(id){return val(id).split(/\n+/).map(s=>s.trim()).filter(Boolean);}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
-let currentFiles=[],currentSlug='site';
+let currentFiles=[],currentSlug='site',logoData='',imagesData=[];
+
+// Charge la liste des thèmes disponibles
+fetch('/api/themes').then(r=>r.json()).then(d=>{
+  if(!d.ok)return;const sel=document.getElementById('f-theme');
+  d.themes.filter(t=>t!=='default').forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=t.charAt(0).toUpperCase()+t.slice(1);sel.appendChild(o);});
+}).catch(()=>{});
+
+function readAsDataURL(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file);});}
+document.getElementById('f-logo').addEventListener('change',async e=>{const f=e.target.files[0];logoData=f?await readAsDataURL(f):'';updateImgNote();});
+document.getElementById('f-images').addEventListener('change',async e=>{imagesData=[];for(const f of [...e.target.files].slice(0,12))imagesData.push(await readAsDataURL(f));updateImgNote();});
+function updateImgNote(){const n=document.getElementById('img-note');n.textContent=(logoData?'Logo ✓ · ':'')+(imagesData.length?imagesData.length+' image(s) galerie ✓':'');}
 
 function buildBrief(){
   const name=val('f-name');
   if(!name)throw new Error("Le nom de l'entreprise est requis.");
   const sections=[...document.querySelectorAll('#f-sections input:checked')].map(i=>i.value);
   return {
-    name,sector:val('f-sector'),language:val('f-lang'),tagline:val('f-tagline'),
-    description:val('f-desc'),services:lines('f-services'),sections,
+    name,sector:val('f-sector'),language:val('f-lang'),layout:val('f-layout'),theme:val('f-theme'),
+    tagline:val('f-tagline'),description:val('f-desc'),services:lines('f-services'),sections,
+    logo:logoData,images:imagesData,
     cta:{label:val('f-cta-label'),href:val('f-cta-href')},
     contact:{email:val('f-email'),phone:val('f-phone'),address:val('f-address')},
     social:{facebook:val('f-facebook'),instagram:val('f-instagram'),linkedin:val('f-linkedin'),whatsapp:val('f-whatsapp')},
@@ -200,8 +231,22 @@ function renderResult(d){
       <span class="badge ok">✓ ${esc(d.name)}</span>
       ${srcBadge}
       <span class="badge det">thème ${esc(d.meta.theme)}</span>
+      <span class="badge det">${d.meta.layout==='multi'?d.meta.pages+' pages':'1 page'}</span>
       <button class="btn btn-sec" style="width:auto;margin:0;padding:9px 14px" id="dl">⬇ Télécharger ZIP</button>
-      <button class="btn" style="width:auto;margin:0;padding:9px 14px" id="dep">🚀 Déployer sur Netlify</button>
+      <select id="dep-target" style="width:auto;padding:8px">
+        <option value="netlify">Netlify</option>
+        <option value="vercel">Vercel</option>
+        <option value="ftp">FTP mutualisé</option>
+      </select>
+      <button class="btn" style="width:auto;margin:0;padding:9px 14px" id="dep">🚀 Déployer</button>
+    </div>
+    <div id="ftp-fields" style="display:none;margin-bottom:12px">
+      <div class="row3">
+        <input id="ftp-host" placeholder="Hôte FTP (ftp.mondomaine.com)"/>
+        <input id="ftp-user" placeholder="Utilisateur"/>
+        <input id="ftp-pass" type="password" placeholder="Mot de passe"/>
+      </div>
+      <input id="ftp-dir" placeholder="Répertoire distant (ex : public_html)" style="margin-top:8px"/>
     </div>
     <div class="cards">
       <div class="stat"><div class="n">${rep.files||d.files.length}</div><div class="l">fichiers</div></div>
@@ -219,7 +264,8 @@ function renderResult(d){
     <details><summary>{ } Fichiers générés (${d.files.length})</summary><pre>${esc(d.files.map(f=>f.path).join('\n'))}</pre></details>`;
   document.getElementById('frame').srcdoc=d.preview;
   document.getElementById('dl').onclick=downloadZip;
-  document.getElementById('dep').onclick=deployNetlify;
+  document.getElementById('dep').onclick=deploy;
+  document.getElementById('dep-target').onchange=e=>{document.getElementById('ftp-fields').style.display=e.target.value==='ftp'?'block':'none';};
 }
 
 async function downloadZip(){
@@ -230,15 +276,49 @@ async function downloadZip(){
   }catch(e){alert('Erreur ZIP : '+e.message);}
 }
 
-async function deployNetlify(){
+async function deploy(){
+  const target=document.getElementById('dep-target').value;
   const box=document.getElementById('deploy-result');
-  box.innerHTML='<div class="deploy-box" style="color:var(--muted)">⏳ Déploiement sur Netlify...</div>';
+  const payload={target,files:currentFiles,siteName:currentSlug+'-'+Math.random().toString(36).slice(2,7)};
+  if(target==='ftp'){
+    const host=val('ftp-host'),user=val('ftp-user'),password=document.getElementById('ftp-pass').value;
+    if(!host||!user||!password){box.innerHTML='<div class="err-box">❌ Renseigne hôte, utilisateur et mot de passe FTP.</div>';return;}
+    payload.ftp={host,user,password,remoteDir:val('ftp-dir')||'/'};
+  }
+  box.innerHTML=`<div class="deploy-box" style="color:var(--muted)">⏳ Déploiement (${esc(target)})...</div>`;
   try{
-    const r=await fetch('/api/deploy',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({target:'netlify',files:currentFiles,siteName:currentSlug+'-'+Math.random().toString(36).slice(2,7)})});
+    const r=await fetch('/api/deploy',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     const d=await r.json();
     if(!d.ok){box.innerHTML=`<div class="err-box">❌ ${esc(d.error||'Erreur')}${d.fix?'<div style="margin-top:6px;color:var(--ok)">💡 '+esc(d.fix)+'</div>':''}</div>`;return;}
-    box.innerHTML=`<div class="deploy-box"><b style="color:var(--ok)">✅ Site en ligne</b><br>🌐 <a href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.url)}</a><br><span style="color:var(--muted)">${d.files_uploaded}/${d.files_total} fichiers · site ${esc(d.site_id)}</span></div>`;
+    if(target==='ftp'){
+      box.innerHTML=`<div class="deploy-box"><b style="color:var(--ok)">✅ Envoyé par FTP</b><br><span style="color:var(--muted)">${d.files_uploaded}/${d.files_total} fichiers → ${esc(d.host)}:${esc(d.remoteDir)}</span></div>`;
+    } else {
+      box.innerHTML=`<div class="deploy-box"><b style="color:var(--ok)">✅ Site en ligne (${esc(target)})</b><br>🌐 <a href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.url)}</a><br><span style="color:var(--muted)">${d.files_uploaded}/${d.files_total} fichiers</span></div>`;
+    }
   }catch(e){box.innerHTML=`<div class="err-box">❌ ${esc(e.message)}</div>`;}
+}
+
+async function compareThemes(){
+  let brief;try{brief=buildBrief();}catch(e){return showError(e.message);}
+  const btn=document.getElementById('btn-compare');btn.disabled=true;btn.textContent='🎨 Comparaison...';
+  try{
+    const r=await fetch('/api/preview-themes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(brief)});
+    const d=await r.json();
+    if(!d.ok)throw new Error(d.error||'Erreur');
+    document.getElementById('empty').style.display='none';
+    const res=document.getElementById('result');res.style.display='block';
+    res.innerHTML=`<div class="toolbar"><span class="badge det">🎨 ${d.previews.length} thèmes · clique pour appliquer</span></div>
+      <div class="theme-grid">${d.previews.map(p=>`
+        <div class="theme-card" data-theme="${esc(p.theme)}">
+          <div class="theme-cap">${esc(p.theme)}</div>
+          <iframe sandbox="allow-same-origin" loading="lazy"></iframe>
+        </div>`).join('')}</div>`;
+    [...document.querySelectorAll('.theme-card')].forEach((c,i)=>{
+      c.querySelector('iframe').srcdoc=d.previews[i].preview;
+      c.onclick=()=>{document.getElementById('f-theme').value=d.previews[i].theme;generate();};
+    });
+  }catch(e){showError('Comparaison impossible : '+e.message);}
+  finally{btn.disabled=false;btn.textContent='🎨 Comparer les thèmes';}
 }
 
 function showError(msg){
@@ -247,6 +327,7 @@ function showError(msg){
   res.innerHTML=`<div class="err-box">❌ ${esc(msg)}</div>`;
 }
 document.getElementById('btn-gen').onclick=generate;
+document.getElementById('btn-compare').onclick=compareThemes;
 </script>
 </body>
 </html>

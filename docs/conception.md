@@ -37,13 +37,25 @@ Générateur complet (`generator/`), 3 cibles de déploiement (`deploy/`), panne
 assertions). Site généré : responsive, SEO (JSON-LD, sitemap, robots), CSP stricte par
 hash, config d'hébergement (`.htaccess`/`_headers`), rapport d'optimisation.
 
-## Pistes v2
+## v2 — livré ✅
 
-- Multi-pages (au-delà du single-page) avec navigation réelle.
-- Déploiement FTP/SFTP direct depuis le panneau (aujourd'hui : ZIP à uploader).
-- Upload de logo/images réelles (aujourd'hui : placeholders SVG thématiques).
-- Cibles supplémentaires : Vercel, Cloudflare Pages, GitHub Pages.
-- Aperçu multi-thèmes côte à côte avant choix.
+- **Multi-pages** avec navigation réelle (`layout: multi`) : accueil (hero + teasers + CTA)
+  + une page par section, sitemap multi-URL, CSP par hash unique valable sur toutes les pages.
+- **Upload de logo/images réelles** (data URI → fichiers), repli SVG ; URLs externes
+  ignorées pour préserver la CSP.
+- **Comparateur de thèmes** côte à côte dans le panneau + override manuel de thème.
+- **Cibles de déploiement** : Vercel (API) et **FTP direct** (zéro dépendance) en plus
+  de Netlify et du ZIP.
+
+Tests : `tests/smoke.js` (29) + `tests/v2.js` (36) = 65 assertions. Le flux FTP réel est
+validé contre un serveur FTP mock (transfert binaire + chemins).
+
+## Pistes v3 (restantes)
+
+- SFTP (nécessite une lib crypto SSH — hors zéro-dépendance).
+- Cloudflare Pages / GitHub Pages.
+- Multi-pages : blog / pages libres au-delà des sections type.
+- Optimisation images (conversion WebP, redimensionnement) à l'upload.
 
 ## Réutilisable depuis Forge IA
 

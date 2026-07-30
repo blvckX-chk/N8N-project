@@ -58,6 +58,17 @@ function readInput(a) {
       const dep = await deployNetlify(result.files, { siteName: a['site-name'], siteId: a['site-id'] });
       console.log(`🚀 Déployé sur Netlify → ${dep.url || '(voir dashboard)'}`);
       console.log(`   ${dep.files_uploaded}/${dep.files_total} fichiers uploadés · site ${dep.site_id}`);
+    } else if (a.deploy === 'vercel') {
+      const { deployVercel } = require('./deploy/vercel');
+      const dep = await deployVercel(result.files, { name: a['site-name'] || result.slug });
+      console.log(`🚀 Déployé sur Vercel → ${dep.url || '(voir dashboard)'}`);
+      console.log(`   ${dep.files_uploaded}/${dep.files_total} fichiers · état ${dep.state}`);
+    } else if (a.deploy === 'ftp') {
+      const { deployFtp } = require('./deploy/ftp');
+      const cfg = input.ftp || {};
+      const dep = await deployFtp(result.files, cfg);
+      console.log(`🚀 Envoyé par FTP → ${dep.host}:${dep.remoteDir}`);
+      console.log(`   ${dep.files_uploaded}/${dep.files_total} fichiers uploadés`);
     }
   } catch (e) {
     console.error('❌ ' + (e.message || e));

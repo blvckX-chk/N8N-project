@@ -1,0 +1,20 @@
+{
+  "name": "Agence Nova",
+  "sector": "business",
+  "language": "fr",
+  "layout": "multi",
+  "tagline": "Nous construisons votre présence digitale",
+  "description": "Agence Nova accompagne les entreprises dans leur transformation digitale : stratégie de marque, design d'expérience et développement web sur mesure. Basée à Cotonou, au service de toute l'Afrique de l'Ouest.",
+  "services": ["Stratégie de marque", "Design UX/UI", "Développement web", "Référencement SEO"],
+  "sections": ["hero", "about", "services", "gallery", "testimonials", "pricing", "contact"],
+  "cta": { "label": "Demander un devis", "href": "#contact" },
+  "contact": {
+    "email": "contact@agencenova.bj",
+    "phone": "+229 01 08 80 61",
+    "address": "Haie Vive, Cotonou, Bénin"
+  },
+  "social": {
+    "linkedin": "https://linkedin.com/company/agencenova",
+    "instagram": "https://instagram.com/agencenova"
+  }
+}

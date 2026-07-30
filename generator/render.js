@@ -1,8 +1,8 @@
 'use strict';
 // Rendu du site vitrine statique : modèle de contenu -> fichiers.
-// Sortie : index.html, assets/style.css, assets/main.js, images SVG, SEO
-// (sitemap/robots/manifest/favicon) et config d'hébergement (.htaccess, _headers)
-// avec une CSP stricte (script-src 'self' + hash du JSON-LD, aucun unsafe-inline).
+// v2 : layout single-page OU multi-pages (navigation réelle) + vrais visuels
+// (logo / images de galerie via data URI, repli SVG) + SEO + CSP stricte
+// (script-src 'self' + hash(es) du JSON-LD, aucun unsafe-inline).
 
 const crypto = require('crypto');
 
@@ -11,11 +11,26 @@ function esc(s) {
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 function attr(s) { return esc(s); }
+function t(lang, fr, en) { return lang === 'en' ? en : fr; }
 
 const SECTION_LABELS = {
   fr: { hero: 'Accueil', about: 'À propos', services: 'Services', gallery: 'Galerie', testimonials: 'Avis', pricing: 'Tarifs', contact: 'Contact' },
   en: { hero: 'Home', about: 'About', services: 'Services', gallery: 'Gallery', testimonials: 'Reviews', pricing: 'Pricing', contact: 'Contact' }
 };
+const TEASER_BLURB = {
+  fr: { about: 'Découvrez notre histoire.', services: 'Ce que nous proposons.', gallery: 'Un aperçu de nos réalisations.', testimonials: 'Ce que disent nos clients.', pricing: 'Nos formules et tarifs.', contact: 'Parlons de votre projet.' },
+  en: { about: 'Discover our story.', services: 'What we offer.', gallery: 'A look at our work.', testimonials: 'What clients say.', pricing: 'Our plans and pricing.', contact: 'Let’s talk about your project.' }
+};
+
+// ------------------------------------------------------------ data URI -> file
+const MIME_EXT = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif', 'image/svg+xml': 'svg' };
+function decodeDataUri(uri) {
+  const m = /^data:([^;,]+)?(;base64)?,([\s\S]*)$/.exec(String(uri || '').trim());
+  if (!m) return null;
+  const mime = (m[1] || 'application/octet-stream').toLowerCase();
+  const buffer = m[2] ? Buffer.from(m[3], 'base64') : Buffer.from(decodeURIComponent(m[3]), 'utf8');
+  return { buffer, mime, ext: MIME_EXT[mime] || 'bin' };
+}
 
 // ------------------------------------------------------------------ favicon/img
 function faviconSVG(theme, name) {
@@ -28,14 +43,14 @@ function gallerySVG(theme, i, caption) {
 }
 
 // ------------------------------------------------------------------- sections
-function renderHero(m, brief) {
+function renderHero(m, brief, ctx) {
   return `<section id="hero" class="hero reveal">
       <div class="container hero-inner">
         <h1>${esc(m.hero.title)}</h1>
         <p class="lead">${esc(m.hero.subtitle)}</p>
         <div class="hero-cta">
-          <a class="btn btn-primary" href="${attr(brief.cta.href)}">${esc(brief.cta.label)}</a>
-          ${brief.contact.phone ? `<a class="btn btn-ghost" href="tel:${attr(brief.contact.phone.replace(/\s+/g, ''))}">${esc(brief.language === 'en' ? 'Call us' : 'Appeler')}</a>` : ''}
+          <a class="btn btn-primary" href="${attr(ctx.ctaHref)}">${esc(brief.cta.label)}</a>
+          ${brief.contact.phone ? `<a class="btn btn-ghost" href="tel:${attr(brief.contact.phone.replace(/\s+/g, ''))}">${esc(t(brief.language, 'Appeler', 'Call us'))}</a>` : ''}
         </div>
       </div>
     </section>`;
@@ -66,10 +81,10 @@ function renderServices(m) {
       </div>
     </section>`;
 }
-function renderGallery(m) {
-  const items = m.gallery.items.map((it, i) => `<figure class="gallery-item reveal">
-            <img src="assets/img/gallery-${i + 1}.svg" alt="${attr(it.caption)}" loading="lazy" width="600" height="400"/>
-            <figcaption>${esc(it.caption)}</figcaption>
+function renderGallery(m, brief, ctx) {
+  const items = ctx.galleryImages.map((img) => `<figure class="gallery-item reveal">
+            <img src="${attr(img.src)}" alt="${attr(img.alt)}" loading="lazy" width="600" height="400"/>
+            <figcaption>${esc(img.alt)}</figcaption>
           </figure>`).join('\n          ');
   return `<section id="gallery" class="section">
       <div class="container">
@@ -136,9 +151,210 @@ function renderContact(m, brief) {
       </div>
     </section>`;
 }
-function t(lang, fr, en) { return lang === 'en' ? en : fr; }
-
 const RENDERERS = { hero: renderHero, about: renderAbout, services: renderServices, gallery: renderGallery, testimonials: renderTestimonials, pricing: renderPricing, contact: renderContact };
+
+// Cartes-teaser de la page d'accueil (mode multi-pages)
+function renderTeasers(brief, labels, L) {
+  const cards = brief.sections.filter(s => s !== 'hero').map(s => `<a class="teaser reveal" href="${s}.html">
+            <span class="teaser-label">${esc(labels[s] || s)}</span>
+            <span class="teaser-blurb">${esc((TEASER_BLURB[L] || TEASER_BLURB.fr)[s] || '')}</span>
+            <span class="teaser-go">${t(L, 'Découvrir', 'Discover')} →</span>
+          </a>`).join('\n          ');
+  return `<section class="section">
+      <div class="container">
+        <div class="teasers">
+          ${cards}
+        </div>
+      </div>
+    </section>`;
+}
+function renderCTABand(brief, ctx, L) {
+  return `<section class="cta-band reveal">
+      <div class="container">
+        <h2>${esc(brief.tagline || t(L, 'Prêt à démarrer ?', 'Ready to get started?'))}</h2>
+        <a class="btn btn-primary" href="${attr(ctx.ctaHref)}">${esc(brief.cta.label)}</a>
+      </div>
+    </section>`;
+}
+
+// -------------------------------------------------------------------- nav/shell
+function buildNav(brief, labels, layout, activeKey) {
+  const link = (key, href) => {
+    const active = key === activeKey ? ' class="active" aria-current="page"' : '';
+    return `<a href="${attr(href)}"${active}>${esc(labels[key] || key)}</a>`;
+  };
+  const links = [];
+  links.push(link('hero', layout === 'multi' ? 'index.html' : '#hero'));
+  brief.sections.filter(s => s !== 'hero').forEach(s => {
+    links.push(link(s, layout === 'multi' ? `${s}.html` : `#${s}`));
+  });
+  return links.join('');
+}
+
+function pageShell({ lang, title, description, keywords, theme, jsonldStr, siteUrl, canonicalPath, ogImage }, brief, navHtml, mainHtml, footerHtml) {
+  const canonical = siteUrl ? `${siteUrl}/${canonicalPath}`.replace(/\/+$/, m => (canonicalPath ? m : '/')) : '';
+  return `<!DOCTYPE html>
+<html lang="${attr(lang)}">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>${esc(title)}</title>
+  <meta name="description" content="${attr(description)}"/>
+  <meta name="keywords" content="${attr(keywords)}"/>
+  <meta name="theme-color" content="${attr(theme.primary)}"/>
+  ${canonical ? `<link rel="canonical" href="${attr(canonical)}"/>` : ''}
+  <meta property="og:type" content="website"/>
+  <meta property="og:title" content="${attr(title)}"/>
+  <meta property="og:description" content="${attr(description)}"/>
+  ${canonical ? `<meta property="og:url" content="${attr(canonical)}"/>` : ''}
+  ${ogImage ? `<meta property="og:image" content="${attr(ogImage)}"/>` : ''}
+  <meta name="twitter:card" content="summary_large_image"/>
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg"/>
+  <link rel="manifest" href="site.webmanifest"/>
+  <link rel="stylesheet" href="assets/style.css"/>
+  <script type="application/ld+json">${jsonldStr}</script>
+</head>
+<body>
+  <header class="site-header">
+    <nav class="nav" aria-label="Navigation principale">
+      <a class="brand" href="${brief.layout === 'multi' ? 'index.html' : '#hero'}"><img src="${attr(brief._brandLogo)}" alt="" width="30" height="30"/>${esc(brief.name)}</a>
+      <button class="nav-toggle" aria-label="Menu" aria-expanded="false">☰</button>
+      <div class="nav-links">${navHtml}</div>
+    </nav>
+  </header>
+  <main>
+    ${mainHtml}
+  </main>
+  ${footerHtml}
+  <script src="assets/main.js"></script>
+</body>
+</html>
+`;
+}
+
+function renderFooter(brief, L) {
+  const socials = [];
+  const S = brief.social;
+  if (S.facebook) socials.push(`<a href="${attr(S.facebook)}" rel="noopener" target="_blank" aria-label="Facebook">Facebook</a>`);
+  if (S.instagram) socials.push(`<a href="${attr(S.instagram)}" rel="noopener" target="_blank" aria-label="Instagram">Instagram</a>`);
+  if (S.linkedin) socials.push(`<a href="${attr(S.linkedin)}" rel="noopener" target="_blank" aria-label="LinkedIn">LinkedIn</a>`);
+  if (S.whatsapp) socials.push(`<a href="${attr(S.whatsapp)}" rel="noopener" target="_blank" aria-label="WhatsApp">WhatsApp</a>`);
+  return `<footer class="site-footer">
+    <div class="container">
+      ${socials.length ? `<div class="socials">${socials.join('')}</div>` : ''}
+      <p>© <span data-year>${new Date().getFullYear()}</span> ${esc(brief.name)}. ${t(L, 'Tous droits réservés.', 'All rights reserved.')}</p>
+      <p style="opacity:.7;font-size:12px;margin-top:6px">${t(L, 'Site généré avec', 'Site generated with')} EPITNET Vitrine Generator</p>
+    </div>
+  </footer>`;
+}
+
+// -------------------------------------------------------------------- assembly
+function renderSite(brief, theme, model, opts = {}) {
+  const L = brief.language;
+  const labels = SECTION_LABELS[L] || SECTION_LABELS.fr;
+  const layout = brief.layout || 'single';
+  const siteUrl = (opts.siteUrl || '').replace(/\/+$/, '');
+  const files = [];
+
+  // Visuels : logo + images de galerie (data URI -> fichiers), repli SVG
+  let brandLogo = 'assets/favicon.svg';
+  let ogImage = siteUrl ? `${siteUrl}/assets/favicon.svg` : '';
+  if (brief.logo) {
+    const d = decodeDataUri(brief.logo);
+    if (d) {
+      const p = `assets/logo.${d.ext}`;
+      files.push({ path: p, content: d.buffer });
+      brandLogo = p;
+      ogImage = siteUrl ? `${siteUrl}/${p}` : p;
+    }
+  }
+  brief._brandLogo = brandLogo;
+
+  const galleryImages = model.gallery.items.map((it, i) => {
+    const provided = brief.images[i] ? decodeDataUri(brief.images[i]) : null;
+    if (provided) {
+      const p = `assets/img/gallery-${i + 1}.${provided.ext}`;
+      files.push({ path: p, content: provided.buffer });
+      return { src: p, alt: it.caption };
+    }
+    return { src: `assets/img/gallery-${i + 1}.svg`, alt: it.caption };
+  });
+
+  // JSON-LD identique sur toutes les pages -> un seul hash CSP
+  const jsonld = {
+    '@context': 'https://schema.org', '@type': 'LocalBusiness', name: brief.name,
+    description: model.seo.description,
+    ...(brief.contact.phone ? { telephone: brief.contact.phone } : {}),
+    ...(brief.contact.email ? { email: brief.contact.email } : {}),
+    ...(brief.contact.address ? { address: brief.contact.address } : {}),
+    ...(siteUrl ? { url: siteUrl } : {})
+  };
+  const jsonldStr = JSON.stringify(jsonld);
+  const jsonldHash = 'sha256-' + crypto.createHash('sha256').update(jsonldStr).digest('base64');
+
+  const ctaHref = mapCta(brief, layout);
+  const ctx = { galleryImages, ctaHref, layout };
+  const footerHtml = renderFooter(brief, L);
+  const keywords = model.seo.keywords.join(', ');
+
+  const pages = [];   // {path, canonicalPath} pour le sitemap
+  const mkPage = (fileName, title, description, canonicalPath, mainHtml, activeKey) => {
+    const nav = buildNav(brief, labels, layout, activeKey);
+    const html = pageShell({ lang: L, title, description, keywords, theme, jsonldStr, siteUrl, canonicalPath, ogImage }, brief, nav, mainHtml, footerHtml);
+    files.push({ path: fileName, content: html });
+    pages.push({ canonicalPath });
+  };
+
+  if (layout === 'multi') {
+    // Accueil : hero + teasers + bande CTA
+    const home = renderHero(model, brief, ctx) + '\n    ' + renderTeasers(brief, labels, L) + '\n    ' + renderCTABand(brief, ctx, L);
+    mkPage('index.html', model.seo.title, model.seo.description, '', home, 'hero');
+    // Une page par section (hors hero)
+    brief.sections.filter(s => s !== 'hero').forEach(s => {
+      const sectionHtml = RENDERERS[s] ? RENDERERS[s](model, brief, ctx) : '';
+      mkPage(`${s}.html`, `${labels[s]} · ${brief.name}`, model.seo.description, `${s}.html`, sectionHtml, s);
+    });
+  } else {
+    const sectionsHtml = brief.sections.map(s => (RENDERERS[s] ? RENDERERS[s](model, brief, ctx) : '')).join('\n    ');
+    mkPage('index.html', model.seo.title, model.seo.description, '', sectionsHtml, 'hero');
+  }
+
+  // Assets communs
+  files.push({ path: 'assets/style.css', content: renderCSS(theme) });
+  files.push({ path: 'assets/main.js', content: renderJS(L) });
+  files.push({ path: 'assets/favicon.svg', content: faviconSVG(theme, brief.name) });
+  if (brief.sections.includes('gallery')) {
+    galleryImages.forEach((img, i) => {
+      if (/\.svg$/.test(img.src)) files.push({ path: img.src, content: gallerySVG(theme, i + 1, img.alt) });
+    });
+  }
+
+  // SEO : robots, sitemap (toutes les pages), manifest
+  files.push({ path: 'robots.txt', content: `User-agent: *\nAllow: /\n${siteUrl ? `Sitemap: ${siteUrl}/sitemap.xml\n` : ''}` });
+  const urls = pages.map(p => `  <url><loc>${esc((siteUrl || 'https://example.com') + '/' + p.canonicalPath)}</loc><changefreq>monthly</changefreq><priority>${p.canonicalPath ? '0.7' : '1.0'}</priority></url>`).join('\n');
+  files.push({ path: 'sitemap.xml', content: `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n` });
+  files.push({ path: 'site.webmanifest', content: JSON.stringify({
+    name: brief.name, short_name: brief.name.slice(0, 12), start_url: '.', display: 'standalone',
+    background_color: theme.bg, theme_color: theme.primary,
+    icons: [{ src: brandLogo, sizes: 'any', type: brandLogo.endsWith('.svg') ? 'image/svg+xml' : 'image/png' }]
+  }, null, 2) });
+
+  // Config d'hébergement — CSP stricte (script-src 'self' + hash JSON-LD)
+  const csp = `default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self' '${jsonldHash}'; base-uri 'self'; form-action 'self' mailto:; frame-ancestors 'none'; object-src 'none'`;
+  files.push({ path: '_headers', content: netlifyHeaders(csp) });
+  files.push({ path: '.htaccess', content: apacheHtaccess(csp) });
+
+  delete brief._brandLogo;
+  return { files, jsonldHash, meta: { theme: theme.name, layout, sections: brief.sections, pages: pages.length, ai: !!opts.ai } };
+}
+
+function mapCta(brief, layout) {
+  const href = brief.cta.href || '#contact';
+  if (layout !== 'multi' || !href.startsWith('#')) return href;
+  const key = href.slice(1);
+  if (key === 'hero' || key === '') return 'index.html';
+  return brief.sections.includes(key) && key !== 'hero' ? `${key}.html` : (brief.sections.includes('contact') ? 'contact.html' : 'index.html');
+}
 
 // ---------------------------------------------------------------------- style
 function renderCSS(theme) {
@@ -168,32 +384,39 @@ h1,h2,h3{font-family:var(--hfont);line-height:1.15;letter-spacing:-.01em}
 .btn-ghost{background:transparent;border-color:var(--border);color:var(--text)}
 .btn-ghost:hover{border-color:var(--primary)}
 
-/* header */
 .site-header{position:sticky;top:0;z-index:50;background:${dark ? 'rgba(11,11,20,.72)' : 'rgba(255,255,255,.78)'};backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
 .nav{display:flex;align-items:center;gap:16px;padding:14px 20px;max-width:var(--maxw);margin:0 auto}
 .brand{display:flex;align-items:center;gap:10px;font-family:var(--hfont);font-weight:800;font-size:18px}
-.brand img{width:30px;height:30px}
+.brand img{width:30px;height:30px;border-radius:7px;object-fit:cover}
 .nav-links{margin-left:auto;display:flex;gap:6px;align-items:center}
 .nav-links a{padding:8px 12px;border-radius:9px;font-size:14px;color:var(--muted);transition:color .15s,background .15s}
-.nav-links a:hover{color:var(--text);background:${dark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.05)'}}
+.nav-links a:hover,.nav-links a.active{color:var(--text);background:${dark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.05)'}}
+.nav-links a.active{color:var(--primary)}
 .nav-toggle{display:none;margin-left:auto;background:none;border:1px solid var(--border);border-radius:9px;padding:8px 10px;cursor:pointer;color:var(--text);font-size:18px}
 
-/* hero */
 .hero{position:relative;padding:104px 0 92px;text-align:center;background:
   radial-gradient(900px 420px at 80% -10%,color-mix(in srgb,var(--primary) 22%,transparent),transparent 60%),
   radial-gradient(700px 380px at -10% 10%,color-mix(in srgb,var(--accent) 18%,transparent),transparent 55%),var(--bg)}
-.hero-inner{max-width:820px}
+.hero-inner{max-width:820px;margin:0 auto}
 .hero h1{font-size:clamp(32px,6vw,56px);margin-bottom:18px;background:linear-gradient(135deg,var(--primary),var(--accent));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 .hero .lead{font-size:clamp(16px,2.4vw,20px);color:var(--muted);max-width:640px;margin:0 auto 28px}
 .hero-cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
 
-/* about */
+.teasers{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+.teaser{display:flex;flex-direction:column;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:22px;box-shadow:var(--shadow);transition:transform .18s ease,border-color .18s}
+.teaser:hover{transform:translateY(-4px);border-color:var(--primary)}
+.teaser-label{font-family:var(--hfont);font-weight:800;font-size:19px}
+.teaser-blurb{color:var(--muted);font-size:14px;flex:1}
+.teaser-go{color:var(--primary);font-weight:700;font-size:14px}
+.cta-band{background:linear-gradient(135deg,var(--primary),var(--primary-d));color:#fff;text-align:center;padding:56px 0}
+.cta-band h2{font-size:clamp(22px,3.5vw,30px);margin-bottom:18px;color:#fff}
+.cta-band .btn-primary{background:#fff;color:var(--primary-d)}
+
 .about-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:32px;align-items:center}
 .about-text p{margin-bottom:14px;color:var(--muted)}
 .about-badge{aspect-ratio:1;border-radius:24px;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow)}
 .about-badge span{font-family:var(--hfont);font-size:96px;font-weight:800;color:#fff;opacity:.9}
 
-/* cards */
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;box-shadow:var(--shadow);transition:transform .18s ease}
 .card:hover{transform:translateY(-4px)}
@@ -201,20 +424,17 @@ h1,h2,h3{font-family:var(--hfont);line-height:1.15;letter-spacing:-.01em}
 .card h3{margin-bottom:8px;font-size:19px}
 .card p{color:var(--muted);font-size:15px}
 
-/* gallery */
 .gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
 .gallery-item{border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);background:var(--surface);position:relative}
 .gallery-item img{width:100%;height:auto;transition:transform .3s ease}
 .gallery-item:hover img{transform:scale(1.04)}
 .gallery-item figcaption{position:absolute;left:0;right:0;bottom:0;padding:10px 12px;font-size:13px;color:#fff;background:linear-gradient(transparent,rgba(0,0,0,.55))}
 
-/* testimonials */
 .quotes{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
 .quote{background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--primary);border-radius:var(--radius);padding:22px}
 .quote p{font-style:italic;margin-bottom:12px}
 .quote footer{font-size:14px;color:var(--muted)}
 
-/* pricing */
 .plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;align-items:stretch}
 .plan{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:26px;text-align:center}
 .plan-featured{border-color:var(--primary);box-shadow:var(--shadow);transform:scale(1.03)}
@@ -224,7 +444,6 @@ h1,h2,h3{font-family:var(--hfont);line-height:1.15;letter-spacing:-.01em}
 .plan li{padding:7px 0 7px 24px;position:relative;color:var(--muted);font-size:14px;border-top:1px solid var(--border)}
 .plan li::before{content:"✓";position:absolute;left:0;color:var(--primary);font-weight:700}
 
-/* contact */
 .contact-grid{display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:start}
 .contact-info p{color:var(--muted);margin-bottom:16px}
 .contact-list{display:flex;flex-direction:column;gap:10px}
@@ -235,13 +454,11 @@ h1,h2,h3{font-family:var(--hfont);line-height:1.15;letter-spacing:-.01em}
 .contact-form input:focus,.contact-form textarea:focus{border-color:var(--primary)}
 .form-note{font-size:13px;min-height:16px;color:var(--primary)}
 
-/* footer */
 .site-footer{padding:34px 0;border-top:1px solid var(--border);text-align:center;color:var(--muted);font-size:14px}
 .site-footer .socials{display:flex;gap:14px;justify-content:center;margin-bottom:12px}
 .site-footer .socials a{color:var(--muted)}
 .site-footer .socials a:hover{color:var(--primary)}
 
-/* reveal animation */
 .reveal{opacity:0;transform:translateY(18px);transition:opacity .6s ease,transform .6s ease}
 .reveal.visible{opacity:1;transform:none}
 @media(prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}}
@@ -264,7 +481,6 @@ function renderJS(lang) {
   return `// main.js — CSP-safe (aucun handler inline, tout en addEventListener)
 (function(){
   'use strict';
-  // Menu mobile
   var toggle = document.querySelector('.nav-toggle');
   var links = document.querySelector('.nav-links');
   if (toggle && links) {
@@ -274,7 +490,6 @@ function renderJS(lang) {
     });
     links.addEventListener('click', function(e){ if (e.target.tagName === 'A') links.classList.remove('open'); });
   }
-  // Révélation au scroll
   var els = document.querySelectorAll('.reveal');
   if ('IntersectionObserver' in window) {
     var io = new IntersectionObserver(function(entries){
@@ -282,7 +497,6 @@ function renderJS(lang) {
     }, { threshold: 0.12 });
     els.forEach(function(el){ io.observe(el); });
   } else { els.forEach(function(el){ el.classList.add('visible'); }); }
-  // Formulaire de contact : si pas d'action serveur -> fallback mailto (100% statique)
   var form = document.querySelector('.contact-form');
   if (form && !form.getAttribute('action')) {
     form.addEventListener('submit', function(e){
@@ -300,113 +514,9 @@ function renderJS(lang) {
       setTimeout(function(){ if (note) note.textContent = ${JSON.stringify(sent.ok)}; form.reset(); }, 400);
     });
   }
-  // Année du footer
   var y = document.querySelector('[data-year]'); if (y) y.textContent = new Date().getFullYear();
 })();
 `;
-}
-
-// -------------------------------------------------------------------- assembly
-function renderSite(brief, theme, model, opts = {}) {
-  const L = brief.language;
-  const labels = SECTION_LABELS[L] || SECTION_LABELS.fr;
-  const siteUrl = (opts.siteUrl || '').replace(/\/+$/, '');
-  const files = [];
-
-  // JSON-LD (SEO structuré) — inline, sécurisé par hash dans la CSP
-  const jsonld = {
-    '@context': 'https://schema.org',
-    '@type': 'LocalBusiness',
-    name: brief.name,
-    description: model.seo.description,
-    ...(brief.contact.phone ? { telephone: brief.contact.phone } : {}),
-    ...(brief.contact.email ? { email: brief.contact.email } : {}),
-    ...(brief.contact.address ? { address: brief.contact.address } : {}),
-    ...(siteUrl ? { url: siteUrl } : {})
-  };
-  const jsonldStr = JSON.stringify(jsonld);
-  const jsonldHash = 'sha256-' + crypto.createHash('sha256').update(jsonldStr).digest('base64');
-
-  const nav = brief.sections.map(s => `<a href="#${s}">${esc(labels[s] || s)}</a>`).join('');
-  const sectionsHtml = brief.sections.map(s => (RENDERERS[s] ? RENDERERS[s](model, brief) : '')).join('\n    ');
-
-  const socials = [];
-  const S = brief.social;
-  if (S.facebook) socials.push(`<a href="${attr(S.facebook)}" rel="noopener" target="_blank" aria-label="Facebook">Facebook</a>`);
-  if (S.instagram) socials.push(`<a href="${attr(S.instagram)}" rel="noopener" target="_blank" aria-label="Instagram">Instagram</a>`);
-  if (S.linkedin) socials.push(`<a href="${attr(S.linkedin)}" rel="noopener" target="_blank" aria-label="LinkedIn">LinkedIn</a>`);
-  if (S.whatsapp) socials.push(`<a href="${attr(S.whatsapp)}" rel="noopener" target="_blank" aria-label="WhatsApp">WhatsApp</a>`);
-
-  const html = `<!DOCTYPE html>
-<html lang="${attr(L)}">
-<head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>${esc(model.seo.title)}</title>
-  <meta name="description" content="${attr(model.seo.description)}"/>
-  <meta name="keywords" content="${attr(model.seo.keywords.join(', '))}"/>
-  <meta name="theme-color" content="${attr(theme.primary)}"/>
-  ${siteUrl ? `<link rel="canonical" href="${attr(siteUrl)}/"/>` : ''}
-  <meta property="og:type" content="website"/>
-  <meta property="og:title" content="${attr(model.seo.title)}"/>
-  <meta property="og:description" content="${attr(model.seo.description)}"/>
-  ${siteUrl ? `<meta property="og:url" content="${attr(siteUrl)}/"/>` : ''}
-  <meta name="twitter:card" content="summary_large_image"/>
-  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg"/>
-  <link rel="manifest" href="site.webmanifest"/>
-  <link rel="stylesheet" href="assets/style.css"/>
-  <script type="application/ld+json">${jsonldStr}</script>
-</head>
-<body>
-  <header class="site-header">
-    <nav class="nav" aria-label="Navigation principale">
-      <a class="brand" href="#hero"><img src="assets/favicon.svg" alt="" width="30" height="30"/>${esc(brief.name)}</a>
-      <button class="nav-toggle" aria-label="Menu" aria-expanded="false">☰</button>
-      <div class="nav-links">${nav}</div>
-    </nav>
-  </header>
-  <main>
-    ${sectionsHtml}
-  </main>
-  <footer class="site-footer">
-    <div class="container">
-      ${socials.length ? `<div class="socials">${socials.join('')}</div>` : ''}
-      <p>© <span data-year>${new Date().getFullYear()}</span> ${esc(brief.name)}. ${t(L, 'Tous droits réservés.', 'All rights reserved.')}</p>
-      <p style="opacity:.7;font-size:12px;margin-top:6px">${t(L, 'Site généré avec', 'Site generated with')} EPITNET Vitrine Generator</p>
-    </div>
-  </footer>
-  <script src="assets/main.js"></script>
-</body>
-</html>
-`;
-
-  files.push({ path: 'index.html', content: html });
-  files.push({ path: 'assets/style.css', content: renderCSS(theme) });
-  files.push({ path: 'assets/main.js', content: renderJS(L) });
-  files.push({ path: 'assets/favicon.svg', content: faviconSVG(theme, brief.name) });
-
-  // Images de galerie (si section présente)
-  if (brief.sections.includes('gallery')) {
-    model.gallery.items.forEach((it, i) => {
-      files.push({ path: `assets/img/gallery-${i + 1}.svg`, content: gallerySVG(theme, i + 1, it.caption) });
-    });
-  }
-
-  // SEO : robots, sitemap, manifest
-  files.push({ path: 'robots.txt', content: `User-agent: *\nAllow: /\n${siteUrl ? `Sitemap: ${siteUrl}/sitemap.xml\n` : ''}` });
-  files.push({ path: 'sitemap.xml', content: `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url><loc>${esc(siteUrl || 'https://example.com')}/</loc><changefreq>monthly</changefreq><priority>1.0</priority></url>\n</urlset>\n` });
-  files.push({ path: 'site.webmanifest', content: JSON.stringify({
-    name: brief.name, short_name: brief.name.slice(0, 12), start_url: '.', display: 'standalone',
-    background_color: theme.bg, theme_color: theme.primary,
-    icons: [{ src: 'assets/favicon.svg', sizes: 'any', type: 'image/svg+xml' }]
-  }, null, 2) });
-
-  // Config d'hébergement (optimisation) — CSP stricte via hash du JSON-LD
-  const csp = `default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self' '${jsonldHash}'; base-uri 'self'; form-action 'self' mailto:; frame-ancestors 'none'; object-src 'none'`;
-  files.push({ path: '_headers', content: netlifyHeaders(csp) });
-  files.push({ path: '.htaccess', content: apacheHtaccess(csp) });
-
-  return { files, jsonldHash, meta: { theme: theme.name, sections: brief.sections, ai: !!opts.ai } };
 }
 
 function netlifyHeaders(csp) {
@@ -442,4 +552,4 @@ ErrorDocument 404 /index.html
 `;
 }
 
-module.exports = { renderSite, esc };
+module.exports = { renderSite, esc, decodeDataUri };

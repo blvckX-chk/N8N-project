@@ -9,7 +9,7 @@
     "start": "node server.js",
     "generate": "node cli.js",
     "example": "node cli.js --input examples/chez-amina.json --out dist",
-    "test": "node tests/smoke.js"
+    "test": "node tests/smoke.js && node tests/v2.js"
   },
   "license": "MIT"
 }

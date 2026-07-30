@@ -24,8 +24,10 @@ npm start               # http://localhost:3200
 node cli.js --input examples/chez-amina.json --out dist
 node cli.js --input examples/chez-amina.json --zip site.zip
 node cli.js --input examples/chez-amina.json --deploy netlify --site-name mon-site
+node cli.js --input examples/agence-nova.json  --deploy vercel  --site-name nova
+node cli.js --input examples/chez-amina.json --deploy ftp       # config "ftp" dans le JSON
 
-# 4. tests
+# 4. tests (smoke + v2)
 npm test
 ```
 
@@ -51,11 +53,20 @@ Brief (form / JSON)
 déterministe → l'outil marche toujours, hors-ligne. Avec une clé, l'IA rédige un
 contenu sur-mesure (avec retry + repli en cas d'échec).
 
+## Fonctionnalités v2
+
+| Fonctionnalité | Détail |
+|---|---|
+| **Multi-pages** | `layout: "multi"` → page d'accueil (hero + teasers + CTA) + une page par section, navigation réelle, sitemap multi-URL. `single` par défaut. |
+| **Vrais visuels** | Logo + images de galerie uploadés (data URI) → écrits comme fichiers, repli SVG si absents. Les URLs externes sont ignorées (CSP préservée). |
+| **Thèmes** | Override manuel (`theme`) ou auto par secteur ; **comparateur** de thèmes côte à côte dans le panneau (aperçus live, clic pour appliquer). |
+| **Déploiement** | 3 cibles : **Netlify**, **Vercel** (API), **FTP** direct (zéro dépendance, hébergement mutualisé) + ZIP. |
+
 ## Ce que contient le site généré
 
 | Aspect | Détail |
 |---|---|
-| Structure | Single-page responsive : hero, à-propos, services, galerie, avis, tarifs, contact (au choix) |
+| Structure | Single-page **ou multi-pages** responsive : hero, à-propos, services, galerie, avis, tarifs, contact (au choix) |
 | SEO | `<title>`/meta description/keywords, Open Graph, **JSON-LD LocalBusiness**, `sitemap.xml`, `robots.txt`, canonical |
 | Performance | CSS/JS minifiés, images SVG légères, `loading="lazy"`, polices système (zéro CDN) |
 | Sécurité | **CSP stricte** (`script-src 'self'` + hash du JSON-LD, aucun `unsafe-inline`), `rel=noopener`, headers durcis |
@@ -82,10 +93,10 @@ statique optimisé pour l'hébergement web**. Voir `docs/conception.md`.
 ## Structure
 
 ```
-generator/   schema · themes · content(IA) · render · optimize · preview · index
-deploy/      local(dist) · zip(FTP) · netlify(API)
+generator/   schema · themes · content(IA) · render(single/multi) · optimize · preview · index
+deploy/      local(dist) · zip(FTP artefact) · netlify · vercel · ftp(direct)
 public/      index.html  (panneau web)
-examples/    briefs d'exemple
-tests/       smoke.js
+examples/    briefs d'exemple (single + multi)
+tests/       smoke.js (29) · v2.js (36)
 cli.js       ligne de commande      server.js  panneau + API      load-env.js
 ```

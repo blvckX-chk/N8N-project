@@ -10,7 +10,7 @@ const { optimize } = require('./optimize');
 
 async function generateSite(input, opts = {}) {
   const brief = normalizeBrief(input);
-  const theme = resolveTheme(brief.sector, brief.palette);
+  const theme = resolveTheme(brief.sector, brief.palette, opts.theme || brief.theme);
   const { model, source, ai, error } = await buildContent(brief, opts);
   const rendered = renderSite(brief, theme, model, { siteUrl: opts.siteUrl, ai });
   const optimized = opts.optimize === false
