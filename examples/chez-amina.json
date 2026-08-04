@@ -1,0 +1,19 @@
+{
+  "name": "Chez Amina",
+  "sector": "restaurant",
+  "language": "fr",
+  "tagline": "La cuisine béninoise, avec le cœur",
+  "description": "Chez Amina vous accueille à Cotonou pour une cuisine béninoise et africaine authentique, préparée chaque jour avec des produits frais du marché. Ambiance chaleureuse, service attentionné, plats à emporter et en livraison.",
+  "services": ["Cuisine locale", "Livraison à domicile", "Traiteur événements", "Menu du jour"],
+  "sections": ["hero", "about", "services", "gallery", "testimonials", "contact"],
+  "cta": { "label": "Réserver une table", "href": "#contact" },
+  "contact": {
+    "email": "contact@chezamina.bj",
+    "phone": "+229 01 08 80 61",
+    "address": "Rue des Cocotiers, Cotonou, Bénin"
+  },
+  "social": {
+    "facebook": "https://facebook.com/chezamina",
+    "instagram": "https://instagram.com/chezamina"
+  }
+}

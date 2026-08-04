@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>EPITNET — Générateur de sites vitrines</title>
+<style>
+  :root{
+    --bg:#0b0d14;--surface:#141824;--surface2:#1b2030;--border:#28304a;
+    --primary:#6366f1;--primary-d:#4f46e5;--accent:#22d3ee;--accent2:#a855f7;
+    --grad:linear-gradient(135deg,#6366f1,#a855f7 55%,#22d3ee);
+    --text:#e8eaf2;--muted:#8b93ad;--ok:#10b981;--warn:#f59e0b;--err:#ef4444;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--sans:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--sans);background:
+    radial-gradient(900px 500px at 85% -10%,rgba(99,102,241,.12),transparent 60%),
+    radial-gradient(700px 420px at -5% 8%,rgba(34,211,238,.08),transparent 55%),var(--bg);
+    color:var(--text);min-height:100vh}
+  header{display:flex;align-items:center;gap:12px;padding:14px 24px;border-bottom:1px solid var(--border);position:sticky;top:0;background:rgba(11,13,20,.72);backdrop-filter:blur(10px);z-index:10}
+  .logo{width:34px;height:34px;border-radius:10px;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:18px}
+  header h1{font-size:16px;font-weight:800;letter-spacing:-.3px}
+  header .tag{font-family:var(--mono);font-size:10px;color:var(--muted)}
+  main{display:grid;grid-template-columns:400px 1fr;min-height:calc(100vh - 63px)}
+  .panel{padding:20px;border-right:1px solid var(--border);overflow-y:auto;max-height:calc(100vh - 63px)}
+  .view{padding:20px;overflow-y:auto;max-height:calc(100vh - 63px)}
+  .lbl{display:block;font-size:11px;font-family:var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin:14px 0 5px}
+  input,select,textarea{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:var(--sans);font-size:13px;padding:10px;outline:none;transition:border-color .15s}
+  textarea{resize:vertical;min-height:64px;font-family:var(--mono);font-size:12px}
+  input:focus,select:focus,textarea:focus{border-color:var(--primary)}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+  .checks{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+  .chk{display:flex;align-items:center;gap:5px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px 9px;font-size:12px;cursor:pointer;font-family:var(--mono)}
+  .chk input{width:auto}
+  .btn{width:100%;margin-top:18px;padding:13px;border:none;border-radius:11px;background:var(--grad);color:#fff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:transform .15s}
+  .btn:hover:not(:disabled){transform:translateY(-2px)}
+  .btn:disabled{opacity:.55;cursor:not-allowed}
+  .btn-sec{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .spin{width:15px;height:15px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;display:none}
+  .spin.on{display:block}@keyframes sp{to{transform:rotate(360deg)}}
+  .hint{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5}
+  .empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:70vh;color:var(--muted);text-align:center;gap:14px}
+  .empty svg{width:120px;height:120px;opacity:.85}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+  .badge{padding:5px 12px;border-radius:20px;font-size:11px;font-family:var(--mono);font-weight:700}
+  .badge.ok{background:rgba(16,185,129,.15);color:var(--ok);border:1px solid var(--ok)}
+  .badge.ai{background:rgba(168,85,247,.15);color:var(--accent2);border:1px solid var(--accent2)}
+  .badge.det{background:rgba(139,147,173,.12);color:var(--muted);border:1px solid var(--border)}
+  .frame-wrap{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff;box-shadow:0 12px 40px -18px rgba(0,0,0,.7)}
+  .frame-bar{display:flex;align-items:center;gap:6px;padding:8px 12px;background:var(--surface2);border-bottom:1px solid var(--border)}
+  .dot{width:10px;height:10px;border-radius:50%}
+  iframe{width:100%;height:66vh;border:0;background:#fff;display:block}
+  .theme-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+  .theme-card{border:1px solid var(--border);border-radius:12px;overflow:hidden;cursor:pointer;background:#fff;transition:border-color .15s,transform .15s}
+  .theme-card:hover{border-color:var(--primary);transform:translateY(-3px)}
+  .theme-card .theme-cap{padding:8px 12px;font-family:var(--mono);font-size:12px;color:var(--text);background:var(--surface2);text-transform:capitalize}
+  .theme-card iframe{height:340px;pointer-events:none}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:14px 0}
+  .stat{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px}
+  .stat .n{font-size:20px;font-weight:800}
+  .stat .l{font-size:10px;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:1px;margin-top:2px}
+  .err-box{background:rgba(239,68,68,.08);border:1px solid var(--err);border-radius:10px;padding:12px;color:#fecaca;font-size:13px;margin-top:12px}
+  .deploy-box{background:rgba(16,185,129,.08);border:1px solid var(--ok);border-radius:10px;padding:12px;margin-top:12px;font-size:13px}
+  .deploy-box a{color:var(--accent)}
+  details{margin-top:12px;border:1px solid var(--border);border-radius:10px;background:var(--surface)}
+  summary{cursor:pointer;padding:10px 12px;font-size:12px;font-family:var(--mono);color:var(--muted)}
+  pre{padding:12px;font-family:var(--mono);font-size:11px;color:#bcd;overflow:auto;max-height:260px;white-space:pre-wrap;word-break:break-word}
+  @media(max-width:860px){main{grid-template-columns:1fr}.panel{border-right:none;border-bottom:1px solid var(--border);max-height:none}.view{max-height:none}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">🌐</div>
+  <div>
+    <h1>Générateur de sites vitrines</h1>
+    <div class="tag">EPITNET · IA → site statique → hébergement web</div>
+  </div>
+</header>
+<main>
+  <div class="panel">
+    <label class="lbl">Nom de l'entreprise *</label>
+    <input id="f-name" placeholder="Ex : Chez Amina"/>
+    <div class="row2">
+      <div><label class="lbl">Secteur</label>
+        <select id="f-sector">
+          <option value="business">Entreprise / Services</option>
+          <option value="restaurant">Restaurant / Food</option>
+          <option value="tech">Tech / Startup</option>
+          <option value="portfolio">Portfolio / Créatif</option>
+          <option value="health">Santé / Médical</option>
+          <option value="education">Éducation / Formation</option>
+          <option value="beauty">Beauté / Mode</option>
+          <option value="realestate">Immobilier / BTP</option>
+        </select>
+      </div>
+      <div><label class="lbl">Langue</label>
+        <select id="f-lang"><option value="fr">Français</option><option value="en">English</option></select>
+      </div>
+    </div>
+    <div class="row2">
+      <div><label class="lbl">Mise en page</label>
+        <select id="f-layout"><option value="single">Une page (single)</option><option value="multi">Multi-pages</option></select>
+      </div>
+      <div><label class="lbl">Thème</label>
+        <select id="f-theme"><option value="">Auto (secteur)</option></select>
+      </div>
+    </div>
+    <label class="lbl">Slogan</label>
+    <input id="f-tagline" placeholder="Une phrase d'accroche"/>
+    <label class="lbl">Description</label>
+    <textarea id="f-desc" placeholder="Décris l'activité, ce qui te distingue, ta clientèle..."></textarea>
+    <label class="lbl">Services (un par ligne)</label>
+    <textarea id="f-services" placeholder="Conseil&#10;Livraison&#10;Support"></textarea>
+    <label class="lbl">Sections</label>
+    <div class="checks" id="f-sections"></div>
+    <div class="row2">
+      <div><label class="lbl">Logo (optionnel)</label><input type="file" id="f-logo" accept="image/*"/></div>
+      <div><label class="lbl">Images galerie</label><input type="file" id="f-images" accept="image/*" multiple/></div>
+    </div>
+    <div class="hint" id="img-note"></div>
+    <div class="row2">
+      <div><label class="lbl">CTA — libellé</label><input id="f-cta-label" placeholder="Nous contacter"/></div>
+      <div><label class="lbl">CTA — lien</label><input id="f-cta-href" placeholder="#contact"/></div>
+    </div>
+    <label class="lbl">Contact</label>
+    <input id="f-email" placeholder="Email" style="margin-bottom:8px"/>
+    <div class="row2">
+      <input id="f-phone" placeholder="Téléphone"/>
+      <input id="f-address" placeholder="Adresse"/>
+    </div>
+    <label class="lbl">Réseaux sociaux</label>
+    <div class="row2">
+      <input id="f-facebook" placeholder="Facebook URL" style="margin-bottom:8px"/>
+      <input id="f-instagram" placeholder="Instagram URL" style="margin-bottom:8px"/>
+    </div>
+    <div class="row2">
+      <input id="f-linkedin" placeholder="LinkedIn URL"/>
+      <input id="f-whatsapp" placeholder="WhatsApp URL"/>
+    </div>
+    <details>
+      <summary>Options avancées</summary>
+      <div style="padding:0 12px 12px">
+        <label class="lbl">URL du site (canonical / sitemap)</label>
+        <input id="f-siteurl" placeholder="https://mon-site.netlify.app"/>
+        <label class="lbl">Action formulaire (Formspree…)</label>
+        <input id="f-formaction" placeholder="Laisser vide = mailto (100% statique)"/>
+      </div>
+    </details>
+    <button class="btn" id="btn-gen"><span class="spin" id="spin"></span><span id="btn-txt">✨ Générer le site</span></button>
+    <button class="btn btn-sec" id="btn-compare" style="margin-top:8px">🎨 Comparer les thèmes</button>
+    <div class="hint">L'IA (Mistral) rédige le contenu si une clé est configurée côté serveur ; sinon un contenu de qualité est généré automatiquement.</div>
+  </div>
+
+  <div class="view">
+    <div id="empty" class="empty">
+      <svg viewBox="0 0 200 200" fill="none"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6366f1"/><stop offset="1" stop-color="#22d3ee"/></linearGradient></defs>
+      <rect x="30" y="44" width="140" height="112" rx="10" fill="#141824" stroke="#28304a" stroke-width="2"/>
+      <rect x="30" y="44" width="140" height="24" rx="10" fill="url(#g)" opacity=".25"/>
+      <circle cx="44" cy="56" r="3" fill="url(#g)"/><circle cx="54" cy="56" r="3" fill="url(#g)"/><circle cx="64" cy="56" r="3" fill="url(#g)"/>
+      <rect x="46" y="82" width="72" height="8" rx="4" fill="url(#g)"/><rect x="46" y="98" width="108" height="5" rx="2.5" fill="#28304a"/><rect x="46" y="110" width="96" height="5" rx="2.5" fill="#28304a"/>
+      <rect x="46" y="128" width="40" height="14" rx="7" fill="url(#g)"/></svg>
+      <p>Remplis le brief à gauche puis <b>Générer</b> pour voir apparaître le site vitrine ici, avec sa prévisualisation live.</p>
+    </div>
+    <div id="result" style="display:none"></div>
+  </div>
+</main>
+
+<script>
+const ALL_SECTIONS=[['hero','Accueil'],['about','À propos'],['services','Services'],['gallery','Galerie'],['testimonials','Avis'],['pricing','Tarifs'],['contact','Contact']];
+const DEFAULT_ON=['hero','about','services','gallery','testimonials','contact'];
+const secWrap=document.getElementById('f-sections');
+ALL_SECTIONS.forEach(([id,label])=>{
+  const l=document.createElement('label');l.className='chk';
+  l.innerHTML=`<input type="checkbox" value="${id}" ${DEFAULT_ON.includes(id)?'checked':''}/> ${label}`;
+  secWrap.appendChild(l);
+});
+function val(id){return document.getElementById(id).value.trim();}
+function lines(id){return val(id).split(/\n+/).map(s=>s.trim()).filter(Boolean);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+let currentFiles=[],currentSlug='site',logoData='',imagesData=[];
+
+// Charge la liste des thèmes disponibles
+fetch('/api/themes').then(r=>r.json()).then(d=>{
+  if(!d.ok)return;const sel=document.getElementById('f-theme');
+  d.themes.filter(t=>t!=='default').forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=t.charAt(0).toUpperCase()+t.slice(1);sel.appendChild(o);});
+}).catch(()=>{});
+
+function readAsDataURL(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file);});}
+document.getElementById('f-logo').addEventListener('change',async e=>{const f=e.target.files[0];logoData=f?await readAsDataURL(f):'';updateImgNote();});
+document.getElementById('f-images').addEventListener('change',async e=>{imagesData=[];for(const f of [...e.target.files].slice(0,12))imagesData.push(await readAsDataURL(f));updateImgNote();});
+function updateImgNote(){const n=document.getElementById('img-note');n.textContent=(logoData?'Logo ✓ · ':'')+(imagesData.length?imagesData.length+' image(s) galerie ✓':'');}
+
+function buildBrief(){
+  const name=val('f-name');
+  if(!name)throw new Error("Le nom de l'entreprise est requis.");
+  const sections=[...document.querySelectorAll('#f-sections input:checked')].map(i=>i.value);
+  return {
+    name,sector:val('f-sector'),language:val('f-lang'),layout:val('f-layout'),theme:val('f-theme'),
+    tagline:val('f-tagline'),description:val('f-desc'),services:lines('f-services'),sections,
+    logo:logoData,images:imagesData,
+    cta:{label:val('f-cta-label'),href:val('f-cta-href')},
+    contact:{email:val('f-email'),phone:val('f-phone'),address:val('f-address')},
+    social:{facebook:val('f-facebook'),instagram:val('f-instagram'),linkedin:val('f-linkedin'),whatsapp:val('f-whatsapp')},
+    siteUrl:val('f-siteurl'),formAction:val('f-formaction')
+  };
+}
+
+async function generate(){
+  let brief;try{brief=buildBrief();}catch(e){return showError(e.message);}
+  const btn=document.getElementById('btn-gen'),spin=document.getElementById('spin'),txt=document.getElementById('btn-txt');
+  btn.disabled=true;spin.classList.add('on');txt.textContent='Génération...';
+  try{
+    const r=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(brief)});
+    const d=await r.json();
+    if(!d.ok)throw new Error(d.error||'Erreur');
+    currentFiles=d.files;currentSlug=d.slug||'site';
+    renderResult(d);
+  }catch(e){showError('Erreur de génération : '+e.message);}
+  finally{btn.disabled=false;spin.classList.remove('on');txt.textContent='✨ Générer le site';}
+}
+
+function renderResult(d){
+  document.getElementById('empty').style.display='none';
+  const res=document.getElementById('result');res.style.display='block';
+  const rep=d.report||{};
+  const srcBadge=d.ai_used?'<span class="badge ai">✦ Contenu IA (Mistral)</span>':'<span class="badge det">Contenu auto</span>';
+  res.innerHTML=`
+    <div class="toolbar">
+      <span class="badge ok">✓ ${esc(d.name)}</span>
+      ${srcBadge}
+      <span class="badge det">thème ${esc(d.meta.theme)}</span>
+      <span class="badge det">${d.meta.layout==='multi'?d.meta.pages+' pages':'1 page'}</span>
+      <button class="btn btn-sec" style="width:auto;margin:0;padding:9px 14px" id="dl">⬇ Télécharger ZIP</button>
+      <select id="dep-target" style="width:auto;padding:8px">
+        <option value="netlify">Netlify</option>
+        <option value="vercel">Vercel</option>
+        <option value="ftp">FTP mutualisé</option>
+      </select>
+      <button class="btn" style="width:auto;margin:0;padding:9px 14px" id="dep">🚀 Déployer</button>
+    </div>
+    <div id="ftp-fields" style="display:none;margin-bottom:12px">
+      <div class="row3">
+        <input id="ftp-host" placeholder="Hôte FTP (ftp.mondomaine.com)"/>
+        <input id="ftp-user" placeholder="Utilisateur"/>
+        <input id="ftp-pass" type="password" placeholder="Mot de passe"/>
+      </div>
+      <input id="ftp-dir" placeholder="Répertoire distant (ex : public_html)" style="margin-top:8px"/>
+    </div>
+    <div class="cards">
+      <div class="stat"><div class="n">${rep.files||d.files.length}</div><div class="l">fichiers</div></div>
+      <div class="stat"><div class="n">${rep.total_kb!=null?rep.total_kb:'—'}<span style="font-size:12px"> Ko</span></div><div class="l">poids total</div></div>
+      <div class="stat"><div class="n">-${rep.saved_pct||0}%</div><div class="l">minifié</div></div>
+      <div class="stat"><div class="n">${d.meta.sections.length}</div><div class="l">sections</div></div>
+    </div>
+    ${d.ai_error?`<div class="err-box">⚠️ IA indisponible, repli automatique : ${esc(d.ai_error)}</div>`:''}
+    <div class="frame-wrap">
+      <div class="frame-bar"><span class="dot" style="background:#ef4444"></span><span class="dot" style="background:#f59e0b"></span><span class="dot" style="background:#10b981"></span>
+        <span style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-left:8px">preview · ${esc(currentSlug)}</span></div>
+      <iframe id="frame" sandbox="allow-same-origin allow-scripts allow-popups"></iframe>
+    </div>
+    <div id="deploy-result"></div>
+    <details><summary>{ } Fichiers générés (${d.files.length})</summary><pre>${esc(d.files.map(f=>f.path).join('\n'))}</pre></details>`;
+  document.getElementById('frame').srcdoc=d.preview;
+  document.getElementById('dl').onclick=downloadZip;
+  document.getElementById('dep').onclick=deploy;
+  document.getElementById('dep-target').onchange=e=>{document.getElementById('ftp-fields').style.display=e.target.value==='ftp'?'block':'none';};
+}
+
+async function downloadZip(){
+  try{
+    const r=await fetch('/api/zip',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({files:currentFiles,filename:currentSlug})});
+    if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.error||('HTTP '+r.status));}
+    const blob=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=currentSlug+'.zip';a.click();
+  }catch(e){alert('Erreur ZIP : '+e.message);}
+}
+
+async function deploy(){
+  const target=document.getElementById('dep-target').value;
+  const box=document.getElementById('deploy-result');
+  const payload={target,files:currentFiles,siteName:currentSlug+'-'+Math.random().toString(36).slice(2,7)};
+  if(target==='ftp'){
+    const host=val('ftp-host'),user=val('ftp-user'),password=document.getElementById('ftp-pass').value;
+    if(!host||!user||!password){box.innerHTML='<div class="err-box">❌ Renseigne hôte, utilisateur et mot de passe FTP.</div>';return;}
+    payload.ftp={host,user,password,remoteDir:val('ftp-dir')||'/'};
+  }
+  box.innerHTML=`<div class="deploy-box" style="color:var(--muted)">⏳ Déploiement (${esc(target)})...</div>`;
+  try{
+    const r=await fetch('/api/deploy',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const d=await r.json();
+    if(!d.ok){box.innerHTML=`<div class="err-box">❌ ${esc(d.error||'Erreur')}${d.fix?'<div style="margin-top:6px;color:var(--ok)">💡 '+esc(d.fix)+'</div>':''}</div>`;return;}
+    if(target==='ftp'){
+      box.innerHTML=`<div class="deploy-box"><b style="color:var(--ok)">✅ Envoyé par FTP</b><br><span style="color:var(--muted)">${d.files_uploaded}/${d.files_total} fichiers → ${esc(d.host)}:${esc(d.remoteDir)}</span></div>`;
+    } else {
+      box.innerHTML=`<div class="deploy-box"><b style="color:var(--ok)">✅ Site en ligne (${esc(target)})</b><br>🌐 <a href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.url)}</a><br><span style="color:var(--muted)">${d.files_uploaded}/${d.files_total} fichiers</span></div>`;
+    }
+  }catch(e){box.innerHTML=`<div class="err-box">❌ ${esc(e.message)}</div>`;}
+}
+
+async function compareThemes(){
+  let brief;try{brief=buildBrief();}catch(e){return showError(e.message);}
+  const btn=document.getElementById('btn-compare');btn.disabled=true;btn.textContent='🎨 Comparaison...';
+  try{
+    const r=await fetch('/api/preview-themes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(brief)});
+    const d=await r.json();
+    if(!d.ok)throw new Error(d.error||'Erreur');
+    document.getElementById('empty').style.display='none';
+    const res=document.getElementById('result');res.style.display='block';
+    res.innerHTML=`<div class="toolbar"><span class="badge det">🎨 ${d.previews.length} thèmes · clique pour appliquer</span></div>
+      <div class="theme-grid">${d.previews.map(p=>`
+        <div class="theme-card" data-theme="${esc(p.theme)}">
+          <div class="theme-cap">${esc(p.theme)}</div>
+          <iframe sandbox="allow-same-origin" loading="lazy"></iframe>
+        </div>`).join('')}</div>`;
+    [...document.querySelectorAll('.theme-card')].forEach((c,i)=>{
+      c.querySelector('iframe').srcdoc=d.previews[i].preview;
+      c.onclick=()=>{document.getElementById('f-theme').value=d.previews[i].theme;generate();};
+    });
+  }catch(e){showError('Comparaison impossible : '+e.message);}
+  finally{btn.disabled=false;btn.textContent='🎨 Comparer les thèmes';}
+}
+
+function showError(msg){
+  document.getElementById('empty').style.display='none';
+  const res=document.getElementById('result');res.style.display='block';
+  res.innerHTML=`<div class="err-box">❌ ${esc(msg)}</div>`;
+}
+document.getElementById('btn-gen').onclick=generate;
+document.getElementById('btn-compare').onclick=compareThemes;
+</script>
+</body>
+</html>
