@@ -500,4 +500,36 @@ du gestionnaire). Sprint 6 introduit un **mode partagé par ressource**.
 
 **À importer côté n8n** : `Agent_Spec_Normalizer_V1.5.json`, `Agent_Architect_V5.2.json`, `Agent_Backend_V6.6.json`, `Orchestrateur_V6.7.json` (re-sélectionner credentials Mistral après import).
 
-**Note (correctifs d'évaluation)** : la revue du code Backend a confirmé deux points **déjà couverts** (contrairement à une première estimation) : la **vérification d'existence FK → 404** (contrôle `SELECT id FROM <parent> WHERE id=?` avant insert) et la **positivité des nombres → 400**. Restent non couverts (cross-entité/temporel) : cohérence `sous_ordonnance` dispensation/médicament, `date_peremption` future, `quantite_delivree <= stock disponible`, décrément de stock, 2FA, RBAC par rôle.
+**Note (correctifs d'évaluation)** : la revue du code Backend a confirmé deux points **déjà couverts** (contrairement à une première estimation) : la **vérification d'existence FK → 404** (contrôle `SELECT id FROM <parent> WHERE id=?` avant insert) et la **positivité des nombres → 400**. Restent non couverts (cross-entité/temporel) : cohérence `sous_ordonnance` dispensation/médicament, `date_peremption` future, `quantite_delivree <= stock disponible`, décrément de stock, 2FA.
+
+## Sprint 7 — RBAC & comptes à rôles (admin / acteurs) — LIVRÉ ✅
+
+**Motivation** : le socle avait un modèle utilisateur **plat** — table `users` sans colonne
+`role`, `/api/register` ouvert, JWT `{sub, username}`, un seul `authMiddleware` sur toutes les
+routes. Impossible donc de créer un **admin** vs un **utilisateur simple**, ni d'appliquer la
+matrice acteur × point d'accès (PharmaGarde §3.1). Sprint 7 introduit le RBAC, **opt-in** et
+**rétro-compatible** (sans rôles → comportement historique inchangé).
+
+**Ce qui est généré quand des rôles sont fournis** :
+- `users.role TEXT NOT NULL DEFAULT '<1er rôle>'`.
+- **1er compte inscrit = `admin`** (bootstrap déterministe) ; inscriptions suivantes = rôle par défaut.
+- `role` embarqué dans le **JWT** ; `/api/me` renvoie le rôle.
+- middleware **`requireRole(...)`** (403 si rôle non autorisé, 401 si non authentifié).
+- **`GET /api/users`** et **`POST /api/users`** réservés à `admin` (créer un compte + rôle, rôle validé contre `ALLOWED_ROLES = ['admin', ...acteurs]`).
+- **autorisation par route** depuis la matrice de permissions : `requireRole('admin', ...rôles autorisés)` injecté sur chaque point d'accès listé ; `admin` a toujours accès ; route absente de la matrice = tout utilisateur authentifié.
+
+**Plumbing (bout en bout)** :
+- **Normalizer V1.6** : règles de prompt — extraire `actors` (rôles internes, pas des ressources) et `permissions` (matrice `{ "METHODE /chemin": [rôles] }`) ; transitent via `structured_context` (cap relevé à 8000).
+- **Architect V5.3** : propage `artifacts.roles` (= actors) et `artifacts.permissions`.
+- **Backend V6.7** : `cfg`/intake lisent `roles`/`permissions` (depuis artifacts **ou** override webhook) et génèrent tout le RBAC ci-dessus.
+- **Orchestrateur V6.8** : `Build Backend Payload` transmet `roles`/`permissions` (override déterministe via webhook possible).
+
+**Preuves (tests Node, `node --check` + assertions + runtime)** :
+- Backend V6.7 (PharmaGarde) : colonne `role`, 1er compte admin, JWT+role, `requireRole` défini, `ALLOWED_ROLES=['admin','pharmacien','gestionnaire']`, endpoints `/api/users` admin, `/api/me` renvoie role ; **matrice** appliquée (`POST /medicaments`→admin+gestionnaire, `POST /dispensations`→admin+pharmacien, `GET`→lecture partagée) ; `server.js` valide.
+- **Rétro-compat** : sans rôles → aucune colonne `role`, aucun `requireRole`, aucun `/api/users`, JWT inchangé.
+- Chaîne **auto** Normalizer(actors+permissions) → Architect V5.3 → Backend V6.7 : la matrice `server.js` est générée **sans override manuel**.
+- **Runtime** : la `requireRole` générée renvoie `next()` pour le rôle autorisé, **403** pour un rôle non autorisé, **401** sans session, et `admin` passe partout.
+
+**À importer côté n8n** : `Agent_Spec_Normalizer_V1.6.json`, `Agent_Architect_V5.3.json`, `Agent_Backend_V6.7.json`, `Orchestrateur_V6.8.json` (re-sélectionner credentials Mistral après import). Ces versions incluent aussi Sprint 5 (différentiel) et Sprint 6 (partagé).
+
+**Limites restantes après Sprint 7** : **2FA** (§8.2) ; règles métier **cross-entité/temporelles** (cohérence `sous_ordonnance` dispensation↔médicament, `date_peremption` future, `quantite_delivree ≤ stock`, décrément de stock). Prochaine cible logique : moteur de **règles métier déterministes** (bornes, comparaisons de dates, contrôles de cohérence inter-ressources) piloté par `business_rules`.
