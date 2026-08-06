@@ -241,6 +241,17 @@ function normalizeFiles(raw) {
   })).filter(f => f.path);
 }
 
+// POST /api/zip-base64 — construit un ZIP base64 depuis des fichiers fournis
+// (sert le flux "ajouter une ressource" : on rezippe l'app courante du panneau).
+app.post('/api/zip-base64', (req, res) => {
+  try {
+    const files = (req.body && req.body.files) || [];
+    if (!files.length) return res.status(400).json({ error: 'Aucun fichier fourni' });
+    const zip = buildZipBuffer(files);
+    res.json({ zip_base64: zip.toString('base64'), files_count: files.length });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // GET /api/apps/:name/zip-base64 — récupère les fichiers de l'app déployée et
 // renvoie le ZIP en base64 (pour pré-remplir le mode Améliorer sans télécharger).
 app.get('/api/apps/:name/zip-base64', async (req, res) => {

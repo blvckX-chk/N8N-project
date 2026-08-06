@@ -1,0 +1,394 @@
+{
+  "name": "Agent Spec Normalizer V1.9",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "spec-normalizer",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "2f4f9b44-b560-43b4-b0d2-f0059108cf52",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1584,
+        224
+      ],
+      "webhookId": "0ca75553-e5e7-41dc-9c57-84bbda6999c2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst body = (raw.body && typeof raw.body === 'object') ? raw.body\n           : (typeof raw.body === 'string') ? JSON.parse(raw.body.replace(/^=+/, '').trim()) : raw;\n\nconst task_id     = String(body.task_id || 'unknown');\nconst userRequest = String(body.userRequest || '');\nconst language    = String(body.language || 'javascript');\nconst framework   = String(body.framework || 'express');\nconst lines       = userRequest.split('\\n');\n\n// ── 1. project_name ──────────────────────────────────────────────\nlet projectName = 'Application';\nconst titleMatch = userRequest.match(/^#\\s+(.+)/m);\nif (titleMatch) { projectName = titleMatch[1].trim().split(' ').slice(0,3).join(''); }\nconst namePatterns = [\n  /project[_\\s]?name\\s*[:\\|]?\\s*([\\w\\-]+)/i,\n  /nom\\s+du\\s+projet\\s*[:\\|]?\\s*([\\w\\-]+)/i,\n  /application\\s*[:\\|]\\s*([\\w\\-]+)/i,\n];\nfor (const p of namePatterns) {\n  const m = userRequest.match(p);\n  if (m && m[1].trim().length > 1) { projectName = m[1].trim(); break; }\n}\n\n// ── 2. Extraire routes explicites ────────────────────────────────\nconst explicitRoutes = [];\nconst routeRegex = /(GET|POST|PUT|PATCH|DELETE)\\s+(\\/[a-zA-Z0-9_\\-\\/\\{\\}:]+)/g;\nlet rm;\nwhile ((rm = routeRegex.exec(userRequest)) !== null) {\n  const method = rm[1].toUpperCase();\n  const path   = rm[2].split(/[\\s,;]/)[0];\n  if (!explicitRoutes.find(r => r.method === method && r.path === path)) {\n    explicitRoutes.push({ method, path, description: method + ' ' + path });\n  }\n}\n\n// ── 3. Détecter ressources métier depuis mots-clés ─────────────\nconst ACTOR_WORDS = ['user','users','client','clients','admin','admins',\n  'voyageur','voyageurs','expediteur','expéditeur','expediteurs','expéditeurs',\n  'person','member','passenger','habitant','resident','citoyen'];\n\nconst RESOURCE_KEYWORDS = [\n  {kw:'trajet',      plural:'trajets',       fields:['ville_depart','ville_arrivee','date_vol','kilos_disponibles','prix_par_kilo']},\n  {kw:'annonce',     plural:'annonces',       fields:['titre','kilos_disponibles','prix_par_kilo','trajet_id']},\n  {kw:'reservation', plural:'reservations',   fields:['trajet_id','poids_kg','statut','expediteur_nom']},\n  {kw:'paiement',    plural:'paiements',      fields:['reservation_id','montant','statut','methode']},\n  {kw:'evaluation',  plural:'evaluations',    fields:['reservation_id','note','commentaire']},\n  {kw:'signalement', plural:'signalements',   fields:['description','latitude','longitude','priorite','statut']},\n  {kw:'intervention',plural:'interventions',  fields:['signalement_id','equipe','statut']},\n  {kw:'commande',    plural:'commandes',       fields:['produit_id','quantite','statut','montant']},\n  {kw:'produit',     plural:'produits',        fields:['nom','prix','stock','description']},\n  {kw:'livraison',   plural:'livraisons',      fields:['commande_id','statut','adresse']},\n  {kw:'colis',       plural:'colis',           fields:['description','poids_kg','statut','reservation_id']},\n  {kw:'tache',       plural:'taches',          fields:['titre','description','statut','priorite']},\n  {kw:'article',     plural:'articles',        fields:['titre','contenu','auteur','statut']},\n];\n\nlet detectedResources = [];\n\nif (explicitRoutes.length >= 3) {\n  // Extraire depuis routes explicites\n  const segs = new Set();\n  explicitRoutes.forEach(r => {\n    const seg = r.path.replace(/^\\//, '').split('/')[0].replace(/[{:}]/g,'');\n    if (seg && seg !== 'health' && !ACTOR_WORDS.includes(seg)) segs.add(seg);\n  });\n  segs.forEach(seg => {\n    // Chercher la config connue\n    const known = RESOURCE_KEYWORDS.find(rk => rk.plural === seg || rk.kw === seg || seg.startsWith(rk.kw));\n    if (known) {\n      detectedResources.push({ name: known.kw, name_plural: known.plural, known_fields: known.fields });\n    } else {\n      detectedResources.push({ name: seg.replace(/s$/,''), name_plural: seg, known_fields: [] });\n    }\n  });\n} else {\n  // Détecter depuis mots-clés dans le texte\n  RESOURCE_KEYWORDS.forEach(rk => {\n    const regex = new RegExp('\\\\b(' + rk.kw + '|' + rk.plural + ')\\\\b', 'gi');\n    const matches = userRequest.match(regex);\n    if (matches && matches.length >= 3) {\n      detectedResources.push({ name: rk.kw, name_plural: rk.plural, known_fields: rk.fields, count: matches.length });\n    }\n  });\n  // Trier par fréquence, garder max 6 (aligné sur le plafond du pipeline)\n  detectedResources.sort((a,b) => (b.count||0) - (a.count||0));\n  detectedResources = detectedResources.slice(0, 6);\n}\n\n// ── 4. Construire resources avec vrais champs ───────────────────\nconst resources = detectedResources.map(r => {\n  const fields = { id: 'number', created_at: 'string' };\n  const reqFields = [];\n\n  // Utiliser les champs connus pour cette ressource\n  (r.known_fields || []).forEach(f => {\n    const ftype = f.endsWith('_id') || f.includes('montant') || f.includes('prix') ||\n                  f.includes('poids') || f.includes('note') || f.includes('kilos') ||\n                  f.includes('stock') || f.includes('quantite') ? 'number' : 'string';\n    fields[f] = ftype;\n    reqFields.push(f);\n  });\n\n  // Si aucun champ connu, extraire depuis les tables Markdown dans le texte\n  if (reqFields.length === 0) {\n    const singular = r.name;\n    const resIdx = lines.findIndex(l => l.toLowerCase().includes(singular));\n    if (resIdx >= 0) {\n      const block = lines.slice(Math.max(0, resIdx-2), resIdx+15).join('\\n');\n      const tableRows = block.match(/\\|\\s*([a-z_]{2,30})\\s*\\|\\s*(string|number|text|int|float)/gi) || [];\n      tableRows.forEach(row => {\n        const parts = row.split('|').map(p => p.trim()).filter(Boolean);\n        if (parts.length >= 2 && !['id','created_at'].includes(parts[0].toLowerCase())) {\n          const fname = parts[0].toLowerCase().replace(/\\s+/g,'_');\n          const ftype = parts[1].toLowerCase().includes('number') || parts[1].toLowerCase().includes('int') ? 'number' : 'string';\n          fields[fname] = ftype;\n          reqFields.push(fname);\n        }\n      });\n    }\n  }\n\n  // Fallback minimaliste\n  if (reqFields.length === 0) {\n    fields['titre'] = 'string'; fields['statut'] = 'string';\n    reqFields.push('titre', 'statut');\n  }\n\n  return { name: r.name, name_plural: r.name_plural, fields, required_fields: reqFields.slice(0,5) };\n});\n\n// ── 5. Construire routes ──────────────────────────────────────────\n// Plafonnement par ressource (jamais par endpoint brut) : garantit qu'une\n// ressource ne perd pas son GET si son POST est apparu avant la coupe.\nfunction capRoutesByResource(routes, maxResources) {\n  const resourceOrder = [];\n  routes.forEach(r => {\n    const seg = r.path.replace(/^\\//, '').split('/')[0];\n    if (seg && resourceOrder.indexOf(seg) === -1) resourceOrder.push(seg);\n  });\n  const kept = resourceOrder.slice(0, maxResources);\n  return routes.filter(r => kept.indexOf(r.path.replace(/^\\//, '').split('/')[0]) !== -1);\n}\n\nconst finalRoutes = [{ method: 'GET', path: '/health', description: 'health check' }];\nif (explicitRoutes.length >= 3) {\n  capRoutesByResource(explicitRoutes.filter(r => r.path !== '/health'), 6).forEach(r => finalRoutes.push(r));\n} else {\n  resources.slice(0,6).forEach(r => {\n    finalRoutes.push({ method: 'POST', path: '/' + r.name_plural, description: 'Créer un(e) ' + r.name + ' (champs: ' + r.required_fields.join(', ') + ')' });\n    finalRoutes.push({ method: 'GET',  path: '/' + r.name_plural, description: 'Lister tous les ' + r.name_plural });\n  });\n}\n\n// ── 6. normalized_userRequest ─────────────────────────────────────\nlet normalizedText = '# ' + projectName + '\\n\\n';\nnormalizedText += 'RESSOURCES API :\\n';\nresources.forEach(r => {\n  const fields = Object.keys(r.fields).filter(k => !['id','created_at'].includes(k))\n    .map(k => k + ':' + r.fields[k]).join(', ');\n  normalizedText += '- ' + r.name_plural + ' (' + fields + ')\\n';\n  normalizedText += '  Champs requis: ' + r.required_fields.join(', ') + '\\n';\n});\nnormalizedText += '\\nROUTES :\\n';\nfinalRoutes.forEach(rt => { normalizedText += '- ' + rt.method + ' ' + rt.path + ' : ' + rt.description + '\\n'; });\n\nconst deterministicContext = JSON.stringify({\n  project_name: projectName, resources, routes: finalRoutes, business_rules: [], _source: 'deterministic'\n});\n\n\n// ── display_name : nettoyer les noms parasites (en-têtes de doc PDF) ──────\nfunction cleanDisplayName(rawName) {\n  if (!rawName || rawName === 'Application') return rawName || 'Application';\n  const INVALID_FIRST_WORDS = ['specifications','specification','document','template',\n    'doc','rapport','report','fichier','forge','test','projet','project',\n    'plateforme','platform','plateformeweb','application','app','appli','web',\n    'site','logiciel','systeme','system','outil','solution','portail'];\n  var words = rawName.trim().split(/[\\s\\-_]+/).filter(function(w){ return w.length > 0; });\n  // Retirer successivement TOUS les mots generiques en tete (ex: 'Plateforme web CrimeStopper' -> 'CrimeStopper')\n  while (words.length > 1) {\n    var fw = (words[0] || '').toLowerCase().replace(/[^a-z]/g,'');\n    if (INVALID_FIRST_WORDS.indexOf(fw) !== -1) { words.shift(); } else { break; }\n  }\n  var cleaned = words.join(' ').trim();\n  return cleaned.length > 1 ? cleaned : rawName.trim();\n}\n\n// ── markdown_summary : format compact ~400 chars ──────────────────────────\nfunction buildMarkdownSummary(projectName, resources, routes, rules) {\n  var md = '# ' + projectName + '\\n';\n  md += 'REST+Web | Node.js/Express\\n';\n  if (resources && resources.length > 0) {\n    md += '\\n## Resources\\n';\n    resources.forEach(function(r) {\n      var flds = Object.keys(r.fields || {}).filter(function(k){ return !['id','created_at'].includes(k); })\n        .map(function(k){\n          var t = r.fields[k] === 'number' ? 'num' : 'str';\n          var req = (r.required_fields || []).includes(k) ? '*' : '';\n          var fk  = k.endsWith('_id') ? ',FK' : '';\n          return k + req + '(' + t + fk + ')';\n        }).join(', ');\n      md += '- ' + (r.name_plural || r.name) + ': ' + flds + '\\n';\n    });\n  }\n  if (routes && routes.length > 0) {\n    md += '\\n## Routes\\n';\n    md += routes.map(function(r){ return r.method + ' ' + r.path; }).join(' | ') + '\\n';\n  }\n  if (rules && rules.length > 0) {\n    md += '\\n## Rules\\n';\n    md += rules.slice(0, 5).join(' | ') + '\\n';\n  }\n  return md.substring(0, 800);\n}\n\n// ── richness_score : 0-100, évalue la richesse sémantique de la spec ──────\nfunction computeRichnessScore(resources, routes, rules, source) {\n  var score = 0;\n  var res = resources || [];\n  var rts = routes || [];\n  var rls = rules || [];\n  // 40pts : ressources avec ≥ 3 champs non-système\n  var richRes = res.filter(function(r) {\n    return Object.keys(r.fields || {}).filter(function(k){ return !['id','created_at'].includes(k); }).length >= 3;\n  });\n  score += richRes.length > 0 ? 40 : (res.length > 0 ? 20 : 0);\n  // 30pts : règles métier\n  score += rls.length > 2 ? 30 : (rls.length > 0 ? 15 : 0);\n  // 20pts : FK détectées\n  var hasFk = res.some(function(r){ return (r.required_fields||[]).some(function(f){ return f.endsWith('_id'); }); });\n  score += hasFk ? 20 : 0;\n  // 10pts : project_name propre\n  score += (source !== 'Application' && source && !source.toLowerCase().includes('specification')) ? 10 : 0;\n  return Math.min(100, score);\n}\n\n// Construire markdown_summary depuis le contexte déterministe\nvar _detParsed = {};\ntry { _detParsed = JSON.parse(deterministicContext); } catch(e) {}\nvar _displayName     = cleanDisplayName(projectName);\nvar _markdownSummary = buildMarkdownSummary(_displayName, _detParsed.resources||[], _detParsed.routes||[], _detParsed.business_rules||[]);\nvar _richnessScore   = computeRichnessScore(_detParsed.resources||[], _detParsed.routes||[], _detParsed.business_rules||[], _displayName);\n\nreturn [{ json: {\n  task_id, userRequest, language, framework,\n  project_name:           _displayName,\n  display_name:           _displayName,\n  deterministic_context:  deterministicContext,\n  normalized_userRequest: normalizedText,\n  markdown_summary:       _markdownSummary,\n  richness_score:         _richnessScore,\n  resource_count:         resources.length,\n  has_explicit_routes:    explicitRoutes.length >= 3,\n  needs_llm:              true\n}}];"
+      },
+      "id": "eaf940f1-1770-4a11-95dd-fbd49eebf55d",
+      "name": "Parse Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1376,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================================\n// Compacteur déterministe de spec — distille un long document en un extrait\n// centré sur ce qui sert à GÉNÉRER (ressources, champs, types, routes, règles,\n// acteurs, permissions), en jetant le bruit (juridique, glossaire, références,\n// prose de justification, en-têtes/pieds de page répétés).\n// Ne s'active qu'au-delà de THRESHOLD ; sinon renvoie le texte intact.\n// Aucun appel LLM : 100% déterministe.\n// ============================================================================\nfunction compactSpec(raw, opts) {\n  opts = opts || {};\n  var TARGET = opts.target || 36000;      // taille cible de l'extrait gardé\n  var THRESHOLD = opts.threshold || 38000; // en dessous : on ne touche à rien\n\n  raw = String(raw || '');\n  var originalLen = raw.length;\n\n  // Nettoyage léger des caractères de contrôle\n  raw = raw.replace(/[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F\\x7F]/g, '');\n\n  if (raw.length <= THRESHOLD) {\n    return { text: raw, compacted: false, original_len: originalLen, kept_len: raw.length,\n             dropped_len: 0, reason: 'sous le seuil (' + THRESHOLD + '), spec envoyée intégralement' };\n  }\n\n  var lines = raw.split(/\\r?\\n/);\n\n  // 1) Retirer les lignes répétées trop souvent (en-têtes/pieds de PDF, numéros de page)\n  var freq = {};\n  lines.forEach(function (l) { var t = l.trim(); if (t) freq[t] = (freq[t] || 0) + 1; });\n  var deNoised = lines.filter(function (l) {\n    var t = l.trim();\n    if (!t) return true;\n    // une ligne répétée >5 fois = redondance (en-tête/pied de PDF, glossaire,\n    // prose juridique dupliquée...). On la retire quelle que soit sa longueur ;\n    // une vraie déclaration (champ/route/règle) ne se répète pas 5 fois.\n    if (freq[t] > 5 && t.length >= 3) return false;\n    return true;\n  });\n\n  // 2) Détecteurs de lignes \"signal\" (à garder)\n  var reHeadingMd  = /^#{1,6}\\s+\\S/;\n  var reHeadingNum = /^\\s*\\d+(?:\\.\\d+)*\\.?\\s+[A-Za-zÀ-ÿ]/;\n  var reTableRow   = /\\|/;\n  var reRoute      = /\\b(GET|POST|PUT|PATCH|DELETE)\\s+\\/\\S/i;\n  var reFieldType  = /\\b[a-zA-Z_][a-zA-Z0-9_]*\\s*[:|]\\s*(string|number|text|integer|int|real|float|bool|boolean|date|datetime)\\b/i;\n  var reJsonField  = /\"[a-zA-Z_][a-zA-Z0-9_]*\"\\s*:/;\n  var reBullet     = /^\\s*[-*•]\\s+/;\n  var reRuleKw     = /\\b(doit|must|obligatoire|required|requis|unique|entre|between|positif|positive|sup[ée]rieur|inf[ée]rieur|minimum|maximum|\\bmin\\b|\\bmax\\b|>=|<=|coh[ée]rent|valide|validation|parmi|among|format|au moins|at least|ne peut|référ|foreign|cl[ée] [ée]trang)/i;\n  var reResourceKw = /\\b(ressource|resource|entit[ée]|table|champ|field|acteur|actor|r[ôo]le|permission|route|endpoint|point d.acc|schema|mod[èe]le de donn)/i;\n\n  var GENERIC_HEADING_NOISE = /glossaire|glossary|r[ée]f[ée]rence|bibliograph|annexe|appendix|stride|menace|threat|juridique|r[ée]glementaire|\\blegal\\b|rgpd|\\bloi\\b|sanction|\\bdroit\\b|remerciement|sommaire|table des mati|contents|historique|introduction|contexte/i;\n\n  function isHeading(l) { return reHeadingMd.test(l) || reHeadingNum.test(l); }\n  function isSignal(l) {\n    var t = l.trim();\n    if (!t) return false;\n    if (reTableRow.test(t)) return true;\n    if (reRoute.test(t)) return true;\n    if (reFieldType.test(t)) return true;\n    if (reJsonField.test(t)) return true;\n    if (reBullet.test(t) && reRuleKw.test(t)) return true;\n    if (reResourceKw.test(t) && t.length <= 180) return true;\n    return false;\n  }\n\n  // 3) Toujours garder l'en-tête du doc (titre / nom de projet) : 12 premières non-vides\n  var head = [];\n  for (var i = 0; i < deNoised.length && head.length < 12; i++) {\n    if (deNoised[i].trim()) head.push(deNoised[i]);\n  }\n\n  // 4) Parcours : garder titres + lignes de signal. Les titres \"bruit\" sont\n  //    conservés seulement s'ils encadrent du signal (on garde le titre juste\n  //    au-dessus d'une ligne signal pour le contexte).\n  var kept = [];\n  var keptSet = {};\n  function push(l) {\n    var key = l.trim();\n    if (key && keptSet[key] && key.length < 60) return; // évite les doublons courts\n    keptSet[key] = true;\n    kept.push(l);\n  }\n  head.forEach(push);\n\n  var headingsKept = 0, headingsDropped = 0, signalKept = 0;\n  var pendingHeading = null;\n  for (var j = 0; j < deNoised.length; j++) {\n    var l = deNoised[j];\n    var t = l.trim();\n    if (!t) continue;\n    if (isHeading(l)) {\n      // on mémorise le dernier titre ; on ne le pousse que s'il précède du signal\n      var noise = GENERIC_HEADING_NOISE.test(t) && !reResourceKw.test(t);\n      pendingHeading = noise ? null : l;      // titre bruit -> pas de contexte\n      if (noise) headingsDropped++;\n      continue;\n    }\n    if (isSignal(l)) {\n      if (pendingHeading) { push(''); push(pendingHeading); pendingHeading = null; headingsKept++; }\n      push(l);\n      signalKept++;\n    }\n    // sinon : prose -> jetée\n  }\n\n  var text = kept.join('\\n').replace(/\\n{3,}/g, '\\n\\n').trim();\n\n  // 5) Si encore trop long, on tronque en gardant le début (structure + data model\n  //    + API arrivent tôt) et on signale.\n  var hardTruncated = false;\n  if (text.length > TARGET) { text = text.slice(0, TARGET); hardTruncated = true; }\n\n  return {\n    text: text,\n    compacted: true,\n    original_len: originalLen,\n    kept_len: text.length,\n    dropped_len: originalLen - text.length,\n    headings_kept: headingsKept,\n    headings_dropped: headingsDropped,\n    signal_lines: signalKept,\n    hard_truncated: hardTruncated,\n    reason: 'spec > ' + THRESHOLD + ' : compactée aux lignes utiles (ressources/champs/routes/règles/acteurs/permissions)'\n  };\n}\n\nconst inp = $input.first().json;\n// Sprint : compactage déterministe des specs très longues (>38 Ko) pour tenir\n// dans le contexte du LLM sans perdre les ressources/champs/routes/règles/acteurs.\nconst _compact = compactSpec(inp.userRequest || '');\nif (_compact.compacted) { console.log('[Compact Spec] ' + _compact.original_len + ' -> ' + _compact.kept_len + ' chars (' + _compact.signal_lines + ' lignes signal, bruit ecarte)'); }\nconst _specForLLM = _compact.text;\n\nconst systemPrompt = `Tu es un expert en analyse de spécifications logicielles.\nRÈGLE ABSOLUE : Retourner UNIQUEMENT un objet JSON valide, aucun texte avant ou après.\n\nFORMAT OBLIGATOIRE :\n{\n  \"project_name\": \"NomCourt (1-3 mots)\",\n  \"resources\": [\n    {\n      \"name\": \"annonces\",\n      \"name_plural\": \"annonces\",\n      \"fields\": { \"titre\": \"string\", \"kilos_disponibles\": \"number\", \"trajet_id\": \"number\" },\n      \"required_fields\": [\"titre\", \"kilos_disponibles\"],\n      \"shared\": false\n    }\n  ],\n  \"deferred_resources\": [\n    { \"name\": \"officine\", \"name_plural\": \"officines\", \"fields\": { \"nom\": \"string\", \"ville\": \"string\" }, \"required_fields\": [\"nom\"] }\n  ],\n  \"routes\": [\n    {\"method\": \"GET\",  \"path\": \"/health\",   \"description\": \"health check\"},\n    {\"method\": \"POST\", \"path\": \"/annonces\", \"description\": \"créer une annonce (champs: titre, kilos_disponibles)\"},\n    {\"method\": \"GET\",  \"path\": \"/annonces\", \"description\": \"lister toutes les annonces\"}\n  ],\n  \"business_rules\": [\"règle courte 1\", \"règle courte 2\"],\n  \"actors\": [\"role_a\", \"role_b\"],\n  \"permissions\": { \"POST /ressource\": [\"role_a\"], \"GET /ressource\": [\"role_a\", \"role_b\"] },\n  \"normalized_spec\": \"Résumé structuré en moins de 1200 chars : nom, ressources, champs, règles\"\n}\n\nRÈGLES CRITIQUES :\n1. ACTEURS (voyageur, expéditeur, client, admin) ne sont PAS des ressources API\n2. RESSOURCES = données échangées (annonces, trajets, reservations, paiements)\n3. Maximum 6 ressources dans \"resources\" (les 6 plus centrales au MVP). Pour CHAQUE\n   ressource retenue, générer POST + GET (jamais l'un sans l'autre). TOUTES les AUTRES\n   ressources métier décrites dans le doc — y compris celles des sections roadmap/V2/V3\n   (ex: officine, alertes, historique) — vont dans \"deferred_resources\" (même forme :\n   name, name_plural, fields, required_fields). Ne JAMAIS inventer une ressource : ne\n   lister que celles réellement décrites. [] si aucune.\n4. Types de champs : uniquement \"string\" ou \"number\"\n5. Champs FK : se terminent par _id (ex: trajet_id, annonce_id)\n6. \"shared\" (booleen, defaut false) : true si la ressource est un REFERENTIEL /\n   INVENTAIRE / CATALOGUE partage, consultable et alimente par TOUS les acteurs\n   authentifies (ex: medicaments, stocks, produits, officines). false si donnee\n   PRIVEE appartenant a l utilisateur qui la cree (ex: notes, taches, reservations\n   personnelles). Indice : si plusieurs roles/acteurs lisent la meme donnee commune,\n   shared=true. En cas de doute, false.\n7. \"actors\" (roles d'authentification, ex: pharmacien, gestionnaire, admin, client) :\n   ce sont des ROLES, PAS des ressources. Extraire la liste des roles internes\n   authentifies. Ne PAS inclure un role \"anonyme/public\" ici. [] si aucun role distinct.\n8. \"permissions\" (optionnel) : si la spec fournit une matrice acteur x point d'acces,\n   la traduire en objet { \"METHODE /chemin\": [roles autorises] }. Utiliser les memes\n   noms de roles que \"actors\". Omettre une route = accessible a tout utilisateur\n   authentifie. {} si aucune matrice.`;\n\nconst userPrompt = 'Analyse et normalise cette spec :\\n\\n' +\n  _specForLLM.substring(0, 40000) +\n  '\\n\\nRetourne UNIQUEMENT le JSON.';\n\nreturn [{ json: {\n  model: 'codestral-latest',\n  messages: [\n    { role: 'system', content: systemPrompt },\n    { role: 'user',   content: userPrompt }\n  ],\n  temperature: 0,\n  max_tokens: 3500,\n  response_format: { type: 'json_object' }\n}}];"
+      },
+      "id": "0bf3aba9-e93c-49b4-a706-eb09c5df3acf",
+      "name": "Build Mistral Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1184,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.mistral.ai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $('Build Mistral Payload').first().json }}",
+        "options": {},
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mistralCloudApi"
+      },
+      "id": "2ee78ee2-8718-45d4-9b25-ea0a68ec169d",
+      "name": "Mistral API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -976,
+        224
+      ],
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "mistralCloudApi": {
+          "id": "MISTRAL_API_KEY",
+          "name": "MISTRAL_API_KEY"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "56b23794-33ca-4326-bcf1-a75e1bfdf1be",
+              "leftValue": "={{ ($json.choices && $json.choices[0] && $json.choices[0].message && $json.choices[0].message.content) ? 'yes' : 'no' }}",
+              "rightValue": "yes",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "9bb28ee1-9649-4add-9a9b-0e44a1f5b7ff",
+      "name": "IF Mistral Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -656,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.mistral.ai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $('Build Mistral Payload').first().json }}",
+        "options": {},
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mistralCloudApi"
+      },
+      "id": "193b2769-439d-42a4-964c-8db62a3d47af",
+      "name": "Mistral API Retry",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -480,
+        384
+      ],
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "mistralCloudApi": {
+          "id": "MISTRAL_API_KEY_2",
+          "name": "MISTRAL_API_KEY_2"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "95e9a988-5c27-4362-a0ec-f2bd0e753aac",
+              "leftValue": "={{ ($json.choices && $json.choices[0] && $json.choices[0].message && $json.choices[0].message.content) ? 'yes' : 'no' }}",
+              "rightValue": "yes",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "e15a8b95-d61a-4e70-8cc2-349137e2b7ad",
+      "name": "IF Key2 Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -256,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const inp = $input.first().json;\n\n// Récupérer les données d'entrée depuis Parse Input\nlet task_id = 'unknown';\nlet origSpec = '';\nlet language = 'javascript';\nlet framework = 'express';\ntry {\n  const pi = $('Parse Input').first().json;\n  task_id  = pi.task_id     || 'unknown';\n  origSpec = pi.userRequest || '';\n  language = pi.language    || 'javascript';\n  framework= pi.framework   || 'express';\n} catch(e) {}\n\nlet parsed = null;\ntry {\n  const content = inp.choices && inp.choices[0] && inp.choices[0].message\n    ? inp.choices[0].message.content : null;\n  if (!content) throw new Error('Pas de contenu LLM');\n  const cleaned = content.replace(/```json\\n?/g,'').replace(/```\\n?/g,'').trim();\n  parsed = JSON.parse(cleaned);\n} catch(e) {\n  return [{ json: {\n    task_id, normalized: false,\n    normalized_userRequest: origSpec,\n    structured_context: '',\n    language, framework,\n    _normalization_error: e.message\n  }}];\n}\n\nconst pn       = parsed.project_name || 'Application';\nconst routes   = Array.isArray(parsed.routes)         ? parsed.routes   : [];\nconst resources= Array.isArray(parsed.resources)      ? parsed.resources: [];\nconst rules    = Array.isArray(parsed.business_rules) ? parsed.business_rules : [];\n\nlet normalizedText = '# ' + pn + '\\n\\n';\nif (parsed.normalized_spec) {\n  normalizedText += parsed.normalized_spec;\n} else {\n  normalizedText += 'RESSOURCES :\\n';\n  resources.forEach(function(r) {\n    var fields = Object.keys(r.fields || {}).map(function(k){ return k + ':' + r.fields[k]; }).join(', ');\n    normalizedText += '- ' + r.name + ' (' + fields + ')\\n';\n    normalizedText += '  Requis: ' + (r.required_fields || []).join(', ') + '\\n';\n  });\n  normalizedText += '\\nROUTES :\\n';\n  routes.forEach(function(rt) {\n    normalizedText += '- ' + rt.method + ' ' + rt.path + ' : ' + rt.description + '\\n';\n  });\n  if (rules.length > 0) {\n    normalizedText += '\\nRÈGLES :\\n';\n    rules.forEach(function(rule) { normalizedText += '- ' + rule + '\\n'; });\n  }\n}\n\nconst actors      = Array.isArray(parsed.actors) ? parsed.actors : [];\nconst deferred    = Array.isArray(parsed.deferred_resources) ? parsed.deferred_resources : [];\nconst permissions = (parsed.permissions && typeof parsed.permissions === 'object' && !Array.isArray(parsed.permissions)) ? parsed.permissions : {};\nconst structuredContext = JSON.stringify({\n  project_name: pn, resources, routes, business_rules: rules, actors, permissions, deferred_resources: deferred, actors, permissions\n}, null, 0);\n\n\n// ── display_name : nettoyer les noms parasites (en-têtes de doc PDF) ──────\nfunction cleanDisplayName(rawName) {\n  if (!rawName || rawName === 'Application') return rawName || 'Application';\n  const INVALID_FIRST_WORDS = ['specifications','specification','document','template',\n    'doc','rapport','report','fichier','forge','test','projet','project',\n    'plateforme','platform','plateformeweb','application','app','appli','web',\n    'site','logiciel','systeme','system','outil','solution','portail'];\n  var words = rawName.trim().split(/[\\s\\-_]+/).filter(function(w){ return w.length > 0; });\n  // Retirer successivement TOUS les mots generiques en tete (ex: 'Plateforme web CrimeStopper' -> 'CrimeStopper')\n  while (words.length > 1) {\n    var fw = (words[0] || '').toLowerCase().replace(/[^a-z]/g,'');\n    if (INVALID_FIRST_WORDS.indexOf(fw) !== -1) { words.shift(); } else { break; }\n  }\n  var cleaned = words.join(' ').trim();\n  return cleaned.length > 1 ? cleaned : rawName.trim();\n}\n\n// ── markdown_summary : format compact ~400 chars ──────────────────────────\nfunction buildMarkdownSummary(projectName, resources, routes, rules) {\n  var md = '# ' + projectName + '\\n';\n  md += 'REST+Web | Node.js/Express\\n';\n  if (resources && resources.length > 0) {\n    md += '\\n## Resources\\n';\n    resources.forEach(function(r) {\n      var flds = Object.keys(r.fields || {}).filter(function(k){ return !['id','created_at'].includes(k); })\n        .map(function(k){\n          var t = r.fields[k] === 'number' ? 'num' : 'str';\n          var req = (r.required_fields || []).includes(k) ? '*' : '';\n          var fk  = k.endsWith('_id') ? ',FK' : '';\n          return k + req + '(' + t + fk + ')';\n        }).join(', ');\n      md += '- ' + (r.name_plural || r.name) + ': ' + flds + '\\n';\n    });\n  }\n  if (routes && routes.length > 0) {\n    md += '\\n## Routes\\n';\n    md += routes.map(function(r){ return r.method + ' ' + r.path; }).join(' | ') + '\\n';\n  }\n  if (rules && rules.length > 0) {\n    md += '\\n## Rules\\n';\n    md += rules.slice(0, 5).join(' | ') + '\\n';\n  }\n  return md.substring(0, 800);\n}\n\n// ── richness_score : 0-100, évalue la richesse sémantique de la spec ──────\nfunction computeRichnessScore(resources, routes, rules, source) {\n  var score = 0;\n  var res = resources || [];\n  var rts = routes || [];\n  var rls = rules || [];\n  // 40pts : ressources avec ≥ 3 champs non-système\n  var richRes = res.filter(function(r) {\n    return Object.keys(r.fields || {}).filter(function(k){ return !['id','created_at'].includes(k); }).length >= 3;\n  });\n  score += richRes.length > 0 ? 40 : (res.length > 0 ? 20 : 0);\n  // 30pts : règles métier\n  score += rls.length > 2 ? 30 : (rls.length > 0 ? 15 : 0);\n  // 20pts : FK détectées\n  var hasFk = res.some(function(r){ return (r.required_fields||[]).some(function(f){ return f.endsWith('_id'); }); });\n  score += hasFk ? 20 : 0;\n  // 10pts : project_name propre\n  score += (source !== 'Application' && source && !source.toLowerCase().includes('specification')) ? 10 : 0;\n  return Math.min(100, score);\n}\n\nvar _displayName2     = cleanDisplayName(pn);\nvar _markdownSummary2 = buildMarkdownSummary(_displayName2, resources, routes, rules);\nvar _richnessScore2   = computeRichnessScore(resources, routes, rules, _displayName2);\n\nreturn [{ json: {\n  task_id,\n  normalized:             true,\n  project_name:           _displayName2,\n  display_name:           _displayName2,\n  normalized_userRequest: normalizedText.substring(0, 3000),\n  structured_context:     structuredContext.substring(0, 8000),\n  markdown_summary:       _markdownSummary2,\n  richness_score:         _richnessScore2,\n  spec_too_sparse:        _richnessScore2 < 50,\n  resources, routes, business_rules: rules, actors, permissions,\n  language, framework\n}}];"
+      },
+      "id": "ee7ec99b-485b-4a6c-beac-19a2219e03b3",
+      "name": "Parse Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fallback : Mistral — fallback — utiliser l'extraction déterministe\nlet task_id = 'unknown';\nlet origSpec = '';\nlet language = 'javascript';\nlet framework = 'express';\nlet deterministicContext = '';\nlet projectName = 'Application';\n\ntry {\n  const pi = $('Parse Input').first().json;\n  task_id              = pi.task_id              || 'unknown';\n  origSpec             = pi.userRequest          || '';\n  language             = pi.language             || 'javascript';\n  framework            = pi.framework            || 'express';\n  deterministicContext = pi.deterministic_context || '';\n  projectName          = pi.project_name          || 'Application';\n} catch(e) {}\n\n// Si extraction déterministe disponible, construire normalized_userRequest\nlet normalizedText = origSpec;\nif (deterministicContext) {\n  try {\n    const det = JSON.parse(deterministicContext);\n    normalizedText = '# ' + det.project_name + '\\n\\n';\n    normalizedText += 'RESSOURCES :\\n';\n    (det.resources || []).forEach(function(r) {\n      var fields = Object.keys(r.fields || {}).filter(function(k){ return !['id','created_at'].includes(k); })\n        .map(function(k){ return k + ':' + r.fields[k]; }).join(', ');\n      normalizedText += '- ' + r.name_plural + ' (' + fields + ')\\n';\n      normalizedText += '  Requis: ' + (r.required_fields || []).join(', ') + '\\n';\n    });\n    normalizedText += '\\nROUTES :\\n';\n    (det.routes || []).forEach(function(rt) {\n      normalizedText += '- ' + rt.method + ' ' + rt.path + ' : ' + rt.description + '\\n';\n    });\n    projectName = det.project_name || projectName;\n  } catch(e) {}\n}\n\n\n// ── display_name : nettoyer les noms parasites (en-têtes de doc PDF) ──────\nfunction cleanDisplayName(rawName) {\n  if (!rawName || rawName === 'Application') return rawName || 'Application';\n  const INVALID_FIRST_WORDS = ['specifications','specification','document','template',\n    'doc','rapport','report','fichier','forge','test','projet','project',\n    'plateforme','platform','plateformeweb','application','app','appli','web',\n    'site','logiciel','systeme','system','outil','solution','portail'];\n  var words = rawName.trim().split(/[\\s\\-_]+/).filter(function(w){ return w.length > 0; });\n  // Retirer successivement TOUS les mots generiques en tete (ex: 'Plateforme web CrimeStopper' -> 'CrimeStopper')\n  while (words.length > 1) {\n    var fw = (words[0] || '').toLowerCase().replace(/[^a-z]/g,'');\n    if (INVALID_FIRST_WORDS.indexOf(fw) !== -1) { words.shift(); } else { break; }\n  }\n  var cleaned = words.join(' ').trim();\n  return cleaned.length > 1 ? cleaned : rawName.trim();\n}\n\n// ── markdown_summary : format compact ~400 chars ──────────────────────────\nfunction buildMarkdownSummary(projectName, resources, routes, rules) {\n  var md = '# ' + projectName + '\\n';\n  md += 'REST+Web | Node.js/Express\\n';\n  if (resources && resources.length > 0) {\n    md += '\\n## Resources\\n';\n    resources.forEach(function(r) {\n      var flds = Object.keys(r.fields || {}).filter(function(k){ return !['id','created_at'].includes(k); })\n        .map(function(k){\n          var t = r.fields[k] === 'number' ? 'num' : 'str';\n          var req = (r.required_fields || []).includes(k) ? '*' : '';\n          var fk  = k.endsWith('_id') ? ',FK' : '';\n          return k + req + '(' + t + fk + ')';\n        }).join(', ');\n      md += '- ' + (r.name_plural || r.name) + ': ' + flds + '\\n';\n    });\n  }\n  if (routes && routes.length > 0) {\n    md += '\\n## Routes\\n';\n    md += routes.map(function(r){ return r.method + ' ' + r.path; }).join(' | ') + '\\n';\n  }\n  if (rules && rules.length > 0) {\n    md += '\\n## Rules\\n';\n    md += rules.slice(0, 5).join(' | ') + '\\n';\n  }\n  return md.substring(0, 800);\n}\n\n// ── richness_score : 0-100, évalue la richesse sémantique de la spec ──────\nfunction computeRichnessScore(resources, routes, rules, source) {\n  var score = 0;\n  var res = resources || [];\n  var rts = routes || [];\n  var rls = rules || [];\n  // 40pts : ressources avec ≥ 3 champs non-système\n  var richRes = res.filter(function(r) {\n    return Object.keys(r.fields || {}).filter(function(k){ return !['id','created_at'].includes(k); }).length >= 3;\n  });\n  score += richRes.length > 0 ? 40 : (res.length > 0 ? 20 : 0);\n  // 30pts : règles métier\n  score += rls.length > 2 ? 30 : (rls.length > 0 ? 15 : 0);\n  // 20pts : FK détectées\n  var hasFk = res.some(function(r){ return (r.required_fields||[]).some(function(f){ return f.endsWith('_id'); }); });\n  score += hasFk ? 20 : 0;\n  // 10pts : project_name propre\n  score += (source !== 'Application' && source && !source.toLowerCase().includes('specification')) ? 10 : 0;\n  return Math.min(100, score);\n}\n\nvar _fbParsed = {};\ntry { _fbParsed = JSON.parse(deterministicContext); } catch(e) {}\nvar _displayNameFb     = cleanDisplayName(projectName);\nvar _markdownFb        = buildMarkdownSummary(_displayNameFb, _fbParsed.resources||[], _fbParsed.routes||[], _fbParsed.business_rules||[]);\nvar _richnessScoreFb   = computeRichnessScore(_fbParsed.resources||[], _fbParsed.routes||[], _fbParsed.business_rules||[], _displayNameFb);\nvar _specTooSparseFb   = deterministicContext.length > 10 && _richnessScoreFb < 50;\n\nreturn [{ json: {\n  task_id,\n  normalized:             deterministicContext.length > 10,\n  project_name:           _displayNameFb,\n  display_name:           _displayNameFb,\n  normalized_userRequest: normalizedText,\n  structured_context:     deterministicContext,\n  markdown_summary:       _markdownFb,\n  richness_score:         _richnessScoreFb,\n  spec_too_sparse:        _specTooSparseFb,\n  language, framework,\n  _source: 'deterministic_fallback'\n}}];"
+      },
+      "id": "0a768ab6-fd2e-4b75-acae-36d7daf92272",
+      "name": "Fallback",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        96,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "dfe0bdb0-2438-4d59-93ee-fcbfd4d4d4ba",
+      "name": "Respond Parse Output",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        176,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "394f087b-a1bc-4fea-96c2-23f72b0d6ddc",
+      "name": "Respond Fallback",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        304,
+        400
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Parse Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Input": {
+      "main": [
+        [
+          {
+            "node": "Build Mistral Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Key2 Valid?": {
+      "main": [
+        [
+          {
+            "node": "Parse Output",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fallback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Output": {
+      "main": [
+        [
+          {
+            "node": "Respond Parse Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fallback": {
+      "main": [
+        [
+          {
+            "node": "Respond Fallback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Mistral Payload": {
+      "main": [
+        [
+          {
+            "node": "Mistral API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mistral API": {
+      "main": [
+        [
+          {
+            "node": "IF Mistral Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mistral API Retry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Mistral Valid?": {
+      "main": [
+        [
+          {
+            "node": "Parse Output",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mistral API Retry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mistral API Retry": {
+      "main": [
+        [
+          {
+            "node": "IF Key2 Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fallback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "5d586c7e-3a6b-4d0a-b2f0-5800fde95a3b",
+  "meta": {
+    "instanceId": "c77e41168b0abc4c9e72e3dfa70fb293d0acb289b40b847421933eadc146e082"
+  },
+  "id": "sKY3glMxHz0FJZLh",
+  "tags": []
+}

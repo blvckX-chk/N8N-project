@@ -422,17 +422,15 @@ function buildPayload(){
     case 'improve':{
       var ip=document.getElementById('input-improve').value.trim();
       if(!ip)throw new Error('③ Décris les améliorations souhaitées');
-      if(!improveSpecData)throw new Error('① Fournis le document de spécifications (PDF/DOCX)');
       if(!improveZipData)throw new Error('② Fournis le ZIP de la version à améliorer');
       var p={...base,
         userRequest:ip,
         improve_prompt:ip,
         improve_mode:true
       };
-      if(improveSpecData.filename.endsWith('.pdf')){
-        p.pdf_base64=improveSpecData.base64;p.pdf_filename=improveSpecData.filename;
-      } else {
-        p.docx_base64=improveSpecData.base64;p.docx_filename=improveSpecData.filename;
+      if(improveSpecData){
+        if(improveSpecData.filename.endsWith('.pdf')){ p.pdf_base64=improveSpecData.base64;p.pdf_filename=improveSpecData.filename; }
+        else { p.docx_base64=improveSpecData.base64;p.docx_filename=improveSpecData.filename; }
       }
       p.existing_zip_base64=improveZipData.base64;
       p.existing_zip_filename=improveZipData.filename;
@@ -725,7 +723,19 @@ function renderResult(data,elapsed){
     const tabs=files.map((f,i)=>`<button class="file-tab${i===0?' active':''}" onclick="showFile(${i})">${esc(f.path.split('/').pop())}</button>`).join('');
     filesHtml=`<div class="result-card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><strong style="margin-bottom:0">Fichiers générés (${files.length})</strong><div><button class="btn-small btn-dl-zip" onclick="dlZip()" title="Télécharger l'application en .zip">⬇ ZIP</button><button class="btn-small btn-dl-zip" style="margin-left:4px;background:#6c47ff;" onclick="dlSpecificLauncher()" title="Script .bat qui installe et lance l'app sous Windows">⚡ Launcher</button></div></div><div class="file-tabs-scroll">${tabs}</div><div style="margin-top:10px;font-size:10px;font-family:var(--mono);color:var(--muted);margin-bottom:6px" id="current-fname">${esc(files[0].path)}</div><div class="file-content" id="file-viewer"></div><div class="btn-row"><button class="btn-small btn-dl-file" id="btn-dl-current">⬇ Ce fichier</button><button class="btn-small btn-deploy" id="btn-deploy" onclick="deployApp()">🚀 Déployer</button><button class="btn-small btn-improve" id="btn-improve" onclick="improveApp()" style="display:none">🔧 Améliorer</button></div><div id="deploy-result"></div></div>`;
   }
-  document.getElementById('result-content').innerHTML=`<div class="result-header"><span class="badge ${bClass}">${bLabel}</span><span class="result-meta">${elapsed}s · ${esc(data.task_id||'—')}</span></div><div class="result-card"><strong>Résumé</strong><div style="font-size:12px;line-height:1.6">${esc(data.summary||'—')}</div></div>${improveHtml}${blockHtml}${filesHtml}<button class="raw-toggle" onclick="document.getElementById('raw-out').classList.toggle('visible')">{ } JSON brut</button><pre class="raw" id="raw-out">${esc(JSON.stringify(data,null,2))}</pre>`;
+  window._planned = data.planned_not_implemented || [];
+  let backlogHtml='';
+  if(files.length){
+    const planned=window._planned;
+    backlogHtml=`<div class="result-card"><strong>📋 Prévu dans la spec — à implémenter${planned.length?` (${planned.length})`:''}</strong>`;
+    if(planned.length){
+      backlogHtml+=`<div style="display:flex;flex-direction:column;gap:6px;margin:6px 0 10px">`+planned.map((r,idx)=>{const nm=esc(r.store_name||r.name||'');const fc=Object.keys(r.fields||{}).length;return `<div style="display:flex;align-items:center;gap:8px;font-size:12px"><button class="btn-small" style="background:#16a34a" onclick="addResource(window._planned[${idx}],null)">➕ Ajouter</button><span>${nm}${fc?` <span style=\"color:var(--muted)\">(${fc} champ${fc>1?'s':''})</span>`:''}</span></div>`;}).join('')+`</div>`;
+    } else {
+      backlogHtml+=`<div style="font-size:11px;color:var(--muted);margin:6px 0 8px">✓ Toutes les ressources prévues par la spec sont implémentées.</div>`;
+    }
+    backlogHtml+=`<div style="display:flex;gap:8px;align-items:center;border-top:1px solid var(--border);padding-top:10px"><input id="custom-add" placeholder="Ajouter une fonctionnalité NON prévue (ex: ressource avis avec note number)" style="flex:1;padding:8px;font-size:12px;border-radius:8px"><button class="btn-small" style="background:#6c47ff" onclick="addResource(null,document.getElementById('custom-add').value)">➕ Ajouter</button></div></div>`;
+  }
+  document.getElementById('result-content').innerHTML=`<div class="result-header"><span class="badge ${bClass}">${bLabel}</span><span class="result-meta">${elapsed}s · ${esc(data.task_id||'—')}</span></div><div class="result-card"><strong>Résumé</strong><div style="font-size:12px;line-height:1.6">${esc(data.summary||'—')}</div></div>${improveHtml}${blockHtml}${filesHtml}${backlogHtml}<button class="raw-toggle" onclick="document.getElementById('raw-out').classList.toggle('visible')">{ } JSON brut</button><pre class="raw" id="raw-out">${esc(JSON.stringify(data,null,2))}</pre>`;
   if(files.length)showFile(0);
 }
 // Diagnostic client : erreurs purement front (formulaire, reseau local, timeout)
@@ -752,9 +762,26 @@ function renderError(msg, extra){
 }
 
 // ── Run ────────────────────────────────────────────────────────────────────
-async function runPipeline(){
+async function addResource(resObj, freeText){
   if(isRunning)return;
-  let payload;try{payload=buildPayload();}catch(e){renderError(e.message);return;}
+  if(!currentFiles||!currentFiles.length){renderError("Génère (ou charge) d'abord une application avant d'ajouter une ressource.");return;}
+  let prompt;
+  if(resObj){ var flds=Object.keys(resObj.fields||{}); prompt='Ajoute la ressource '+(resObj.store_name||resObj.name)+(flds.length?(' avec les champs '+flds.map(function(f){return f+' ('+resObj.fields[f]+')';}).join(', ')):'')+'.'; }
+  else { prompt=(freeText||'').trim(); if(!prompt){renderError('Décris la fonctionnalité à ajouter.');return;} }
+  let zj;
+  try{ const zr=await fetch('/api/zip-base64',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({files:currentFiles})}); zj=await zr.json(); }
+  catch(e){ renderError('Préparation du ZIP impossible : '+e.message); return; }
+  if(!zj||!zj.zip_base64){ renderError('Préparation du ZIP impossible.'); return; }
+  const base={task_id:'TASK-'+Date.now(),environment:document.getElementById('cfg-env').value,language:document.getElementById('cfg-lang').value,framework:document.getElementById('cfg-fw').value};
+  const nm=(typeof getProjectName==='function'&&getProjectName())||'app';
+  currentTab='improve';
+  runPipeline({...base, improve_mode:true, userRequest:prompt, improve_prompt:prompt, existing_zip_base64:zj.zip_base64, existing_zip_filename:nm+'.zip'});
+}
+async function runPipeline(overridePayload){
+  if(isRunning)return;
+  let payload;
+  if(overridePayload){ payload=overridePayload; }
+  else { try{payload=buildPayload();}catch(e){renderError(e.message);return;} }
   isRunning=true;
   const btn=document.getElementById('btn-launch'),sp=document.getElementById('spinner'),bt=document.getElementById('btn-text');
   btn.disabled=true;sp.classList.add('active');bt.textContent='Génération en cours...';
@@ -763,7 +790,7 @@ async function runPipeline(){
   document.getElementById('result-content').style.display='none';
   document.getElementById('result-content').innerHTML='';
   currentFiles=[];
-  startSteps(currentTab);
+  startSteps(payload.improve_mode?'improve':currentTab);
   const start=Date.now();
   try{
     // 1. Lancer le pipeline (réponse immédiate avec task_id)
