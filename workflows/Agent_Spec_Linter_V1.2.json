@@ -1,0 +1,87 @@
+{
+  "name": "Agent Spec Linter V1.2",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "spec-linter",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "83c09549-fa1c-4447-8716-5eb137a45977",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        160,
+        0
+      ],
+      "webhookId": "c8aeaa0d-0755-4f5d-b54e-b5be99e445fd"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ════════════════════════════════════════════════════════════════\n// Agent Spec Linter V1.2 — Deterministe — 100% Code node\n// Valide la spec AVANT l'Architect pour eviter les regenerations\n// ════════════════════════════════════════════════════════════════\nconst raw = $input.first().json;\nconst body = (raw.body && typeof raw.body === 'object') ? raw.body\n           : (typeof raw.body === 'string') ? JSON.parse(raw.body.replace(/^=+/, '').trim()) : raw;\n\nconst task_id    = String(body.task_id || 'unknown');\n\n// En mode amélioration : spec déjà validée lors de la génération V1 — PASS immédiat\nif (body.improve_mode === true) {\n  return [{ json: {\n    task_id,\n    linter_status:  'PASS',\n    errors_count:   0,\n    warnings_count: 0,\n    errors:         [],\n    warnings:       [],\n    summary:        'PASS — Mode amélioration : spec non re-validée (déjà validée lors de la génération V1).',\n    checked_at:     new Date().toISOString()\n  }}];\n}\n\nconst spec       = String(body.userRequest || '');\nconst specLower  = spec.toLowerCase();\nconst lines      = spec.split('\\n');\n\nconst errors   = [];\nconst warnings = [];\n\n// ─────────────────────────────────────────────\n// Extraction des routes depuis la spec\n// N'extraire un segment que s'il est explicitement annoncé par un verbe HTTP\n// (ex: \"POST /trajets\"). Un simple token commençant par \"/\" dans du texte\n// libre (date \"03/07/2026\", fraction \"3/heure\", ratio \"1/3\", URL...) n'est\n// PAS une déclaration de route et ne doit pas être compté.\n// ─────────────────────────────────────────────\nconst extractedRoutes = [];\nconst routeDeclRegex = /\\b(GET|POST|PUT|PATCH|DELETE)\\s+(\\/[a-zA-Z0-9_\\-\\/\\{\\}:]+)/g;\nlet rdm;\nwhile ((rdm = routeDeclRegex.exec(spec)) !== null) {\n  const seg = rdm[2].slice(1).split('/')[0].replace(/[^a-zA-Z0-9_\\u00C0-\\u024F-]/g, '').toLowerCase();\n  if (seg && !extractedRoutes.includes(seg)) extractedRoutes.push(seg);\n}\n\n// ─────────────────────────────────────────────\n// REGLE P1-01 : Pas d'acteurs comme routes\n// ─────────────────────────────────────────────\nconst ACTORS = [\n  'users','user','clients','client','citoyens','citoyen','voyageurs','voyageur',\n  'admin','admins','administrators','administrator','customers','customer',\n  'persons','person','people','members','member','agents','agent',\n  'operateurs','operateur','residents','resident','owners','owner',\n  'drivers','driver','riders','rider','passagers','passager','habitants','habitant'\n];\nfor (const r of extractedRoutes) {\n  if (ACTORS.includes(r)) {\n    errors.push({\n      rule: 'P1-01-NO_ACTOR_ROUTES',\n      message: 'Route /' + r + ' correspond a un acteur, pas une ressource metier.',\n      fix: 'Utiliser la ressource metier (ex: /signalements, /trajets, /commandes). ' +\n           'Les acteurs sont des utilisateurs du systeme, pas des ressources.'\n    });\n  }\n}\n\n// ─────────────────────────────────────────────\n// REGLE P1-02 : Maximum 6 ressources déclarées explicitement\n// (ne se déclenche que si la spec liste elle-même des routes avec verbe HTTP —\n// une spec en prose libre, sans déclaration explicite, n'est jamais concernée)\n// ─────────────────────────────────────────────\nif (extractedRoutes.length > 6) {\n  errors.push({\n    rule: 'P1-02-MAX_6_RESOURCES',\n    message: extractedRoutes.length + ' ressources declarees explicitement avec verbe HTTP. Maximum 6 (au-dela, l Architect les ignore).',\n    fix: 'Conserver uniquement les 6 ressources principales: ' + extractedRoutes.slice(0,6).join(', ')\n  });\n}\n\n// ─────────────────────────────────────────────\n// REGLE P1-03 : project_name present et valide\n// ─────────────────────────────────────────────\nlet projectName = null;\nfor (const line of lines) {\n  const l = line.toLowerCase().replace(/\\s+/g,' ').trim();\n  const isProjectLine = l.startsWith('project_name') || l.startsWith('nom du projet') || l.startsWith('application :') || l.startsWith('application:');\n  if (isProjectLine) {\n    // Essayer séparateur : ou | (format markdown/YAML)\n    const colonIdx = line.indexOf(':');\n    const pipeIdx  = line.indexOf('|');\n    const sep = colonIdx > 0 ? colonIdx : (pipeIdx > 0 ? pipeIdx : -1);\n    if (sep > 0) {\n      const val = line.slice(sep+1).trim();\n      if (val.length > 0) { projectName = val; break; }\n    }\n    // Fallback : format table PDF — valeur après le mot-clé (séparée par espaces)\n    const keywords = ['project_name', 'nom du projet', 'application'];\n    for (const kw of keywords) {\n      if (l.startsWith(kw)) {\n        const remainder = line.slice(kw.length).replace(/^[\\s:]+/, '').trim();\n        if (remainder.length > 0) { projectName = remainder; break; }\n      }\n    }\n    if (projectName) break;\n  }\n}\nif (!projectName && lines.length > 0) {\n  // Chercher un header markdown \"# NomProjet\"\n  const firstHeader = lines.find(l => l.trim().startsWith('#'));\n  if (firstHeader) projectName = firstHeader.replace(/^#+\\s*/, '').trim();\n}\nif (!projectName && lines.length > 0) {\n  // Chercher \"Nom du projet\" sur une ligne, valeur sur la ligne suivante (format tableau multi-lignes)\n  for (let i = 0; i < lines.length - 1; i++) {\n    const l = lines[i].toLowerCase().replace(/\\s+/g,' ').trim();\n    if (l === 'nom du projet' || l === 'project_name') {\n      const next = lines[i+1].trim();\n      if (next.length > 0 && next.length < 50) { projectName = next; break; }\n    }\n  }\n}\nif (!projectName && lines.length > 0) {\n  // Dernier repli : premiere ligne non vide du document, si elle ressemble a un titre\n  // (document PDF reel sans balisage markdown ni label explicite — cas frequent en pratique).\n  const GENERIC_PREAMBLE_WORDS = ['specifications','specification','document','template','doc',\n    'rapport','report','fichier','forge','test','projet','project','note','cahier','brief',\n    'confidentiel','version','draft','brouillon'];\n  const firstNonEmpty = lines.find(l => l.trim().length > 0);\n  if (firstNonEmpty) {\n    const candidate = firstNonEmpty.trim();\n    const firstWord = candidate.split(/[\\s\\-_:]+/)[0].toLowerCase().replace(/[^a-z]/g,'');\n    if (candidate.length > 1 && candidate.length < 50 && !GENERIC_PREAMBLE_WORDS.includes(firstWord)) {\n      projectName = candidate;\n    }\n  }\n}\nif (!projectName) {\n  errors.push({\n    rule: 'P1-03-PROJECT_NAME_MISSING',\n    message: 'project_name introuvable dans la spec.',\n    fix: 'Ajouter \"project_name: NomApp\" en debut de document (1-3 mots, sans caracteres speciaux). ' +\n         'Ce champ est utilise comme titre README et nom du ZIP genere.'\n  });\n} else {\n  const forbidden = projectName.split('').filter(c => {\n    const code = c.charCodeAt(0);\n    return !(\n      (code >= 65 && code <= 90) || (code >= 97 && code <= 122) ||\n      (code >= 48 && code <= 57) || c === '_' || c === '-' || c === ' ' ||\n      (code >= 0xC0 && code <= 0x024F)\n    );\n  });\n  if (forbidden.length > 0) {\n    errors.push({\n      rule: 'P1-03-PROJECT_NAME_INVALID_CHARS',\n      message: 'project_name \"' + projectName + '\" contient des caracteres interdits: ' + [...new Set(forbidden)].join(''),\n      fix: 'Utiliser uniquement lettres, chiffres, tirets et underscores dans project_name'\n    });\n  }\n}\n\n// ─────────────────────────────────────────────\n// REGLE P1-04 : Champs FK se terminent par _id\n// ─────────────────────────────────────────────\nconst allWords = spec.split(/[\\s,|;:()\\[\\]{}\\n\\r\"']+/).map(w => w.trim()).filter(Boolean);\nfor (const w of allWords) {\n  if (w.length < 3) continue;\n  if (w.endsWith('_ref') || w.endsWith('_reference')) {\n    // Non bloquant : un champ en _ref/_reference n'est PAS forcement une FK.\n    // Ex: patient_reference (donnee nominative), code_reference, numero_reference.\n    // Seuls les champs en _id deviennent des FK cote Backend ; un _reference reste\n    // un simple champ TEXT. On informe sans bloquer la generation.\n    const suggested = w.replace(/_ref$|_reference$/i, '_id');\n    warnings.push({\n      rule: 'P1-04-FK_NAMING_REF',\n      message: 'Champ \"' + w + '\" se termine par _ref/_reference. Si c\\'est une cle etrangere, prefere \"' + suggested + '\" (les FK en _id sont reliees automatiquement). Si c\\'est une simple reference/identifiant metier (ex: reference patient), ignore cet avis.',\n      fix: 'Optionnel : renommer en \"' + suggested + '\" seulement s\\'il s\\'agit d\\'une vraie cle etrangere vers une autre ressource.'\n    });\n  }\n  if (w.endsWith('Id') && w.length > 2 && w[0] === w[0].toLowerCase()) {\n    const suggested = w.replace(/Id$/, '_id');\n    warnings.push({\n      rule: 'P1-04-FK_CAMELCASE',\n      message: 'Champ \"' + w + '\" utilise camelCase. Preferer snake_case.',\n      fix: 'Renommer en \"' + suggested + '\"'\n    });\n  }\n}\n\n// ─────────────────────────────────────────────\n// REGLE P1-05 : Pas d'accents dans les noms de routes\n// ─────────────────────────────────────────────\nfor (const r of extractedRoutes) {\n  const hasAccent = r.split('').some(c => { const code = c.charCodeAt(0); return code >= 0xC0 && code <= 0x024F; });\n  if (hasAccent) {\n    errors.push({\n      rule: 'P1-05-ACCENTS_IN_ROUTES',\n      message: 'Route /' + r + ' contient des caracteres non-ASCII. Les URLs doivent etre en ASCII pur.',\n      fix: 'Translitterer: /reservations, /historique, /reclamations (sans accents)'\n    });\n  }\n}\n\n// ─────────────────────────────────────────────\n// REGLE P1-06 : Au moins une ressource\n// ─────────────────────────────────────────────\nif (extractedRoutes.length === 0) {\n  // Warning seulement : certains specs valides (DiaspoKoli, specs narratifs)\n  // ne listent pas de routes explicites mais l'Architect sait les extraire\n  warnings.push({\n    rule: 'P2-NO_EXPLICIT_ROUTES',\n    message: 'Aucune route /xxx detectee dans la spec. Le pipeline peut continuer si les ressources sont decrites textuellement.',\n    fix: 'Optionnel : ajouter des routes explicites (ex: /signalements) pour une meilleure lisibilite'\n  });\n}\n\n// ─────────────────────────────────────────────\n// REGLE P2 : Types non supportes (warnings)\n// ─────────────────────────────────────────────\nconst UNSUPPORTED_TYPES = ['boolean','bool','array','object','date','datetime','integer','float','decimal','blob','binary'];\nconst seenTypes = new Set();\nfor (const t of UNSUPPORTED_TYPES) {\n  if (!seenTypes.has(t)) {\n    // Vérifier que le mot apparaît comme déclaration de type, pas dans une description\n    // Patterns valides : \"type: date\", \"| date |\", \"type date\", \": date,\"\n    const typeAsDecl = new RegExp('(?:type[\\\\s:=]+|\\\\|\\\\s*|:\\\\s*)' + t + '(?:\\\\s*[\\\\|,;\\\\n\\\\r]|\\\\s*$)', 'i');\n    if (typeAsDecl.test(spec)) {\n      seenTypes.add(t);\n      warnings.push({\n        rule: 'P2-TYPE_UNSUPPORTED',\n        message: 'Type \"' + t + '\" detecte comme declaration de type. Non supporte par le pipeline (string et number uniquement).',\n        fix: 'Remplacer par string ou number selon le cas'\n      });\n    }\n  }\n}\n\n// ─────────────────────────────────────────────\n// REGLE P2 : Fonctionnalites non supportees\n// ─────────────────────────────────────────────\nconst UNSUPPORTED_FEATURES = {\n  'postgresql': 'BDD PostgreSQL', 'mysql': 'BDD MySQL',\n  'mongodb': 'MongoDB', 'sqlite': 'SQLite',\n  'jwt': 'auth JWT', 'oauth': 'OAuth',\n  'authentication': 'authentification',\n  'jest': 'tests Jest', 'mocha': 'tests Mocha'\n};\nfor (const [term, label] of Object.entries(UNSUPPORTED_FEATURES)) {\n  if (specLower.includes(term)) {\n    warnings.push({\n      rule: 'P2-UNSUPPORTED_FEATURE',\n      message: '\"' + label + '\" detecte. Non supporte dans le pipeline actuel.',\n      fix: 'Deplacer dans la section Roadmap ou retirer de la spec'\n    });\n  }\n}\n\n// ─────────────────────────────────────────────\n// RÈGLES P1-D : Densité minimale (Option A Sprint 1)\n// ─────────────────────────────────────────────\n\n// P1-D1 : Spec trop courte\nif (spec.trim().length < 150) {\n  errors.push({\n    rule: 'P1-D1-SPEC_TOO_SHORT',\n    message: 'Spec trop courte (' + spec.trim().length + ' caractères — minimum 150). Le pipeline ne peut pas générer une app correcte depuis une spec insuffisante.',\n    fix: 'Décrire au minimum : nom du projet, 2-3 ressources avec leurs champs (string/number), et les routes CRUD attendues.'\n  });\n}\n\n// P1-D2 : Trop peu de champs typés\n// Comptage des déclarations \"nom: type\" ou \"| type |\" dans le texte\nconst fieldTypeDecls = (spec.match(/\b(string|number|text|int|float|real)\b/gi) || []).length;\nconst resourceCount  = Math.max(extractedRoutes.length, 1);\nif (spec.trim().length >= 150 && fieldTypeDecls < resourceCount * 2) {\n  warnings.push({\n    rule: 'P1-D2-FEW_TYPED_FIELDS',\n    message: fieldTypeDecls + ' déclaration(s) de type détectée(s) pour ' + resourceCount + ' ressource(s). Le Normalizer risque de tomber en fallback déterministe avec des champs génériques.',\n    fix: 'Ajouter les types explicites : \"description: string\", \"prix: number\", \"statut: string\".'\n  });\n}\n\n// P1-D3 : Aucune règle métier détectable\nconst hasValidationKeywords = /validat|règle|rule|must|doit|entre\\s+\\-?\\d|between|minimum|maximum|parmi\\s*:|among|requis|required|supérieur|inférieur|au moins|at least|format/i.test(spec);\nif (!hasValidationKeywords && spec.trim().length >= 150 && extractedRoutes.length >= 2) {\n  warnings.push({\n    rule: 'P1-D3-NO_BUSINESS_RULES',\n    message: 'Aucune règle métier détectée (validations, contraintes, valeurs acceptées). Le backend généré n\\'aura que des validations de base.',\n    fix: 'Ajouter des règles : \"latitude entre -90 et 90\", \"statut parmi : actif, inactif\", \"prix doit être positif\".'\n  });\n}\n\n// P1-D4 : Spec riche mais aucune route explicite (spec narrative/DiaspoKoli-like)\n// → Downgrader en warning informatif seulement, pas bloquant\n// (déjà couvert par P2-NO_EXPLICIT_ROUTES)\n\nconst linter_status = errors.length > 0 ? 'FAIL' : 'PASS';\n\nreturn [{\n  json: {\n    task_id,\n    linter_status,\n    errors_count:   errors.length,\n    warnings_count: warnings.length,\n    errors,\n    warnings,\n    summary: linter_status === 'FAIL'\n      ? 'FAIL — ' + errors.length + ' erreur(s) bloquante(s). Corrigez la spec avant relance.'\n      : 'PASS — Spec valide' + (warnings.length > 0 ? ' (' + warnings.length + ' warning(s))' : '.'),\n    checked_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "1216afc8-4653-40c6-a6a5-03a6e98df60b",
+      "name": "Run Linter Rules",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        368,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "0146a172-bc7d-4a90-9ffa-d45151722d5c",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        560,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Run Linter Rules",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Linter Rules": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "94138d94-5f9e-43d7-a0f1-6f795bf657e4",
+  "meta": {
+    "instanceId": "c77e41168b0abc4c9e72e3dfa70fb293d0acb289b40b847421933eadc146e082"
+  },
+  "id": "l8Fs9FTOqZKmZ9Uu",
+  "tags": []
+}
