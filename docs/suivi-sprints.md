@@ -533,3 +533,33 @@ matrice acteur × point d'accès (PharmaGarde §3.1). Sprint 7 introduit le RBAC
 **À importer côté n8n** : `Agent_Spec_Normalizer_V1.6.json`, `Agent_Architect_V5.3.json`, `Agent_Backend_V6.7.json`, `Orchestrateur_V6.8.json` (re-sélectionner credentials Mistral après import). Ces versions incluent aussi Sprint 5 (différentiel) et Sprint 6 (partagé).
 
 **Limites restantes après Sprint 7** : **2FA** (§8.2) ; règles métier **cross-entité/temporelles** (cohérence `sous_ordonnance` dispensation↔médicament, `date_peremption` future, `quantite_delivree ≤ stock`, décrément de stock). Prochaine cible logique : moteur de **règles métier déterministes** (bornes, comparaisons de dates, contrôles de cohérence inter-ressources) piloté par `business_rules`.
+
+## Robustesse — specs longues (jusqu'à ~500 Ko et au-delà)
+
+**Problème** : le nœud `Sanitize Input` faisait `throw` dès 8000 caractères → toute spec
+un peu longue (PharmaGarde ~20 Ko) crashait le pipeline (réponse vide), quel que soit le
+format d'entrée. De plus le Normalizer ne montrait que 5000 chars à l'IA.
+
+**Correctifs livrés** :
+- `Sanitize Input` (Orchestrateur V6.9) : plus de `throw`. Plafond anti-DoS relevé à **2 Mo**,
+  au-delà **troncature explicite** (flag `spec_truncated` + `security_flags`). L'anti-injection
+  tourne sur le texte complet.
+- Caps LLM relevés : Normalizer **5000 → 40000**, Architect **2000 → 24000**.
+- **Compacteur déterministe** (`workflows/_spec_compactor.js`, intégré au Normalizer V1.8,
+  nœud `Build Mistral Payload`) : au-delà de ~38 Ko, distille la spec aux **lignes utiles**
+  (titres, tables, `champ: type`, `VERBE /route`, matrice de permissions, règles, acteurs) et
+  **jette le bruit** (juridique, glossaire, références, prose de justification, en-têtes/pieds
+  de PDF répétés). Aucun appel LLM supplémentaire (pas de coût, pas de rate-limit).
+
+**Pourquoi le compactage plutôt que le chunking** : la fenêtre de contexte du LLM (codestral
+~32k tokens ≈ 120 Ko) interdit d'envoyer 500 Ko en une passe. Le chunking multiplierait les
+appels LLM (coût + latence + rate-limit Mistral). Le compactage réduit en un seul passage
+déterministe, et **améliore la qualité** (l'IA se concentre sur l'essentiel).
+
+**Preuves (tests Node)** : spec synthétique de **500 Ko** → compactée < 40 Ko, ressources /
+champs / routes / acteurs / règles **tous conservés**, juridique + glossaire + en-têtes répétés
+**jetés** ; payload envoyé à Mistral **propre** (aucun champ parasite) ; **spec normale (< 38 Ko)
+passée intacte** (compacteur inactif) ; Sanitize laisse passer 560 Ko sans troncature.
+
+**À importer** : `Orchestrateur_V6.9.json`, `Agent_Spec_Normalizer_V1.8.json`,
+`Agent_Architect_V5.4.json` (+ panneau `index.html`).
