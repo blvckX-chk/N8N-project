@@ -5,7 +5,7 @@ const helmet    = require('helmet');
 const rateLimit = require('express-rate-limit');
 const app  = express();
 const PORT = process.env.PORT || 3000;
-const APP_VERSION = '4.9.0';
+const APP_VERSION = '5.0.0';
 // URLs externalisées — surchargeables via variables d'environnement (fallback sur le VPS)
 const N8N_URL    = process.env.N8N_URL    || 'http://167.86.93.31:5688/webhook/pipeline';
 const DEPLOY_URL = process.env.DEPLOY_URL || 'http://167.86.93.31:4001';
@@ -162,64 +162,114 @@ app.get('/api/apps/:name/files', async (req, res) => {
   try { const r = await nodeFetch(DEPLOY_URL+'/apps/'+req.params.name+'/files'); res.json(await r.json()); } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── Construction ZIP (STORED, méthode 0) — compatible ZIP Analyzer V2.3 ────
+// Extrait en helper pour être réutilisé par /api/create-zip ET par le flux
+// « Améliorer une app déployée » (récupère les fichiers du service de déploiement).
+function buildZipBuffer(files) {
+  const enc = (s) => Buffer.from(s, 'utf8');
+  let offset = 0;
+  const chunks = [];
+  const entries = [];
+  files.forEach(f => {
+    let content = f.content || '';
+    content = content.replace(/^\/\/ FILE:.*\n/, '').replace(/^<!-- FILE:.*-->\n/, '').replace(/^\/\* FILE:.*\*\/\n/, '');
+    const fileData = enc(content);
+    const fileName = enc(f.path);
+    const header = Buffer.alloc(30 + fileName.length);
+    header.writeUInt32LE(0x04034b50, 0);
+    header.writeUInt16LE(20, 4);
+    header.writeUInt16LE(0, 6);
+    header.writeUInt16LE(0, 8);
+    header.writeUInt16LE(0, 10); header.writeUInt16LE(0, 12);
+    header.writeUInt32LE(0, 14);
+    header.writeUInt32LE(fileData.length, 18);
+    header.writeUInt32LE(fileData.length, 22);
+    header.writeUInt16LE(fileName.length, 26);
+    header.writeUInt16LE(0, 28);
+    fileName.copy(header, 30);
+    entries.push({ header, data: fileData, name: fileName, offset });
+    offset += header.length + fileData.length;
+    chunks.push(header, fileData);
+  });
+  const cdChunks = [];
+  let cdSize = 0;
+  entries.forEach(e => {
+    const cd = Buffer.alloc(46 + e.name.length);
+    cd.writeUInt32LE(0x02014b50, 0);
+    cd.writeUInt16LE(20, 4); cd.writeUInt16LE(20, 6);
+    cd.writeUInt16LE(0, 8); cd.writeUInt16LE(0, 10);
+    cd.writeUInt16LE(0, 12); cd.writeUInt16LE(0, 14);
+    cd.writeUInt32LE(0, 16);
+    cd.writeUInt32LE(e.data.length, 20);
+    cd.writeUInt32LE(e.data.length, 24);
+    cd.writeUInt16LE(e.name.length, 28);
+    cd.writeUInt16LE(0, 30); cd.writeUInt16LE(0, 32); cd.writeUInt16LE(0, 34);
+    cd.writeUInt16LE(0, 36); cd.writeUInt32LE(0, 38);
+    cd.writeUInt32LE(e.offset, 42);
+    e.name.copy(cd, 46);
+    cdChunks.push(cd);
+    cdSize += cd.length;
+  });
+  const eocd = Buffer.alloc(22);
+  eocd.writeUInt32LE(0x06054b50, 0);
+  eocd.writeUInt16LE(0, 4); eocd.writeUInt16LE(0, 6);
+  eocd.writeUInt16LE(entries.length, 8);
+  eocd.writeUInt16LE(entries.length, 10);
+  eocd.writeUInt32LE(cdSize, 12);
+  eocd.writeUInt32LE(offset, 16);
+  eocd.writeUInt16LE(0, 20);
+  return Buffer.concat([...chunks, ...cdChunks, eocd]);
+}
+
+// Normalise différentes formes de réponse de /apps/:name/files vers [{path, content}]
+function normalizeFiles(raw) {
+  let arr = raw;
+  if (raw && !Array.isArray(raw)) arr = raw.files || raw.data || raw.tree || null;
+  if (!Array.isArray(arr)) {
+    // forme map { "server.js": "..." }
+    if (raw && typeof raw === 'object') {
+      return Object.keys(raw).map(k => ({ path: k, content: raw[k] }))
+        .filter(f => typeof f.content === 'string');
+    }
+    return [];
+  }
+  return arr.map(f => ({
+    path: f.path || f.name || f.filename || f.file,
+    content: (typeof f.content === 'string') ? f.content
+           : (typeof f.data === 'string') ? f.data
+           : (typeof f.text === 'string') ? f.text : ''
+  })).filter(f => f.path);
+}
+
+// GET /api/apps/:name/zip-base64 — récupère les fichiers de l'app déployée et
+// renvoie le ZIP en base64 (pour pré-remplir le mode Améliorer sans télécharger).
+app.get('/api/apps/:name/zip-base64', async (req, res) => {
+  try {
+    const r = await nodeFetch(DEPLOY_URL + '/apps/' + req.params.name + '/files');
+    const raw = await r.json();
+    const files = normalizeFiles(raw);
+    if (!files.length) {
+      return res.status(502).json({
+        error: 'Le service de déploiement n\'a renvoyé aucun fichier exploitable pour « ' + req.params.name + ' ».',
+        fix: 'Vérifie que ' + DEPLOY_URL + '/apps/' + req.params.name + '/files renvoie bien une liste [{path, content}].',
+        detail: JSON.stringify(raw).slice(0, 300)
+      });
+    }
+    const zip = buildZipBuffer(files);
+    const safe = String(req.params.name).replace(/[^a-zA-Z0-9-_.]/g, '-');
+    res.json({ zip_base64: zip.toString('base64'), filename: safe + '.zip', files_count: files.length });
+  } catch (e) {
+    const d = diagnose(e.message);
+    res.status(500).json({ error: e.message, cause: d.cause, fix: d.fix });
+  }
+});
+
 // ── Création ZIP côté serveur (sans dépendance CDN) ───────────────────────
 app.post('/api/create-zip', (req, res) => {
   try {
     const { files, filename } = req.body;
     if (!files || !files.length) return res.status(400).json({ error: 'Aucun fichier' });
-    const enc = (s) => Buffer.from(s, 'utf8');
-    let offset = 0;
-    const chunks = [];
-    const entries = [];
-    files.forEach(f => {
-      let content = f.content || '';
-      content = content.replace(/^\/\/ FILE:.*\n/, '').replace(/^<!-- FILE:.*-->\n/, '').replace(/^\/\* FILE:.*\*\/\n/, '');
-      const fileData = enc(content);
-      const fileName = enc(f.path);
-      const header = Buffer.alloc(30 + fileName.length);
-      header.writeUInt32LE(0x04034b50, 0);
-      header.writeUInt16LE(20, 4);
-      header.writeUInt16LE(0, 6);
-      header.writeUInt16LE(0, 8);
-      header.writeUInt16LE(0, 10); header.writeUInt16LE(0, 12);
-      header.writeUInt32LE(0, 14);
-      header.writeUInt32LE(fileData.length, 18);
-      header.writeUInt32LE(fileData.length, 22);
-      header.writeUInt16LE(fileName.length, 26);
-      header.writeUInt16LE(0, 28);
-      fileName.copy(header, 30);
-      entries.push({ header, data: fileData, name: fileName, offset });
-      offset += header.length + fileData.length;
-      chunks.push(header, fileData);
-    });
-    const cdChunks = [];
-    let cdSize = 0;
-    entries.forEach(e => {
-      const cd = Buffer.alloc(46 + e.name.length);
-      cd.writeUInt32LE(0x02014b50, 0);
-      cd.writeUInt16LE(20, 4); cd.writeUInt16LE(20, 6);
-      cd.writeUInt16LE(0, 8); cd.writeUInt16LE(0, 10);
-      cd.writeUInt16LE(0, 12); cd.writeUInt16LE(0, 14);
-      cd.writeUInt32LE(0, 16);
-      cd.writeUInt32LE(e.data.length, 20);
-      cd.writeUInt32LE(e.data.length, 24);
-      cd.writeUInt16LE(e.name.length, 28);
-      cd.writeUInt16LE(0, 30); cd.writeUInt16LE(0, 32); cd.writeUInt16LE(0, 34);
-      cd.writeUInt16LE(0, 36); cd.writeUInt32LE(0, 38);
-      cd.writeUInt32LE(e.offset, 42);
-      e.name.copy(cd, 46);
-      cdChunks.push(cd);
-      cdSize += cd.length;
-    });
-    const eocd = Buffer.alloc(22);
-    eocd.writeUInt32LE(0x06054b50, 0);
-    eocd.writeUInt16LE(0, 4); eocd.writeUInt16LE(0, 6);
-    eocd.writeUInt16LE(entries.length, 8);
-    eocd.writeUInt16LE(entries.length, 10);
-    eocd.writeUInt32LE(cdSize, 12);
-    eocd.writeUInt32LE(offset, 16);
-    eocd.writeUInt16LE(0, 20);
-    const zipBuffer = Buffer.concat([...chunks, ...cdChunks, eocd]);
+    const zipBuffer = buildZipBuffer(files);
     const safe = (filename || 'projet').replace(/[^a-zA-Z0-9-_.]/g, '-');
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', 'attachment; filename="' + safe + '.zip"');

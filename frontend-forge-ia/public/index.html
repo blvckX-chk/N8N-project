@@ -224,6 +224,12 @@
             <p style="font-size:11px">Le ZIP d'une app déjà générée par Forge IA</p>
             <p class="file-name" id="name-improve"></p>
           </div>
+          <div style="text-align:center;font-size:11px;opacity:.7;margin:8px 0">— OU une app déjà déployée sur le VPS —</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <select id="deployed-app-select" style="flex:1;padding:9px;border-radius:8px;font-size:12px"><option value="">Chargement…</option></select>
+            <button type="button" class="btn" style="padding:9px 14px;font-size:12px" onclick="useDeployedApp()">Charger</button>
+          </div>
+          <p class="file-name" id="deployed-app-status" style="font-size:11px"></p>
         </div>
         <div>
           <div class="field-label">③ Prompt d'amélioration <span style="color:var(--danger)">*</span></div>
@@ -354,11 +360,38 @@ const TAB_HINTS={
   text:"Décris ton application en langage naturel — Forge IA en déduit les ressources et l'API.",
   pdf:"Dépose un cahier des charges au format PDF (structuré : ressources, champs, règles).",
   docx:"Dépose un cahier des charges au format Word (structuré : ressources, champs, règles).",
-  improve:"Fais évoluer une app déjà générée : redonne ses specs + son ZIP + décris le changement voulu."
+  improve:"Fais évoluer une app déjà générée : redonne ses specs + son ZIP (ou choisis une app déployée) + décris le changement voulu."
 };
-function switchTab(tab){currentTab=tab;['text','pdf','docx','improve'].forEach((t,i)=>{document.querySelectorAll('.tab')[i].classList.toggle('active',t===tab);document.getElementById('block-'+t).classList.toggle('active',t===tab)});var h=document.getElementById('tab-hint');if(h)h.textContent=TAB_HINTS[tab]||'';}
+function switchTab(tab){currentTab=tab;['text','pdf','docx','improve'].forEach((t,i)=>{document.querySelectorAll('.tab')[i].classList.toggle('active',t===tab);document.getElementById('block-'+t).classList.toggle('active',t===tab)});var h=document.getElementById('tab-hint');if(h)h.textContent=TAB_HINTS[tab]||'';if(tab==='improve')loadDeployedApps();}
 var improveZipData=null;
 var improveSpecData=null;
+// ── Améliorer une app DÉPLOYÉE : récupère son ZIP sans téléchargement manuel ──
+async function loadDeployedApps(){
+  var sel=document.getElementById('deployed-app-select');if(!sel)return;
+  try{
+    var r=await fetch('/api/apps');var d=await r.json();
+    var apps=Array.isArray(d)?d:(d.apps||d.data||[]);
+    var names=apps.map(function(a){return typeof a==='string'?a:(a&&(a.name||a.id||a.project||a.slug));}).filter(Boolean);
+    sel.innerHTML=names.length
+      ?('<option value="">— choisis une app déployée —</option>'+names.map(function(n){return '<option value="'+n+'">'+n+'</option>';}).join(''))
+      :'<option value="">Aucune app déployée</option>';
+  }catch(e){sel.innerHTML='<option value="">Service de déploiement injoignable</option>';}
+}
+async function useDeployedApp(){
+  var sel=document.getElementById('deployed-app-select');
+  var st=document.getElementById('deployed-app-status');
+  var name=sel&&sel.value;
+  if(!name){st.textContent='Choisis d\'abord une app dans la liste.';return;}
+  st.textContent='⏳ Récupération des fichiers de « '+name+' »…';
+  try{
+    var r=await fetch('/api/apps/'+encodeURIComponent(name)+'/zip-base64');
+    var d=await r.json();
+    if(!r.ok||!d.zip_base64){st.textContent='❌ '+(d.error||'Échec')+(d.fix?(' — '+d.fix):'');return;}
+    improveZipData={base64:d.zip_base64,filename:d.filename||(name+'.zip')};
+    document.getElementById('name-improve').textContent='✓ '+improveZipData.filename+' ('+d.files_count+' fichiers, depuis le déploiement)';
+    st.textContent='✓ App « '+name+' » chargée — pas besoin de télécharger le ZIP.';
+  }catch(e){st.textContent='❌ '+e.message;}
+}
 function handleSpecImprove(input){
   var file=input.files[0];if(!file)return;
   var r=new FileReader();
