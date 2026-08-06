@@ -55,6 +55,7 @@
     @keyframes fadeInUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
     textarea,input[type=text]{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:11px;color:var(--text);font-family:var(--mono);font-size:12px;padding:13px;resize:vertical;outline:none;transition:all .2s}
     textarea{height:130px}
+    #input-text{height:280px}
     textarea:focus,input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(139,92,246,.14)}
 
     .config-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;margin-top:14px}
@@ -202,7 +203,7 @@
     </div>
     <div class="tab-hint" id="tab-hint">Décris ton application en langage naturel — Forge IA en déduit les ressources et l'API.</div>
 
-    <div class="input-block active" id="block-text"><textarea id="input-text" placeholder="Ex : Une application de gestion de signalements citoyens avec des catégories, une géolocalisation et un statut de traitement..."></textarea></div>
+    <div class="input-block active" id="block-text"><textarea id="input-text" placeholder="Colle ici ta spec complète (aussi longue que nécessaire — le champ défile). Ex : Une application de gestion de signalements citoyens avec des catégories, une géolocalisation et un statut de traitement..."></textarea><p style="font-size:10px;opacity:.6;margin-top:4px">Spec longue acceptée (jusqu'à ~120 000 caractères). Le champ défile — tout est envoyé même si tu ne vois que le début.</p></div>
     <div class="input-block" id="block-pdf"><div class="upload-zone"><input type="file" id="file-pdf" accept=".pdf" onchange="handleFile('pdf',this)"/><div class="icon">📄</div><p>Glisse un cahier de specs PDF ou clique</p><p class="file-name" id="name-pdf"></p></div></div>
     <div class="input-block" id="block-docx"><div class="upload-zone"><input type="file" id="file-docx" accept=".docx,.doc" onchange="handleFile('docx',this)"/><div class="icon">📝</div><p>Glisse un cahier de specs Word ou clique</p><p class="file-name" id="name-docx"></p></div></div>
     <div class="input-block" id="block-improve">

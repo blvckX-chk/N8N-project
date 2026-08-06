@@ -1,0 +1,559 @@
+{
+  "name": "Agent Architect V5.4",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "architect",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -336,
+        -1040
+      ],
+      "id": "998bce75-0235-4f3a-ac41-0b60ed0aba1f",
+      "name": "Webhook",
+      "webhookId": "ee5597e5-674e-4df9-9df0-803bcb0fe8f9"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $json;\nconst warnings = [];\nconst errors   = [];\n\n// Validation souple — ne jamais bloquer le pipeline, avertir seulement\n\n// 1. Champs obligatoires\nconst required = [\"agent\", \"stage\", \"artifacts\"];\nfor (const field of required) {\n  if (!data[field]) {\n    warnings.push('Champ manquant : ' + field);\n  }\n}\n\n// 2. Files — warning seulement si manquants ou insuffisants\nif (!Array.isArray(data.files) || data.files.filter(function(f){ return f && f.path && f.content; }).length < 3) {\n  warnings.push('Files insuffisants (' + (data.files?.length ?? 0) + ') — architecture.md, api_spec.json, data_model.md attendus');\n  // Compléter avec des fichiers minimaux pour ne pas bloquer la suite\n  if (!Array.isArray(data.files)) data.files = [];\n  const hasMd  = data.files.some(function(f){ return f && f.path === 'architecture.md'; });\n  const hasApi = data.files.some(function(f){ return f && f.path === 'api_spec.json'; });\n  const hasDm  = data.files.some(function(f){ return f && f.path === 'data_model.md'; });\n  if (!hasMd)  data.files.push({ path: 'architecture.md', content: '# Architecture\\n' + (data.summary || '') });\n  if (!hasApi) data.files.push({ path: 'api_spec.json',   content: JSON.stringify({ endpoints: data.artifacts?.priority_endpoints || [] }) });\n  if (!hasDm)  data.files.push({ path: 'data_model.md',   content: '# Modèle de données\\n' + JSON.stringify(data.artifacts?.data_model || {}) });\n}\n\n// 3. Artifacts — compléter les champs manquants avec des valeurs par défaut\nif (data.artifacts) {\n  data.artifacts.stack        = data.artifacts.stack        || 'Node.js / Express';\n  data.artifacts.architecture = data.artifacts.architecture || 'MVC';\n  data.artifacts.auth         = data.artifacts.auth         || 'none';\n  data.artifacts.database     = data.artifacts.database     || 'none';\n  data.artifacts.file_manifest = data.artifacts.file_manifest || ['server.js', 'package.json', '.env.example', 'frontend/index.html', 'frontend/style.css', 'frontend/app.js'];\n} else {\n  warnings.push('Artifacts manquants — structure minimale créée');\n  data.artifacts = { stack: 'Node.js / Express', architecture: 'MVC', auth: 'none', database: 'none', priority_endpoints: [], data_model: {}, stores: {}, file_manifest: [] };\n}\n\n// 4. Validation des enrichissements LLM (non bloquante)\nconst enrichmentWarnings = [];\nif (data.artifacts) {\n  if (data.artifacts.mvp_scope && typeof data.artifacts.mvp_scope !== 'string') {\n    data.artifacts.mvp_scope = String(data.artifacts.mvp_scope || '').substring(0, 300);\n    enrichmentWarnings.push('mvp_scope converti en string');\n  }\n  if (data.artifacts.deferred && !Array.isArray(data.artifacts.deferred)) {\n    data.artifacts.deferred = [];\n    enrichmentWarnings.push('deferred invalide — réinitialisé à []');\n  }\n  if (data.artifacts.abuse_cases && !Array.isArray(data.artifacts.abuse_cases)) {\n    data.artifacts.abuse_cases = [];\n    enrichmentWarnings.push('abuse_cases invalide — réinitialisé à []');\n  }\n  if (data.artifacts.priority_endpoints && !Array.isArray(data.artifacts.priority_endpoints)) {\n    data.artifacts.priority_endpoints = [];\n    enrichmentWarnings.push('priority_endpoints invalide — réinitialisé à []');\n  }\n}\n\nreturn [{\n  json: {\n    ...data,\n    warnings: [...(data.warnings ?? []), ...warnings, ...enrichmentWarnings],\n    errors:   [...(data.errors   ?? []), ...errors],\n    _validated: true,\n    _validated_at: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2752,
+        -928
+      ],
+      "id": "a40ab7f7-9492-4df2-be0d-2dcdf882b204",
+      "name": "Validation structurelle"
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// ── SÉCURITÉ : Anti-Prompt Injection + Limite taille ──────────────────────\nfunction sanitizeInput(text) {\n  if (!text || typeof text !== 'string') return text;\n  \n  // Limite taille : 50 000 chars max (environ 12 500 tokens)\n  if (text.length > 50000) {\n    text = text.substring(0, 50000) + '\\n[TRONQUÉ — limite 50K chars atteinte]';\n  }\n  \n  // Anti-prompt injection : neutraliser les tentatives d'override\n  const injectionPatterns = [\n    /ignore\\s+(all\\s+)?previous\\s+instructions?/gi,\n    /ignore\\s+(toutes?\\s+)?les?\\s+instructions?\\s+précédentes?/gi,\n    /you\\s+are\\s+now\\s+a/gi,\n    /tu\\s+es\\s+maintenant/gi,\n    /\\[SYSTEM\\]/gi,\n    /\\[INST\\]/gi,\n    /<\\|system\\|>/gi,\n    /\\[\\[reset\\]\\]/gi,\n  ];\n  \n  for (const pattern of injectionPatterns) {\n    text = text.replace(pattern, '[FILTRÉ]');\n  }\n  \n  return text;\n}\n\nconst raw = $input.first().json;\nlet body;\nif (raw.body && typeof raw.body === 'object') {\n  body = raw.body;\n} else if (typeof raw.body === 'string') {\n  try {\n    body = JSON.parse(raw.body.replace(/^=+/, '').trim());\n  } catch(e) {\n    // Corps non JSON valide — utiliser l'objet raw directement\n    body = raw;\n  }\n} else {\n  body = raw;\n}\n\nif (!body.task_id || !body.userRequest) {\n  return [{\n    json: {\n      error: true,\n      error_message: \"task_id et userRequest requis\",\n      timestamp: new Date().toISOString()\n    }\n  }];\n}\n\nreturn [{ json: { task_id: String(body.task_id), userRequest: sanitizeInput(String(body.userRequest)), environment: String(body.environment || 'staging'), language: String(body.language || 'javascript'), framework: String(body.framework || 'express'), improve_mode: body.improve_mode || false, project_name: body.project_name || '', existing_version: body.existing_version || null, next_version: body.next_version || null, existing_routes: body.existing_routes || [], existing_stores: body.existing_stores || {}, changelog_context: sanitizeInput(body.changelog_context || ''), timestamp: new Date().toISOString() } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -176,
+        -1040
+      ],
+      "id": "03d8a7ef-093e-4500-8e5a-6008f16ae9d5",
+      "name": "Validation & normalisation de l’input"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        3424,
+        -928
+      ],
+      "id": "3cbbc04c-d1a9-4a98-ac9d-080ef315c51c",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    model: \"codestral-latest\",\n    messages: [\n      { role: \"system\", content: \"Tu es un architecte logiciel expert. Retourne UNIQUEMENT un JSON valide.\" },\n      { role: \"user\",   content: $json.prompt }\n    ],\n    temperature: 0,\n    max_tokens: 5000,\n    response_format: { type: \"json_object\" }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1024,
+        -672
+      ],
+      "id": "14a76b30-45e1-4a88-93ed-38061ebbd9e8",
+      "name": "Build Payload"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mode amélioration\nconst improveMode    = $json.improve_mode    || false;\nconst backendInstr   = $json.backend_instructions  || [];\nconst frontendInstr  = $json.frontend_instructions || [];\nconst specsContext       = $json.specs_context       || '';\nconst structuredContext = $json.structured_context  || '';\nconst existingRoutes = $json.existing_routes || [];\nconst existingStores = $json.existing_stores || {};\nconst changelogCtx = $json.changelog_context || '';\nconst existingVersion = $json.existing_version || '1.0';\nconst nextVersion = $json.next_version || '1.1';\n\nconst improveSection = improveMode ? (\n  'MODE AMELIORATION — VERSION ' + existingVersion + ' -> ' + nextVersion + '\\n\\n' +\n  'ROUTES EXISTANTES A CONSERVER :\\n' +\n  (existingRoutes.map(r => r.method + ' ' + r.path).join('\\n') || 'aucune') +\n  '\\n\\nSTORES EXISTANTS A CONSERVER :\\n' +\n  (Object.keys(existingStores).join(', ') || 'aucun') +\n  '\\n\\nCODE EXISTANT (extrait) :\\n' +\n  changelogCtx.substring(0, 600) +\n  '\\n\\nREGLES STRICTES :\\n' +\n  '1. Conserver TOUTES les routes existantes\\n' +\n  '2. Ajouter uniquement ce que le prompt demande\\n' +\n  '3. Version cible : ' + nextVersion + '\\n' +\n  '4. NE PAS recréer depuis zero\\n' +\n  (backendInstr.length > 0 ? '\\nINSTRUCTIONS BACKEND (obligatoires) :\\n' + backendInstr.map(function(i){ return '  → ' + i; }).join('\\n') + '\\n' : '') +\n  (frontendInstr.length > 0 ? '\\nINSTRUCTIONS FRONTEND (obligatoires) :\\n' + frontendInstr.map(function(i){ return '  → ' + i; }).join('\\n') + '\\n' : '') +\n  '' +'5. Si le PDF de specs mentionne voyageurs/expéditeurs/acteurs, c\\'est la VISION, pas les routes API\\n' +'6. Les routes API sont CELLES DU CODE EXISTANT, pas les acteurs du document\\n\\n'\n) : '';\n\nreturn [{\n  json: {\n    prompt: `Tu es un architecte logiciel senior expert en conception de systèmes.\nTon rôle : analyser les besoins du projet, identifier les ressources métier, et définir un MVP réaliste.\n\nRÈGLE ABSOLUE : Retourne UNIQUEMENT un JSON valide. Zéro texte avant ou après.\n\nFORMAT DE SORTIE OBLIGATOIRE :\n{\n  \"agent\": \"architect\",\n  \"stage\": \"design\",\n  \"summary\": \"1 phrase décrivant le MVP concret\",\n  \"artifacts\": {\n    \"stack\": \"Node.js / Express\",\n    \"architecture\": \"MVC\",\n    \"auth\": \"none\",\n    \"database\": \"none\",\n    \"file_manifest\": [\"server.js\", \"package.json\", \".env.example\", \"frontend/index.html\", \"frontend/style.css\", \"frontend/app.js\"],\n    \"priority_endpoints\": [\n      {\"method\": \"GET\",  \"path\": \"/health\",   \"description\": \"health check — retourne {status, uptime}\"},\n      {\"method\": \"POST\", \"path\": \"/RESSOURCE\", \"description\": \"créer une RESSOURCE (champs: CHAMP1, CHAMP2)\"},\n      {\"method\": \"GET\",  \"path\": \"/RESSOURCE\", \"description\": \"lister toutes les RESSOURCE\"}\n    ],\n    \"project_name\": \"Nom court du projet (1-3 mots max, ex: DiaspoKoli, PickUp, TodoApp)\",\n    \"mvp_scope\": \"Description claire du MVP en 1 phrase — mentionner la sécurité des données\",\n    \"data_model\": {\n      \"NOM_RESSOURCE_1\": {\n        \"id\": \"number\",\n        \"CHAMP_PROPRE_1\": \"string\",\n        \"CHAMP_PROPRE_2\": \"number\",\n        \"created_at\": \"string\"\n      },\n      \"NOM_RESSOURCE_2\": {\n        \"id\": \"number\",\n        \"CHAMP_PROPRE_A\": \"string\",\n        \"CHAMP_PROPRE_B\": \"number\",\n        \"created_at\": \"string\"\n      }\n    },\n    \"stores\": {\n      \"NOM_RESSOURCE_1\": {\n        \"store_name\": \"NOM_RESSOURCE_1_AU_PLURIEL\",\n        \"required_fields\": [\"CHAMP_OBLIGATOIRE_1\", \"CHAMP_OBLIGATOIRE_2\"]\n      },\n      \"NOM_RESSOURCE_2\": {\n        \"store_name\": \"NOM_RESSOURCE_2_AU_PLURIEL\",\n        \"required_fields\": [\"CHAMP_OBLIGATOIRE_A\"]\n      }\n    },\n    \"deferred\": []\n  },\n  \"files\": [\n    {\"path\": \"architecture.md\", \"content\": \"# Architecture\\n...\"},\n    {\"path\": \"api_spec.json\",   \"content\": \"{\\\"endpoints\\\": [...]}\"},\n    {\"path\": \"data_model.md\",   \"content\": \"# Modèle de données\\n...\"}\n  ],\n  \"warnings\": [],\n  \"errors\": []\n}\n\nRÈGLES STRICTES :\n\n1. DISTINGUER ACTEURS ET RESSOURCES MÉTIER — RÈGLE CRITIQUE\n\n   ACTEURS = personnes qui utilisent l'app (voyageur, expéditeur, admin, user, client)\n   RESSOURCES API = données échangées (trajet, reservation, paiement, commande, produit)\n\n   ⚠️ INTERDICTION ABSOLUE : NE JAMAIS créer des routes /voyageurs, /expéditeurs, /users, /clients\n   Ces mots désignent des ACTEURS, pas des ressources API dans un MVP sans auth.\n\n   RÈGLE : Les ressources API sont les TRANSACTIONS entre acteurs, pas les acteurs eux-mêmes.\n\n   Exemples CORRECTS :\n   - DiaspoKoli → acteurs: voyageur + expéditeur → ressources: /trajets + /reservations + /paiements\n   - E-commerce → acteurs: acheteur + vendeur → ressources: /produits + /commandes\n   - Livraison → acteurs: livreur + client → ressources: /livraisons + /colis\n   - Blog → acteurs: auteur + lecteur → ressources: /articles + /commentaires\n\n   Exemples INCORRECTS (à éviter absolument) :\n   - ❌ /voyageurs, /expéditeurs, /users, /clients (ce sont des acteurs)\n   - ❌ /actors, /members, /participants\n\n2. DATA_MODEL : UN OBJET PAR RESSOURCE\n   Chaque clé du data_model est un nom de ressource au singulier.\n   Les champs doivent refléter la réalité métier du projet, pas un template générique.\n   Ne JAMAIS mettre les mêmes champs dans deux ressources différentes.\n\n3. STORES : UN OBJET PAR RESSOURCE\n   store_name = nom au pluriel en minuscules (ex: \"tasks\", \"trips\", \"products\")\n   required_fields = champs obligatoires pour créer cette ressource (POST)\n   Ces champs doivent correspondre exactement aux champs du data_model correspondant.\n\n4. PRIORITY_ENDPOINTS : MAX 6 RESSOURCES (pas 6 endpoints)\n   Utiliser les vrais noms de ressources identifiés (pas /items, pas /resource)\n   GET /health toujours présent\n   POST + GET OBLIGATOIRES pour CHAQUE ressource retenue (jamais l'un sans l'autre)\n   Si le document décrit plus de 6 ressources métier distinctes, retenir les 6 plus centrales\n   au MVP et lister les autres dans \"deferred\" — NE JAMAIS produire une ressource avec\n   seulement POST ou seulement GET\n   PUT/:id et DELETE/:id seulement si explicitement demandés\n\n5. SCOPING RÉALISTE\n   \"mémoire\"/\"sans BDD\"/\"simple\" → database: \"none\"\n   Pas d'auth mentionnée → auth: \"none\"\n   Ne pas inventer des fonctionnalités non demandées\n\n6. PROJECT_NAME\n   Extraire le nom court du projet depuis le contexte (ex: \"DiaspoKoli\" pas \"marketplace peer-to-peer\")\n   Si le document mentionne un nom propre → utiliser ce nom\n   Sinon → nom descriptif court (max 3 mots)\n\n7. MVP_SCOPE\n   Toujours terminer par \"de manière sécurisée\" ou mentionner la sécurité\n   Ex: \"Créer une marketplace DiaspoKoli pour la réservation de kilos de bagage de manière sécurisée\"\n\n8. FILE_MANIFEST\n   Toujours inclure frontend/ si une interface est demandée\n   Ne lister que les fichiers réellement nécessaires\n\nINTERDIT :\n- Utiliser /items, /tasks, /resource comme nom générique si le projet a des entités spécifiques\n- Mettre les mêmes champs dans deux ressources différentes\n- Plus de 6 ressources dans priority_endpoints (regrouper les autres dans \"deferred\")\n- Produire une ressource avec POST sans GET ou GET sans POST\n- Texte hors JSON\n\n${improveSection}${structuredContext ? `INVARIANTS (OBLIGATOIRES — NE PAS MODIFIER) :\nLe Spec Normalizer a extrait la structure suivante depuis le document officiel.\nTu DOIS utiliser exactement ces routes, ressources et champs comme base.\nTu peux ENRICHIR (mvp_scope, deferred, abuse_cases, description) mais PAS modifier les endpoints ni les stores.\n\n${structuredContext}\n\n` : ''}${specsContext ? 'DOCUMENT DE SPECIFICATIONS COMPLET :\\n' + specsContext.substring(0, 24000) + '\\n\\n' : ''}PROMPT D\\'AMELIORATION :\n${$json.userRequest}\n\nSTACK : ${$json.language} / ${$json.framework}\nENVIRONNEMENT : ${$json.environment}`\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        864,
+        -672
+      ],
+      "id": "8b5cd5aa-c0e3-4b80-9315-9afe2b2d5c28",
+      "name": "Build Prompt (Architect)"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    agent:     $json.agent,\n    stage:     $json.stage,\n    summary:   $json.summary,\n    files:     $json.files,\n    artifacts: {\n      ...($json.artifacts || {}),\n      // Garantir que stores est toujours présent\n      stores: $json.artifacts?.stores || $json.stores || {}\n    },\n    warnings:  $json.warnings || [],\n    errors:    $json.errors   || [],\n    task_id:   $json.task_id  || \"unknown\"\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2976,
+        -928
+      ],
+      "id": "641d42f2-072d-4ea4-a088-03750ea87706",
+      "name": "Format Final Output"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.mistral.ai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json}}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 300000
+        },
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mistralCloudApi"
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1216,
+        -672
+      ],
+      "id": "22ecd8f3-b57c-4a7e-886a-bde973d6013e",
+      "name": "LLM - Architect (Mistral)",
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "mistralCloudApi": {
+          "id": "MISTRAL_API_KEY",
+          "name": "MISTRAL_API_KEY"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse & Validate LLM Output — sécurisé contre les hallucinations\n\n// ── Plafonnement par ressource (et non par endpoint brut) ────────────────────\n// Garantit qu'aucune ressource n'est coupée en cours de route (ex: POST gardé,\n// GET perdu). Regroupe les endpoints par ressource dans leur ordre d'apparition,\n// conserve les MAX_RESOURCES premières ressources rencontrées avec TOUS leurs\n// endpoints, et supprime intégralement les ressources au-delà.\nconst MAX_RESOURCES = 6;\nfunction capEndpointsByResource(endpoints, maxResources) {\n  const health = endpoints.filter(function(ep) { return ep.path === '/health'; });\n  const rest = endpoints.filter(function(ep) { return ep.path !== '/health'; });\n  const resourceOrder = [];\n  rest.forEach(function(ep) {\n    const seg = ep.path.replace(/^\\//, '').split('/')[0];\n    if (seg && resourceOrder.indexOf(seg) === -1) resourceOrder.push(seg);\n  });\n  const keptResources = resourceOrder.slice(0, maxResources);\n  const kept = rest.filter(function(ep) {\n    const seg = ep.path.replace(/^\\//, '').split('/')[0];\n    return keptResources.indexOf(seg) !== -1;\n  });\n  return health.concat(kept);\n}\n\nlet task_id = 'unknown';\ntry {\n  task_id = $('Validation & normalisation de l’input').first().json.task_id || 'unknown';\n} catch(e) {}\n\n// ── 1. Parser la réponse Mistral ─────────────────────────────────────────────\nlet data = null;\nlet parseError = null;\n\ntry {\n  if ($json.choices?.[0]?.message?.content) {\n    const content = $json.choices[0].message.content;\n    const raw = typeof content === 'string' ? content : JSON.stringify(content);\n    // Nettoyer les backticks markdown que le LLM injecte parfois\n    const cleaned = raw.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n    data = JSON.parse(cleaned);\n  } else if ($json.agent) {\n    // Déjà parsé (chemin déterministe)\n    data = $json;\n  } else {\n    parseError = 'Format de réponse LLM inconnu — ni choices ni agent';\n  }\n} catch(e) {\n  parseError = 'JSON.parse échoué : ' + e.message + ' (réponse tronquée ou invalide)';\n}\n\n// ── 2. Fallback si parsing échoue ────────────────────────────────────────\nif (!data || parseError) {\n  return [{ json: {\n    agent: 'architect', stage: 'architecture', task_id,\n    summary: 'Erreur parsing LLM : ' + (parseError || 'données nulles'),\n    files: [\n      { path: 'architecture.md', content: '# Architecture\\n\\nErreur génération LLM.' },\n      { path: 'api_spec.json',   content: JSON.stringify({ endpoints: [] }) },\n      { path: 'data_model.md',   content: '{}' }\n    ],\n    artifacts: { stack: 'Node.js / Express', architecture: 'MVC', auth: 'none',\n      database: 'none', priority_endpoints: [], data_model: {}, stores: {},\n      mvp_scope: '', deferred: [], abuse_cases: [], project_name: '',\n      file_manifest: ['server.js','package.json','.env.example','frontend/index.html','frontend/style.css','frontend/app.js']\n    },\n    warnings: [parseError || 'Parsing échoué'],\n    errors:   [parseError || 'Parsing échoué']\n  }}];\n}\n\n// ── 3. Validation champ 'agent' ───────────────────────────────────────────\nif (!data.agent) data.agent = 'architect';\n\n// ── 4. Sanitiser les fichiers générés ────────────────────────────────────\nif (data.files && Array.isArray(data.files)) {\n  data.files = data.files.filter(function(f) {\n    return f && typeof f.path === 'string' && typeof f.content === 'string' &&\n           f.path.trim().length > 0 && f.content.trim().length > 0;\n  }).slice(0, 10);  // Max 10 fichiers\n}\n\n// ── 5. Sanitiser les artifacts ─────────────────────────────────────────────\nif (data.artifacts) {\n  const a = data.artifacts;\n\n  // project_name : string courte (max 50 chars, pas de caractères spéciaux dangereux)\n  a.project_name = (typeof a.project_name === 'string' && a.project_name.length > 0)\n    ? a.project_name.replace(/[<>\"'&;]/g, '').substring(0, 50).trim()\n    : '';\n\n  // mvp_scope : string (max 300 chars)\n  a.mvp_scope = (typeof a.mvp_scope === 'string')\n    ? a.mvp_scope.substring(0, 300)\n    : (typeof a.mvp_scope === 'object' ? JSON.stringify(a.mvp_scope).substring(0, 200) : '');\n\n  // priority_endpoints : tableau d'objets {method, path, description}\n  if (!Array.isArray(a.priority_endpoints)) {\n    a.priority_endpoints = [];\n  } else {\n    a.priority_endpoints = a.priority_endpoints\n      .filter(function(ep) {\n        return ep && typeof ep.method === 'string' && typeof ep.path === 'string' &&\n               ['GET','POST','PUT','PATCH','DELETE'].includes(ep.method.toUpperCase()) &&\n               ep.path.startsWith('/');\n      })\n      .map(function(ep) {\n        return { method: ep.method.toUpperCase(), path: ep.path.substring(0,100),\n                 description: typeof ep.description === 'string' ? ep.description.substring(0,200) : '' };\n      });\n    a.priority_endpoints = capEndpointsByResource(a.priority_endpoints, MAX_RESOURCES);  // Max 6 ressources, POST+GET jamais séparés\n  }\n\n  // data_model : objet dont les valeurs sont des objets de {field: type}\n  if (typeof a.data_model !== 'object' || Array.isArray(a.data_model) || a.data_model === null) {\n    a.data_model = {};\n  } else {\n    Object.keys(a.data_model).forEach(function(res) {\n      const model = a.data_model[res];\n      if (typeof model !== 'object' || model === null) {\n        a.data_model[res] = {};\n      } else {\n        // Vérifier que les valeurs sont bien 'string' ou 'number'\n        Object.keys(model).forEach(function(field) {\n          if (!['string','number','boolean'].includes(model[field])) {\n            a.data_model[res][field] = 'string';  // forcer string si type invalide\n          }\n        });\n      }\n    });\n  }\n\n  // stores : objet dont les valeurs ont store_name et required_fields[]\n  if (typeof a.stores !== 'object' || Array.isArray(a.stores) || a.stores === null) {\n    a.stores = {};\n  } else {\n    Object.keys(a.stores).forEach(function(res) {\n      const s = a.stores[res];\n      if (!s || typeof s !== 'object') {\n        a.stores[res] = { store_name: res + 's', required_fields: [] };\n      } else {\n        s.store_name     = typeof s.store_name === 'string' ? s.store_name : res + 's';\n        s.required_fields = Array.isArray(s.required_fields)\n          ? s.required_fields.filter(function(f){ return typeof f === 'string'; }).slice(0, 15)\n          : [];\n      }\n    });\n  }\n\n  // deferred : tableau de strings\n  a.deferred = Array.isArray(a.deferred)\n    ? a.deferred\n        .map(function(d) { return typeof d === 'string' ? d : (typeof d === 'object' && d.feature ? d.feature : JSON.stringify(d)); })\n        .filter(function(d) { return d.length > 0; })\n        .slice(0, 10)\n    : [];\n\n  // abuse_cases : tableau de strings\n  a.abuse_cases = Array.isArray(a.abuse_cases)\n    ? a.abuse_cases\n        .map(function(ac) { return typeof ac === 'string' ? ac : (typeof ac === 'object' && ac.name ? ac.name : JSON.stringify(ac)); })\n        .filter(function(ac) { return ac.length > 0; })\n        .slice(0, 8)\n    : [];\n\n  // Champs requis avec defaults\n  a.stack        = typeof a.stack === 'string'        ? a.stack        : 'Node.js / Express';\n  a.architecture = typeof a.architecture === 'string' ? a.architecture : 'MVC';\n  a.auth         = typeof a.auth === 'string'         ? a.auth         : 'none';\n  a.database     = typeof a.database === 'string'     ? a.database     : 'none';\n  a.file_manifest = Array.isArray(a.file_manifest)    ? a.file_manifest\n    : ['server.js','package.json','.env.example','frontend/index.html','frontend/style.css','frontend/app.js'];\n}\n\nreturn [{ json: { ...data, task_id } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2528,
+        -928
+      ],
+      "id": "f87153ef-5000-4847-9143-202609d16992",
+      "name": "Parse & Validate LLM Output"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    agent:     $json.agent,\n    stage:     $json.stage,\n    summary:   $json.summary,\n    files:     $json.files,\n    artifacts: {\n      ...($json.artifacts || {}),\n      // Garantir que stores est toujours présent\n      stores: $json.artifacts?.stores || $json.stores || {}\n    },\n    warnings:  $json.warnings || [],\n    errors:    $json.errors   || [],\n    task_id:   $json.task_id  || \"unknown\"\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3184,
+        -928
+      ],
+      "id": "e063e64e-1353-4ca5-84cc-de06b3cd3f27",
+      "name": "Format Standard Output"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b989d6f7-a436-46c1-bfc4-31557805c54f",
+              "leftValue": "={{ $json.choices && $json.choices[0] && $json.choices[0].message && $json.choices[0].message.content ? 'yes' : 'no' }}",
+              "rightValue": "yes",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "8517e572-8f5c-4c80-890b-5b3dbc93bc89",
+      "name": "IF Groq Key1 Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1600,
+        -832
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.mistral.ai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $('Build Payload').first().json }}",
+        "options": {},
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mistralCloudApi"
+      },
+      "id": "3ea8e532-aa62-4f86-9747-1dffc2ae9b64",
+      "name": "LLM - Architect Retry",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1808,
+        -560
+      ],
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "mistralCloudApi": {
+          "id": "MISTRAL_API_KEY_2",
+          "name": "MISTRAL_API_KEY_2"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "63760230-83c0-4e61-80c8-13407a8c49c9",
+              "leftValue": "={{ $json.choices && $json.choices[0] && $json.choices[0].message && $json.choices[0].message.content ? 'yes' : 'no' }}",
+              "rightValue": "yes",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "6c51f92e-8c3b-4580-8be0-7ebf09d2042b",
+      "name": "IF Groq Key2 Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2144,
+        -624
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fallback Architect : Mistral indisponible\n\n// ── Plafonnement par ressource (identique à Parse & Validate LLM Output) ─────\nconst MAX_RESOURCES = 6;\nfunction capEndpointsByResource(endpoints, maxResources) {\n  const health = endpoints.filter(function(ep) { return ep.path === '/health'; });\n  const rest = endpoints.filter(function(ep) { return ep.path !== '/health'; });\n  const resourceOrder = [];\n  rest.forEach(function(ep) {\n    const seg = ep.path.replace(/^\\//, '').split('/')[0];\n    if (seg && resourceOrder.indexOf(seg) === -1) resourceOrder.push(seg);\n  });\n  const keptResources = resourceOrder.slice(0, maxResources);\n  const kept = rest.filter(function(ep) {\n    const seg = ep.path.replace(/^\\//, '').split('/')[0];\n    return keptResources.indexOf(seg) !== -1;\n  });\n  return health.concat(kept);\n}\n\n// Lit structured_context depuis Build Payload (flux direct, fiable)\nlet sc = '';\nlet task_id = 'unknown';\n\ntry {\n  const bp = $('Build Payload').first().json;\n  sc      = bp._structured_context || '';\n  task_id = bp._task_id            || 'unknown';\n} catch(e) {}\n\n// Fallback 2 : depuis Validation & normalisation de l'input\nif (!sc) {\n  try {\n    const vn = $('\\u2018Validation & normalisation de l\\u2019input\\u2019') ||\n               $('Validation & normalisation de l\\u2019input');\n    const vnData = vn ? vn.first().json : {};\n    sc      = vnData.structured_context || '';\n    task_id = task_id !== 'unknown' ? task_id : (vnData.task_id || 'unknown');\n  } catch(e) {}\n}\n\nlet artifacts = {\n  stack: 'Node.js / Express', architecture: 'MVC', auth: 'none', database: 'none',\n  priority_endpoints: [], data_model: {}, stores: {}, project_name: 'Application',\n  mvp_scope: '', deferred: [],\n  file_manifest: ['server.js','package.json','.env.example','frontend/index.html','frontend/style.css','frontend/app.js']\n};\n\nif (sc && sc.length > 10) {\n  try {\n    const norm = JSON.parse(sc);\n    const resources = Array.isArray(norm.resources) ? norm.resources : [];\n    const routes    = Array.isArray(norm.routes)    ? norm.routes    : [];\n    const pn        = norm.project_name             || 'Application';\n\n    const endpoints = [{ method: 'GET', path: '/health', description: 'health check' }];\n    routes.filter(r => r.path !== '/health').forEach(r => {\n      endpoints.push({ method: r.method, path: r.path, description: r.description || r.path });\n    });\n\n    const dataModel = {};\n    const stores    = {};\n    resources.forEach(res => {\n      const resName = res.name || res.name_plural;\n      const fields  = Object.assign({ id: 'number', created_at: 'string' }, res.fields || {});\n      dataModel[resName] = fields;\n      stores[resName] = {\n        store_name: res.name_plural || (resName + 's'),\n        required_fields: res.required_fields || Object.keys(res.fields || {}).filter(k => !['id','created_at'].includes(k))\n      };\n    });\n\n    artifacts = {\n      stack: 'Node.js / Express', architecture: 'MVC', auth: 'none', database: 'none',\n      project_name: pn,\n      mvp_scope: 'MVP ' + pn + ' — généré en mode fallback déterministe',\n      priority_endpoints: capEndpointsByResource(endpoints, MAX_RESOURCES),\n      data_model: dataModel, stores: stores, deferred: [],\n      file_manifest: ['server.js','package.json','.env.example','frontend/index.html','frontend/style.css','frontend/app.js']\n    };\n  } catch(e) { /* sc invalide */ }\n}\n\nreturn [{\n  json: {\n    agent: 'architect', stage: 'architecture', task_id,\n    summary: artifacts.project_name + ' — architecture (fallback déterministe)',\n    files: [\n      { path: 'architecture.md', content: '# ' + artifacts.project_name + '\\n\\nFallback déterministe.' },\n      { path: 'api_spec.json',   content: JSON.stringify({ endpoints: artifacts.priority_endpoints }) },\n      { path: 'data_model.md',   content: JSON.stringify(artifacts.data_model, null, 2) }\n    ],\n    artifacts,\n    warnings: ['Mistral indisponible — artifacts construits depuis spec normalisée'],\n    errors:   []\n  }\n}];"
+      },
+      "id": "7f4bb31e-b661-463b-b5b1-b84c8cb555cc",
+      "name": "Architect Fallback Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2800,
+        -416
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build Deterministic Artifacts\n// Si structured_context est valide, construire les artifacts SANS appel LLM\n// Sinon, passer au chemin LLM normal\n\n// ── Plafonnement par ressource (identique aux autres nœuds du pipeline) ──────\nconst MAX_RESOURCES = 6;\nfunction capEndpointsByResource(endpoints, maxResources) {\n  const health = endpoints.filter(function(ep) { return ep.path === '/health'; });\n  const rest = endpoints.filter(function(ep) { return ep.path !== '/health'; });\n  const resourceOrder = [];\n  rest.forEach(function(ep) {\n    const seg = ep.path.replace(/^\\//, '').split('/')[0];\n    if (seg && resourceOrder.indexOf(seg) === -1) resourceOrder.push(seg);\n  });\n  const keptResources = resourceOrder.slice(0, maxResources);\n  const kept = rest.filter(function(ep) {\n    const seg = ep.path.replace(/^\\//, '').split('/')[0];\n    return keptResources.indexOf(seg) !== -1;\n  });\n  return health.concat(kept);\n}\n\nconst inp = $input.first().json;\nconst sc  = inp.structured_context || '';\n\nif (!sc || sc.length < 20) {\n  return [{ json: { ...inp, _use_deterministic: false } }];\n}\n\nlet norm;\ntry { norm = JSON.parse(sc); }\ncatch(e) { return [{ json: { ...inp, _use_deterministic: false } }]; }\n\nconst resources = Array.isArray(norm.resources) ? norm.resources : [];\nconst routes    = Array.isArray(norm.routes)    ? norm.routes    : [];\n\nif (resources.length === 0) {\n  return [{ json: { ...inp, _use_deterministic: false } }];\n}\n\nconst pn = norm.project_name || inp.project_name || 'Application';\n\n// Construire priority_endpoints\nconst endpoints = [];\nendpoints.push({ method: 'GET', path: '/health', description: 'health check — retourne {status, uptime}' });\nroutes.filter(r => r.path !== '/health').forEach(r => {\n  endpoints.push({ method: r.method, path: r.path, description: r.description || (r.method + ' ' + r.path) });\n});\nconst cappedEndpoints = capEndpointsByResource(endpoints, MAX_RESOURCES);\n\n// Construire data_model et stores\nconst dataModel = {};\nconst stores    = {};\nresources.forEach(res => {\n  const resName = res.name;\n  const fields  = Object.assign({ id: 'number', created_at: 'string' }, res.fields || {});\n  dataModel[resName] = fields;\n  stores[resName] = {\n    store_name:     res.name_plural || (resName + 's'),\n    required_fields: (res.required_fields || []).filter(f => !['id','created_at'].includes(f)),\n    shared:         (res.shared === true) || (Array.isArray(norm.shared_resources) && norm.shared_resources.indexOf(res.name_plural || (resName + 's')) >= 0)\n  };\n});\n\nconst artifacts = {\n  stack:       'Node.js / Express',\n  architecture:'MVC',\n  auth:        'none',\n  database:    'none',\n  project_name: pn,\n  mvp_scope:   'MVP ' + pn + ' — génération déterministe depuis spec normalisée',\n  priority_endpoints: cappedEndpoints,\n  data_model:  dataModel,\n  stores:      stores,\n  shared_resources: (Array.isArray(norm.shared_resources) ? norm.shared_resources : Object.keys(stores).filter(function(k){ return stores[k].shared; }).map(function(k){ return stores[k].store_name; })),\n  roles:       (Array.isArray(norm.actors) ? norm.actors : []),\n  permissions: (norm.permissions && typeof norm.permissions === 'object' && !Array.isArray(norm.permissions) ? norm.permissions : {}),\n  deferred:    [],\n  file_manifest: ['server.js','package.json','.env.example','frontend/index.html','frontend/style.css','frontend/app.js']\n};\n\nreturn [{\n  json: {\n    _use_deterministic: true,\n    agent:    'architect',\n    stage:    'design',\n    task_id:  inp.task_id || 'unknown',\n    summary:  pn + ' — architecture générée depuis spec normalisée',\n    files: [\n      { path: 'architecture.md', content: '# ' + pn + '\\n\\nArchitecture déterministe depuis spec normalisée Forge IA.' },\n      { path: 'api_spec.json',   content: JSON.stringify({ endpoints: cappedEndpoints }, null, 2) },\n      { path: 'data_model.md',   content: JSON.stringify(dataModel, null, 2) }\n    ],\n    artifacts,\n    warnings: [],\n    errors:   []\n  }\n}];"
+      },
+      "id": "a5dd1f2e-b34d-4eb4-a11c-dd71f7929764",
+      "name": "Build Deterministic Artifacts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        272,
+        -1072
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "dd48e160-6fab-4a6a-9ff0-2aa3b4e37b39",
+              "leftValue": "={{ $json._use_deterministic }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "4d198a37-5ce8-49db-8932-65c8d64b302d",
+      "name": "IF Deterministic?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        464,
+        -1072
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validation & normalisation de l’input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validation & normalisation de l’input": {
+      "main": [
+        [
+          {
+            "node": "Build Deterministic Artifacts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validation structurelle": {
+      "main": [
+        [
+          {
+            "node": "Format Final Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Payload": {
+      "main": [
+        [
+          {
+            "node": "LLM - Architect (Mistral)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Prompt (Architect)": {
+      "main": [
+        [
+          {
+            "node": "Build Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Final Output": {
+      "main": [
+        [
+          {
+            "node": "Format Standard Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse & Validate LLM Output": {
+      "main": [
+        [
+          {
+            "node": "Validation structurelle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Standard Output": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Groq Key1 Valid?": {
+      "main": [
+        [
+          {
+            "node": "Parse & Validate LLM Output",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "LLM - Architect Retry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Groq Key2 Valid?": {
+      "main": [
+        [
+          {
+            "node": "Parse & Validate LLM Output",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Architect Fallback Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Architect Fallback Error": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Deterministic Artifacts": {
+      "main": [
+        [
+          {
+            "node": "IF Deterministic?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Deterministic?": {
+      "main": [
+        [
+          {
+            "node": "Validation structurelle",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Prompt (Architect)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM - Architect (Mistral)": {
+      "main": [
+        [
+          {
+            "node": "IF Groq Key1 Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "LLM - Architect Retry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM - Architect Retry": {
+      "main": [
+        [
+          {
+            "node": "IF Groq Key2 Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Architect Fallback Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "15e1127b-01c8-4416-a291-cb1d67cf7ee8",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c77e41168b0abc4c9e72e3dfa70fb293d0acb289b40b847421933eadc146e082"
+  },
+  "id": "WrbQLvshn9PxPZ9L",
+  "tags": []
+}
