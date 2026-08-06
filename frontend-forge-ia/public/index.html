@@ -712,12 +712,20 @@ function renderResult(data,elapsed){
   const bLabel=data.success?'✓ SUCCÈS':(dec==='REWORK'?'↩ REWORK':'✗ STOP');
   let blockHtml='';
   if(data.blocking_reasons?.length)blockHtml=`<div class="result-card"><strong>Raisons de blocage</strong>${data.blocking_reasons.map(r=>`<div style="color:var(--danger);font-size:12px;margin:4px 0">▸ ${esc(r)}</div>`).join('')}</div>`;
+  let improveHtml='';
+  if(data.improvements){
+    const im=data.improvements;
+    const addTxt=(im.added&&im.added.length)?im.added.map(x=>`<span style="color:#16a34a;font-weight:700">+ ${esc(x)}</span>`).join('  '):'aucune nouvelle ressource';
+    const keepTxt=(im.unchanged&&im.unchanged.length)?im.unchanged.map(esc).join(', '):'—';
+    const filesTxt=(im.files_added&&im.files_added.length)?`<div style="margin-top:6px;font-size:10px;color:var(--muted);font-family:var(--mono)">${im.files_added.map(esc).join('<br>')}</div>`:'';
+    improveHtml=`<div class="result-card"><strong>✨ Ce qui a été amélioré (mode différentiel)</strong><div style="font-size:12px;line-height:1.7"><div>Ajouté : ${addTxt}</div><div style="color:var(--muted)">Préservé : ${keepTxt}</div>${filesTxt}</div></div>`;
+  }
   let filesHtml='';
   if(files.length){
     const tabs=files.map((f,i)=>`<button class="file-tab${i===0?' active':''}" onclick="showFile(${i})">${esc(f.path.split('/').pop())}</button>`).join('');
     filesHtml=`<div class="result-card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><strong style="margin-bottom:0">Fichiers générés (${files.length})</strong><div><button class="btn-small btn-dl-zip" onclick="dlZip()" title="Télécharger l'application en .zip">⬇ ZIP</button><button class="btn-small btn-dl-zip" style="margin-left:4px;background:#6c47ff;" onclick="dlSpecificLauncher()" title="Script .bat qui installe et lance l'app sous Windows">⚡ Launcher</button></div></div><div class="file-tabs-scroll">${tabs}</div><div style="margin-top:10px;font-size:10px;font-family:var(--mono);color:var(--muted);margin-bottom:6px" id="current-fname">${esc(files[0].path)}</div><div class="file-content" id="file-viewer"></div><div class="btn-row"><button class="btn-small btn-dl-file" id="btn-dl-current">⬇ Ce fichier</button><button class="btn-small btn-deploy" id="btn-deploy" onclick="deployApp()">🚀 Déployer</button><button class="btn-small btn-improve" id="btn-improve" onclick="improveApp()" style="display:none">🔧 Améliorer</button></div><div id="deploy-result"></div></div>`;
   }
-  document.getElementById('result-content').innerHTML=`<div class="result-header"><span class="badge ${bClass}">${bLabel}</span><span class="result-meta">${elapsed}s · ${esc(data.task_id||'—')}</span></div><div class="result-card"><strong>Résumé</strong><div style="font-size:12px;line-height:1.6">${esc(data.summary||'—')}</div></div>${blockHtml}${filesHtml}<button class="raw-toggle" onclick="document.getElementById('raw-out').classList.toggle('visible')">{ } JSON brut</button><pre class="raw" id="raw-out">${esc(JSON.stringify(data,null,2))}</pre>`;
+  document.getElementById('result-content').innerHTML=`<div class="result-header"><span class="badge ${bClass}">${bLabel}</span><span class="result-meta">${elapsed}s · ${esc(data.task_id||'—')}</span></div><div class="result-card"><strong>Résumé</strong><div style="font-size:12px;line-height:1.6">${esc(data.summary||'—')}</div></div>${improveHtml}${blockHtml}${filesHtml}<button class="raw-toggle" onclick="document.getElementById('raw-out').classList.toggle('visible')">{ } JSON brut</button><pre class="raw" id="raw-out">${esc(JSON.stringify(data,null,2))}</pre>`;
   if(files.length)showFile(0);
 }
 // Diagnostic client : erreurs purement front (formulaire, reseau local, timeout)
