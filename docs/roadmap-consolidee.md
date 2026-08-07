@@ -26,7 +26,7 @@ _Principe invariant : chaque capacité = **générateur déterministe** qui **pa
 
 Chaque phase liste sa **contrainte sécurité** (le différenciateur vs Base44, qui génère au LLM sans garantie).
 
-### P1 — CRUD complet + listes « pro »  *(recommandé — démarrage)*
+### P1 — CRUD complet + listes « pro »  ✅ LIVRÉ (Backend V6.8 + Frontend V6.5)
 - Backend : `PUT /res/:id` (édition) ; `GET /res?q=&sort=&order=&page=&limit=` (recherche/tri/filtre/pagination).
 - Frontend : bouton Éditer + formulaire pré-rempli, barre de recherche, en-têtes triables, pagination.
 - **Sécurité** : update scopé user/rôle + validé ; **requêtes paramétrées** ; `sort` sur **liste blanche** de colonnes (anti-injection) ; `limit` **plafonné** (anti-DoS).
