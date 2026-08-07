@@ -32,7 +32,7 @@ Chaque phase liste sa **contrainte sécurité** (le différenciateur vs Base44, 
 - **Sécurité** : update scopé user/rôle + validé ; **requêtes paramétrées** ; `sort` sur **liste blanche** de colonnes (anti-injection) ; `limit` **plafonné** (anti-DoS).
 - *Transforme toutes les apps « démo » en apps « utilisables » d'un coup.*
 
-### P2 — Dashboard + Agrégation + relations  *(fusion : base « S8 Agrégation » + dashboard Base44)*
+### P2 — Dashboard + Agrégation + relations  🟡 EN COURS (P2a dashboard livré : Backend V6.9 + Frontend V6.6 ; P2b relations/FK à suivre)
 - Page d'accueil : compteurs (`COUNT`/`SUM`), **graphiques SVG inline** (barres/donut) ; vue détail ; résolution des FK (afficher le libellé, pas l'id).
 - **Sécurité** : agrégations **scopées** (user_id/rôle) ; SVG **inline** (pas de lib CDN → CSP stricte préservée) ; sortie encodée (anti-XSS).
 
