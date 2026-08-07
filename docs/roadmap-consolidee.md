@@ -32,11 +32,11 @@ Chaque phase liste sa **contrainte sécurité** (le différenciateur vs Base44, 
 - **Sécurité** : update scopé user/rôle + validé ; **requêtes paramétrées** ; `sort` sur **liste blanche** de colonnes (anti-injection) ; `limit` **plafonné** (anti-DoS).
 - *Transforme toutes les apps « démo » en apps « utilisables » d'un coup.*
 
-### P2 — Dashboard + Agrégation + relations  🟡 EN COURS (P2a dashboard livré : Backend V6.9 + Frontend V6.6 ; P2b relations/FK à suivre)
+### P2 — Dashboard + Agrégation + relations  ✅ LIVRÉ (Backend V6.10 + Frontend V6.7)
 - Page d'accueil : compteurs (`COUNT`/`SUM`), **graphiques SVG inline** (barres/donut) ; vue détail ; résolution des FK (afficher le libellé, pas l'id).
 - **Sécurité** : agrégations **scopées** (user_id/rôle) ; SVG **inline** (pas de lib CDN → CSP stricte préservée) ; sortie encodée (anti-XSS).
 
-### P3 — Navigation multi-pages + design system
+### P3 — Navigation multi-pages + design system  🟡 INTRODUIT (sidebar + pages via Frontend V6.7 ; toasts/états = polish à suivre)
 - Sidebar + une page par ressource + états (vide/chargement/erreur) + toasts + responsive.
 - **Sécurité** : routage **client** sur la même API (aucune surface nouvelle).
 
