@@ -161,7 +161,7 @@
     },
     {
       "parameters": {
-        "jsCode": "return [{\n  json: {\n    agent:     $json.agent,\n    stage:     $json.stage,\n    summary:   $json.summary,\n    files:     $json.files,\n    artifacts: {\n      ...($json.artifacts || {}),\n      // Garantir que stores est toujours présent\n      stores: $json.artifacts?.stores || $json.stores || {}\n    },\n    warnings:  $json.warnings || [],\n    errors:    $json.errors   || [],\n    task_id:   $json.task_id  || \"unknown\"\n  }\n}];"
+        "jsCode": "return [{\n  json: {\n    _version:  '5.4',\n    agent:     $json.agent,\n    stage:     $json.stage,\n    summary:   $json.summary,\n    files:     $json.files,\n    artifacts: {\n      ...($json.artifacts || {}),\n      // Garantir que stores est toujours présent\n      stores: $json.artifacts?.stores || $json.stores || {}\n    },\n    warnings:  $json.warnings || [],\n    errors:    $json.errors   || [],\n    task_id:   $json.task_id  || \"unknown\"\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
