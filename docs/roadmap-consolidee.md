@@ -20,7 +20,9 @@ _Principe invariant : chaque capacité = **générateur déterministe** qui **pa
 **Robustesse & UX**
 - Specs longues (Sanitize 2 Mo + **compacteur déterministe** > 38 Ko) · personnalisation visuelle par app ·
   identification admin (badge doré + panneau Comptes) · **backlog de ressources** (prévu-non-implémenté + ajout libre) ·
-  amélioration d'une app **déployée** (sans re-upload du ZIP) · sortie du **diff** d'amélioration.
+  amélioration d'une app **déployée** (sans re-upload du ZIP) · sortie du **diff** d'amélioration ·
+  P1 CRUD complet + listes pro · P2 dashboard + agrégats + relations FK · P3 navigation multi-pages + toasts + états ·
+  P4 **uploads sécurisés** (validation type/taille/magic-bytes/anti-traversal, stockage BLOB).
 
 ## 🔜 Reste à faire — trajectoire « niveau Base44 » (ordre proposé)
 
@@ -36,13 +38,15 @@ Chaque phase liste sa **contrainte sécurité** (le différenciateur vs Base44, 
 - Page d'accueil : compteurs (`COUNT`/`SUM`), **graphiques SVG inline** (barres/donut) ; vue détail ; résolution des FK (afficher le libellé, pas l'id).
 - **Sécurité** : agrégations **scopées** (user_id/rôle) ; SVG **inline** (pas de lib CDN → CSP stricte préservée) ; sortie encodée (anti-XSS).
 
-### P3 — Navigation multi-pages + design system  🟡 INTRODUIT (sidebar + pages via Frontend V6.7 ; toasts/états = polish à suivre)
-- Sidebar + une page par ressource + états (vide/chargement/erreur) + toasts + responsive.
-- **Sécurité** : routage **client** sur la même API (aucune surface nouvelle).
+### P3 — Navigation multi-pages + design system  ✅ LIVRÉ (Frontend V6.9)
+- Sidebar + une page par ressource + **états riches** (vide/recherche-vide/chargement à spinner/erreur avec bouton Réessayer) + **toasts** globaux (succès/erreur, `aria-live`) + responsive.
+- **Sécurité** : routage **client** sur la même API (aucune surface nouvelle) ; toasts/états 100 % DOM (aucun handler inline → CSP stricte préservée).
 
-### P4 — Uploads fichiers/images sécurisés  *(fonctionnalité-vitrine sécurité)*
-- Upload avec validation **type + taille + magic bytes + extension + anti-path-traversal** ; stockage hors webroot ou en BLOB ; en-têtes de service corrects.
-- **Sécurité** : c'est le sprint où la démarche « secure-by-construction » se voit le mieux.
+### P4 — Uploads fichiers/images sécurisés  ✅ LIVRÉ (Backend V6.11 + Frontend V6.9)  *(fonctionnalité-vitrine sécurité)*
+- Upload JSON base64 (pas de multipart → surface réduite, **0 dépendance ajoutée**) ; validation **extension (liste blanche) + MIME + taille (limite de route 8 Mo + plafond 5 Mo après décodage, anti-DoS) + magic bytes (signature réelle du contenu) + anti-path-traversal (`_safeName` : basename, neutralisation `../`)**.
+- Stockage **en BLOB SQLite** (aucun chemin disque → pas de path traversal au repos, hors webroot par construction). Table `uploads` scopée `user_id`.
+- Service des fichiers : `Content-Type` **dérivé de la valeur validée stockée** (jamais l'entrée brute), `X-Content-Type-Options: nosniff`, `Content-Security-Policy: default-src 'none'; sandbox`, `Cache-Control: private, no-store` ; lecture/suppression **scopées propriétaire** (anti-IDOR).
+- UI : panneau **📎 Fichiers** (input filtré, liste avec vignettes images / icône PDF, ouvrir, supprimer).
 
 ### P5 — Champs riches
 - Dates (picker), enums (select), booléens (toggle), texte long — avec **validation par type côté serveur**.
