@@ -48,8 +48,11 @@ Chaque phase liste sa **contrainte sécurité** (le différenciateur vs Base44, 
 - Service des fichiers : `Content-Type` **dérivé de la valeur validée stockée** (jamais l'entrée brute), `X-Content-Type-Options: nosniff`, `Content-Security-Policy: default-src 'none'; sandbox`, `Cache-Control: private, no-store` ; lecture/suppression **scopées propriétaire** (anti-IDOR).
 - UI : panneau **📎 Fichiers** (input filtré, liste avec vignettes images / icône PDF, ouvrir, supprimer).
 
-### P5 — Champs riches
-- Dates (picker), enums (select), booléens (toggle), texte long — avec **validation par type côté serveur**.
+### P5 — Champs riches  ✅ LIVRÉ (Backend V6.12 + Frontend V6.10)
+- Classification sémantique **déterministe** partagée backend/frontend (`classifyField`) : honore un type explicite `{ type, values }` (forward-compat avec un normaliseur plus riche) sinon infère par le nom.
+- Widgets : **date** (`type=date`) / **datetime** (`datetime-local`) / **enum** (`select` avec valeurs) / **booléen** (toggle) / **texte long** (`textarea`, `maxlength`). Affichage liste : booléen → badge **Oui/Non**, pré-remplissage d'édition adapté (checkbox).
+- **Validation par type côté serveur** (POST + PUT) : booléen coercé en 0/1 (`_toBool`), date/datetime au format vérifié (`_isDate`/`_isDateTime`), enum **sur liste blanche** (rejet hors valeurs), texte long plafonné (5000). Colonnes booléennes en `INTEGER NOT NULL DEFAULT 0`.
+- Prudence : la table d'enums par défaut est limitée à des cas quasi-universels (priorité, niveau, genre…) — **on ne devine jamais des valeurs métier fragiles**.
 
 ### P6 — Temps réel (WebSocket)  *(reste de la base — S7)*
 - Mises à jour live des listes.
