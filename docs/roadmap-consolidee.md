@@ -28,7 +28,8 @@ _Principe invariant : chaque capacité = **générateur déterministe** qui **pa
   **enrichissement du Spec Normalizer** (extraction déterministe des enums depuis la prose → V1.10, Architect V5.5) ·
   **versionnage complet** : les 13 agents émettent `_version` → tableau des versions dans SECURITY.md (fini les `n/a`) ·
   **design system** des apps générées (tokens tonaux, thème clair/sombre, table triable, modale détail, dashboard donut + métriques) ·
-  **mode amélioration intelligent** : propositions déterministes (structurelles + compagnes par domaine), aperçu du diff avant application, historique des versions V1→Vn.
+  **mode amélioration intelligent** : propositions déterministes (structurelles + compagnes par domaine), aperçu du diff avant application, historique des versions V1→Vn ·
+  **Tier 1 sécurité** : **journal d'audit** (événements sensibles tracés en base + panneau admin) · **suite de tests de sécurité auto-générée** (node --test + supertest : 401/403/400, anti-IDOR, whitelist de tri, audit) — exécutée et **9/9 verte** · correctif **moindre privilège** (l'auto-inscription ne donne plus jamais `admin`, détecté par le test généré).
 
 ## ✅ Trajectoire « niveau Base44 » — P1 → P7 toutes livrées
 
