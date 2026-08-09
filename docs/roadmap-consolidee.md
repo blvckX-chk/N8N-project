@@ -22,11 +22,13 @@ _Principe invariant : chaque capacité = **générateur déterministe** qui **pa
   identification admin (badge doré + panneau Comptes) · **backlog de ressources** (prévu-non-implémenté + ajout libre) ·
   amélioration d'une app **déployée** (sans re-upload du ZIP) · sortie du **diff** d'amélioration ·
   P1 CRUD complet + listes pro · P2 dashboard + agrégats + relations FK · P3 navigation multi-pages + toasts + états ·
-  P4 **uploads sécurisés** (validation type/taille/magic-bytes/anti-traversal, stockage BLOB).
+  P4 **uploads sécurisés** (validation type/taille/magic-bytes/anti-traversal, stockage BLOB) ·
+  P5 **champs riches** (dates/enums/booléens/texte long, validation typée) ·
+  P6 **temps réel** (SSE, signaux d'invalidation only) · P7 **export CSV** (anti-injection de formule) + PDF imprimable + tri multi-colonnes.
 
-## 🔜 Reste à faire — trajectoire « niveau Base44 » (ordre proposé)
+## ✅ Trajectoire « niveau Base44 » — P1 → P7 toutes livrées
 
-Chaque phase liste sa **contrainte sécurité** (le différenciateur vs Base44, qui génère au LLM sans garantie).
+Chaque phase liste sa **contrainte sécurité** (le différenciateur vs Base44, qui génère au LLM sans garantie). **Les sept phases sont désormais livrées et vérifiées** (générateurs testés, `node --check`, schéma SQLite, SAST 0 critique).
 
 ### P1 — CRUD complet + listes « pro »  ✅ LIVRÉ (Backend V6.8 + Frontend V6.5)
 - Backend : `PUT /res/:id` (édition) ; `GET /res?q=&sort=&order=&page=&limit=` (recherche/tri/filtre/pagination).
@@ -54,13 +56,18 @@ Chaque phase liste sa **contrainte sécurité** (le différenciateur vs Base44, 
 - **Validation par type côté serveur** (POST + PUT) : booléen coercé en 0/1 (`_toBool`), date/datetime au format vérifié (`_isDate`/`_isDateTime`), enum **sur liste blanche** (rejet hors valeurs), texte long plafonné (5000). Colonnes booléennes en `INTEGER NOT NULL DEFAULT 0`.
 - Prudence : la table d'enums par défaut est limitée à des cas quasi-universels (priorité, niveau, genre…) — **on ne devine jamais des valeurs métier fragiles**.
 
-### P6 — Temps réel (WebSocket)  *(reste de la base — S7)*
-- Mises à jour live des listes.
-- **Sécurité** : **authentification du handshake WebSocket** (même JWT cookie), autorisation par rôle sur les canaux, rate-limit des messages — travail sécurité dédié, d'où le placement tardif.
+### P6 — Temps réel  ✅ LIVRÉ (Backend V6.13 + Frontend V6.11)  *(réalisé en SSE, pas WebSocket)*
+- Mises à jour **live** des listes et du tableau de bord : à chaque mutation (create/update/delete), un signal d'invalidation est poussé aux clients concernés, qui rafraîchissent la vue visible.
+- **Choix de conception (sécurité)** : **SSE (Server-Sent Events)** plutôt que WebSocket. Justification secure-by-construction :
+  - **0 dépendance** ajoutée (pas de lib `ws` et sa surface CVE) ; fonctionne dans la **CSP stricte** existante (`connect-src 'self'`).
+  - **Auth = même cookie JWT** (authMiddleware) — pas de handshake séparé à sécuriser.
+  - Le canal **ne transporte jamais de donnée métier**, seulement `{ resource, action }` : l'autorisation reste assurée par la **route REST existante** (scoping user_id/rôle) au moment du re-fetch → **aucun IDOR possible via le flux**.
+  - **Anti-DoS** : plafonds de connexions **global (500)** et **par utilisateur (5)**, heartbeat + nettoyage à la déconnexion.
 
-### P7 — Export CSV/PDF + finitions
-- Export des listes.
-- **Sécurité** : **échappement anti-injection de formule** CSV (préfixer `= + - @`), pagination avancée, tri multi-colonnes.
+### P7 — Export CSV/PDF + finitions  ✅ LIVRÉ (Backend V6.13 + Frontend V6.11)
+- Export **CSV** des listes (scopé propriétaire, respecte recherche + tri) ; **PDF** via vue imprimable (`@media print` + `window.print()` → « Enregistrer en PDF ») — **0 dépendance PDF, 0 surface CVE**.
+- Finitions : **tri multi-colonnes** (`sort=a,b`, liste blanche stricte) ; **sélecteur de taille de page** (10/25/50).
+- **Sécurité** : **neutralisation de l'injection de formule CSV** (`_csvCell` : préfixe `'` si la cellule commence par `= + - @ TAB CR`) + échappement RFC 4180 ; en-têtes `text/csv`, `nosniff`, `attachment`, `no-store` ; BOM UTF-8 pour Excel ; export **plafonné (10 000 lignes)** anti-DoS.
 
 ## Rôle de l'IA (LLM) dans le système — pourquoi et où
 
