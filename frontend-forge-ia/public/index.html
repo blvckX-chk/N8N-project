@@ -729,11 +729,11 @@ function renderResult(data,elapsed){
     const planned=window._planned;
     backlogHtml=`<div class="result-card"><strong>📋 Prévu dans la spec — à implémenter${planned.length?` (${planned.length})`:''}</strong>`;
     if(planned.length){
-      backlogHtml+=`<div style="display:flex;flex-direction:column;gap:6px;margin:6px 0 10px">`+planned.map((r,idx)=>{const nm=esc(r.store_name||r.name||'');const fc=Object.keys(r.fields||{}).length;return `<div style="display:flex;align-items:center;gap:8px;font-size:12px"><button class="btn-small" style="background:#16a34a" onclick="addResource(window._planned[${idx}],null)">➕ Ajouter</button><span>${nm}${fc?` <span style=\"color:var(--muted)\">(${fc} champ${fc>1?'s':''})</span>`:''}</span></div>`;}).join('')+`</div>`;
+      backlogHtml+=`<div style="display:flex;flex-direction:column;gap:6px;margin:6px 0 10px">`+planned.map((r,idx)=>{const nm=esc(r.store_name||r.name||'');const fc=Object.keys(r.fields||{}).length;return `<div style="display:flex;align-items:center;gap:8px;font-size:12px"><button class="btn-small" style="background:#16a34a" onclick="applyPlanned(${idx})">➕ Ajouter</button><span>${nm}${fc?` <span style=\"color:var(--muted)\">(${fc} champ${fc>1?'s':''})</span>`:''}</span></div>`;}).join('')+`</div>`;
     } else {
       backlogHtml+=`<div style="font-size:11px;color:var(--muted);margin:6px 0 8px">✓ Toutes les ressources prévues par la spec sont implémentées.</div>`;
     }
-    backlogHtml+=`<div style="display:flex;gap:8px;align-items:center;border-top:1px solid var(--border);padding-top:10px"><input id="custom-add" placeholder="Ajouter une fonctionnalité NON prévue (ex: ressource avis avec note number)" style="flex:1;padding:8px;font-size:12px;border-radius:8px"><button class="btn-small" style="background:#6c47ff" onclick="addResource(null,document.getElementById('custom-add').value)">➕ Ajouter</button></div></div>`;
+    backlogHtml+=`<div style="display:flex;gap:8px;align-items:center;border-top:1px solid var(--border);padding-top:10px"><input id="custom-add" placeholder="Ajouter une fonctionnalité NON prévue (ex: ressource avis avec note number)" style="flex:1;padding:8px;font-size:12px;border-radius:8px"><button class="btn-small" style="background:#6c47ff" onclick="applyCustom()">➕ Ajouter</button></div></div>`;
   }
   // Propositions d'amélioration déterministes (après V1 ET V2) — cliquer applique
   // l'amélioration sur l'app courante (sans re-upload du ZIP).
@@ -743,10 +743,12 @@ function renderResult(data,elapsed){
     const _ic={champs:'🧩',relation:'🔗',statut:'🏷️'};
     const _isImprove=!!data.improvements;
     suggestHtml=`<div class="result-card"><strong>💡 ${_isImprove?'Ce qui peut encore être amélioré':'Propositions d\'amélioration'} (${window._suggestions.length})</strong><div style="font-size:11px;color:var(--muted);margin:2px 0 10px">Suggestions déterministes déduites du modèle généré — clique pour appliquer sur l'app courante.</div><div style="display:flex;flex-direction:column;gap:6px">`+
-      window._suggestions.map((s,idx)=>`<div style="display:flex;align-items:center;gap:8px;font-size:12px"><button class="btn-small" style="background:#6c47ff" onclick="addResource(null, window._suggestions[${idx}].prompt)">✨ Appliquer</button><span>${_ic[s.type]||'•'} ${esc(s.label)}</span></div>`).join('')+
+      window._suggestions.map((s,idx)=>`<div style="display:flex;align-items:center;gap:8px;font-size:12px"><button class="btn-small" style="background:#6c47ff" onclick="askApply(window._suggestions[${idx}].prompt, '${_ic[s.type]||'💡'} Amélioration proposée', esc(window._suggestions[${idx}].label))">✨ Appliquer</button><span>${_ic[s.type]||'•'} ${esc(s.label)}</span></div>`).join('')+
       `</div></div>`;
   }
-  document.getElementById('result-content').innerHTML=`<div class="result-header"><span class="badge ${bClass}">${bLabel}</span><span class="result-meta">${elapsed}s · ${esc(data.task_id||'—')}</span></div><div class="result-card"><strong>Résumé</strong><div style="font-size:12px;line-height:1.6">${esc(data.summary||'—')}</div></div>${improveHtml}${blockHtml}${filesHtml}${suggestHtml}${backlogHtml}<button class="raw-toggle" onclick="document.getElementById('raw-out').classList.toggle('visible')">{ } JSON brut</button><pre class="raw" id="raw-out">${esc(JSON.stringify(data,null,2))}</pre>`;
+  if(files.length) _recordVersion(data);
+  const histHtml = files.length ? _histHtml() : '';
+  document.getElementById('result-content').innerHTML=`<div class="result-header"><span class="badge ${bClass}">${bLabel}</span><span class="result-meta">${elapsed}s · ${esc(data.task_id||'—')}</span></div><div class="result-card"><strong>Résumé</strong><div style="font-size:12px;line-height:1.6">${esc(data.summary||'—')}</div></div>${improveHtml}${histHtml}${blockHtml}${filesHtml}${suggestHtml}${backlogHtml}<button class="raw-toggle" onclick="document.getElementById('raw-out').classList.toggle('visible')">{ } JSON brut</button><pre class="raw" id="raw-out">${esc(JSON.stringify(data,null,2))}</pre>`;
   if(files.length)showFile(0);
 }
 // Diagnostic client : erreurs purement front (formulaire, reseau local, timeout)
@@ -770,6 +772,43 @@ function renderError(msg, extra){
   if(extra.fix){html+='<div class="result-card" style="border-color:var(--success)"><strong style="color:var(--success)">💡 Solution suggérée</strong><div style="font-size:12px;line-height:1.65">'+esc(extra.fix)+'</div></div>';}
   if(extra.detail){html+='<button class="raw-toggle" onclick="document.getElementById(\'err-detail\').classList.toggle(\'visible\')">{ } Détails techniques</button><pre class="raw" id="err-detail">'+esc(extra.detail)+'</pre>';}
   document.getElementById('result-content').innerHTML=html;
+}
+
+// ── Mode amélioration intelligent : aperçu avant application + historique ────
+var _impPending=null;
+function askApply(prompt, title, detail){
+  prompt=(prompt||'').trim(); if(!prompt){ renderError('Décris la fonctionnalité à ajouter.'); return; }
+  _impPending=prompt;
+  var ov=document.getElementById('imp-overlay');
+  if(!ov){
+    ov=document.createElement('div'); ov.id='imp-overlay';
+    ov.style.cssText='position:fixed;inset:0;background:rgba(10,14,25,.55);display:none;align-items:center;justify-content:center;z-index:2000;padding:20px';
+    ov.innerHTML='<div style="background:#fff;border-radius:14px;max-width:460px;width:100%;box-shadow:0 24px 60px rgba(0,0,0,.35);overflow:hidden"><div style="padding:16px 20px;border-bottom:1px solid var(--border,#e5e7eb);font-weight:700" id="imp-title"></div><div style="padding:16px 20px"><div id="imp-detail" style="font-size:13px;font-weight:600;margin-bottom:8px"></div><div style="font-size:11px;color:var(--muted,#6b7280);margin-bottom:10px">Appliqué à l\'app courante en mode différentiel (sans re-upload). Les fichiers existants sont préservés ; seul l\'incrément est ajouté puis re-vérifié (sécurité, Go/No-Go).</div><pre id="imp-prompt" style="background:#f6f7fb;border:1px solid var(--border,#e5e7eb);border-radius:8px;padding:10px;font-size:11px;white-space:pre-wrap;margin:0"></pre></div><div style="display:flex;gap:8px;justify-content:flex-end;padding:12px 20px;border-top:1px solid var(--border,#e5e7eb)"><button class="btn-small imp-cancel" style="background:#6b7280">Annuler</button><button class="btn-small imp-ok" style="background:#16a34a">✓ Confirmer &amp; lancer</button></div></div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click',function(e){ if(e.target===ov||e.target.classList.contains('imp-cancel')){ _impCancel(); } else if(e.target.classList.contains('imp-ok')){ _impConfirm(); } });
+    document.addEventListener('keydown',function(e){ if(e.key==='Escape') _impCancel(); });
+  }
+  document.getElementById('imp-title').textContent=title||'Amélioration';
+  document.getElementById('imp-detail').innerHTML=detail||'';
+  document.getElementById('imp-prompt').textContent=prompt;
+  ov.style.display='flex';
+}
+function _impCancel(){ var ov=document.getElementById('imp-overlay'); if(ov) ov.style.display='none'; _impPending=null; }
+function _impConfirm(){ var p=_impPending; var ov=document.getElementById('imp-overlay'); if(ov) ov.style.display='none'; _impPending=null; if(p) addResource(null,p); }
+function applyPlanned(idx){ var r=(window._planned||[])[idx]; if(!r) return; var flds=Object.keys(r.fields||{}); var prompt='Ajoute la ressource '+(r.store_name||r.name)+(flds.length?(' avec les champs '+flds.map(function(f){return f+' ('+r.fields[f]+')';}).join(', ')):'')+'.'; askApply(prompt, '📋 Ressource prévue par la spec', esc(r.store_name||r.name)+(flds.length?(' — '+flds.length+' champ(s)'):'')); }
+function applyCustom(){ var el=document.getElementById('custom-add'); var v=el?el.value:''; askApply(v, '➕ Ajout libre', esc((v||'').trim()||'(vide)')); }
+function _recordVersion(data){
+  try{
+    var isImp=!!data.improvements;
+    if(!isImp){ var stores=(data.deliverable&&data.deliverable.architecture&&data.deliverable.architecture.stores)||{}; window._impHist=[{n:1, added:Object.keys(stores), summary:'Génération initiale'}]; }
+    else { window._impHist=window._impHist||[{n:1,added:[],summary:'Génération initiale'}]; window._impHist.push({n:window._impHist.length+1, added:(data.improvements.added||[]), summary:'Amélioration différentielle'}); }
+  }catch(e){}
+}
+function _histHtml(){
+  var h=window._impHist||[]; if(h.length<1) return '';
+  var rows=h.map(function(v){ var add=(v.added&&v.added.length)?v.added.map(esc).join(', '):'—'; return '<div style="display:flex;gap:10px;align-items:flex-start;font-size:12px;padding:7px 0;border-bottom:1px solid var(--border,#eee)"><span class="badge success" style="flex-shrink:0">V'+v.n+'</span><div><div style="font-weight:600">'+esc(v.summary)+'</div><div style="color:var(--muted,#6b7280)">Ajouté : '+add+'</div></div></div>'; }).join('');
+  var rem=(window._suggestions&&window._suggestions.length)?window._suggestions.length:0;
+  return '<div class="result-card"><strong>🕓 Historique des versions ('+h.length+')</strong>'+rows+(rem?('<div style="padding-top:8px;font-size:12px;color:var(--muted,#6b7280)">Reste '+rem+' proposition(s) à explorer ci-dessous.</div>'):'')+'</div>';
 }
 
 // ── Run ────────────────────────────────────────────────────────────────────

@@ -26,7 +26,9 @@ _Principe invariant : chaque capacité = **générateur déterministe** qui **pa
   P5 **champs riches** (dates/enums/booléens/texte long, validation typée) ·
   P6 **temps réel** (SSE, signaux d'invalidation only) · P7 **export CSV** (anti-injection de formule) + PDF imprimable + tri multi-colonnes ·
   **enrichissement du Spec Normalizer** (extraction déterministe des enums depuis la prose → V1.10, Architect V5.5) ·
-  **versionnage complet** : les 13 agents émettent `_version` → tableau des versions dans SECURITY.md (fini les `n/a`).
+  **versionnage complet** : les 13 agents émettent `_version` → tableau des versions dans SECURITY.md (fini les `n/a`) ·
+  **design system** des apps générées (tokens tonaux, thème clair/sombre, table triable, modale détail, dashboard donut + métriques) ·
+  **mode amélioration intelligent** : propositions déterministes (structurelles + compagnes par domaine), aperçu du diff avant application, historique des versions V1→Vn.
 
 ## ✅ Trajectoire « niveau Base44 » — P1 → P7 toutes livrées
 
