@@ -24,7 +24,9 @@ _Principe invariant : chaque capacité = **générateur déterministe** qui **pa
   P1 CRUD complet + listes pro · P2 dashboard + agrégats + relations FK · P3 navigation multi-pages + toasts + états ·
   P4 **uploads sécurisés** (validation type/taille/magic-bytes/anti-traversal, stockage BLOB) ·
   P5 **champs riches** (dates/enums/booléens/texte long, validation typée) ·
-  P6 **temps réel** (SSE, signaux d'invalidation only) · P7 **export CSV** (anti-injection de formule) + PDF imprimable + tri multi-colonnes.
+  P6 **temps réel** (SSE, signaux d'invalidation only) · P7 **export CSV** (anti-injection de formule) + PDF imprimable + tri multi-colonnes ·
+  **enrichissement du Spec Normalizer** (extraction déterministe des enums depuis la prose → V1.10, Architect V5.5) ·
+  **versionnage complet** : les 13 agents émettent `_version` → tableau des versions dans SECURITY.md (fini les `n/a`).
 
 ## ✅ Trajectoire « niveau Base44 » — P1 → P7 toutes livrées
 
@@ -75,7 +77,7 @@ Chaque phase liste sa **contrainte sécurité** (le différenciateur vs Base44, 
 
 | Étape | IA ? | Rôle |
 |---|---|---|
-| **Spec Normalizer** | ✅ LLM (codestral) | **Cœur** : lit une spec en langage naturel / PDF / DOCX (prose, tables, ambiguë) et en extrait un **modèle structuré** (ressources, champs, types, routes, règles, acteurs, permissions, deferred). Irremplaçable : un parseur déterministe ne comprend pas du texte humain libre. |
+| **Spec Normalizer** | ✅ LLM (codestral) + **enrichissement déterministe** | **Cœur** : lit une spec en langage naturel / PDF / DOCX (prose, tables, ambiguë) et en extrait un **modèle structuré** (ressources, champs, types, routes, règles, acteurs, permissions, deferred). Irremplaçable : un parseur déterministe ne comprend pas du texte humain libre. **V1.10** : un passage déterministe détecte en plus les **énumérations dans la prose** (« statut : en attente, expédiée, livrée » → `{type:'enum', values:[...]}`), attachées au modèle de données → formulaires plus riches (vraies listes déroulantes) + validation serveur sur liste blanche. Prudence : uniquement sur des noms de champs candidats et 2–12 valeurs, jamais de faux enum sur du texte libre. |
 | **Architect** | ✅ LLM + **repli déterministe** | Dérive l'architecture (endpoints, data model). Quand la spec est déjà bien structurée, le **chemin déterministe** prend le relais. |
 | **Amélioration** | ✅ LLM | Interprète un prompt libre (« ajoute une ressource avis avec note ») → intention structurée. |
 | **Documentation / QA / Code Review** | ✅ LLM | README, revue, contrôle qualité. |

@@ -50,7 +50,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const groqResponse = $input.first().json;\nconst upstream = $('Inject Prompt').first().json;\n\nconst raw = groqResponse.choices?.[0]?.message?.content;\n\nif (!raw) {\n  return [{\n    json: {\n      task_id: upstream.task_id,\n      agent: \"documentation\",\n      files: [],\n      errors: [{ stage: \"groq\", message: \"Réponse Groq vide\" }]\n    }\n  }];\n}\n\nlet parsed = {};\ntry {\n  const cleaned = raw.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  parsed = JSON.parse(cleaned);\n} catch(e) {\n  return [{\n    json: {\n      task_id: upstream.task_id,\n      agent: \"documentation\",\n      files: [],\n      errors: [{ stage: \"parsing\", message: e.message }]\n    }\n  }];\n}\n\nconst files = Array.isArray(parsed.files)\n  ? parsed.files.filter(f => f.path && f.content !== undefined)\n  : [];\n\nreturn [{\n  json: {\n    task_id: upstream.task_id,\n    agent: \"documentation\",\n    files,\n    errors: parsed.errors || []\n  }\n}];"
+        "jsCode": "const groqResponse = $input.first().json;\nconst upstream = $('Inject Prompt').first().json;\n\nconst raw = groqResponse.choices?.[0]?.message?.content;\n\nif (!raw) {\n  return [{\n    json: {\n      task_id: upstream.task_id,\n      agent: \"documentation\", _version: '5.5',\n      files: [],\n      errors: [{ stage: \"groq\", message: \"Réponse Groq vide\" }]\n    }\n  }];\n}\n\nlet parsed = {};\ntry {\n  const cleaned = raw.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  parsed = JSON.parse(cleaned);\n} catch(e) {\n  return [{\n    json: {\n      task_id: upstream.task_id,\n      agent: \"documentation\", _version: '5.5',\n      files: [],\n      errors: [{ stage: \"parsing\", message: e.message }]\n    }\n  }];\n}\n\nconst files = Array.isArray(parsed.files)\n  ? parsed.files.filter(f => f.path && f.content !== undefined)\n  : [];\n\nreturn [{\n  json: {\n    task_id: upstream.task_id,\n    agent: \"documentation\", _version: '5.5',\n    files,\n    errors: parsed.errors || []\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -97,7 +97,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const input = $input.first().json;\nreturn [{\n  json: {\n    success: false,\n    agent: \"Agent Documentation\",\n    task_id: \"unknown\",\n    status: \"ERROR\",\n    error_code: input.error_code,\n    error_message: input.error_message,\n    approved_for_pipeline: false,\n    timestamp: input.timestamp\n  }\n}];"
+        "jsCode": "const input = $input.first().json;\nreturn [{\n  json: {\n    success: false,\n    agent: \"Agent Documentation\", _version: '5.5',\n    task_id: \"unknown\",\n    status: \"ERROR\",\n    error_code: input.error_code,\n    error_message: input.error_message,\n    approved_for_pipeline: false,\n    timestamp: input.timestamp\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -167,7 +167,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const input = $input.first().json;\n\nconst hasFiles = Array.isArray(input.files) && input.files.length > 0;\nconst hasErrors = Array.isArray(input.errors) && input.errors.length > 0;\nconst status = hasFiles && !hasErrors ? \"PASS\" : \"FAIL\";\n\nreturn [{\n  json: {\n    success: status === 'PASS',\n    agent: \"Agent Documentation\",\n    task_id: input.task_id,\n    status,\n    global_score: hasFiles ? 100 : 0,\n    approved_for_pipeline: status === 'PASS',\n    language: \"markdown\",\n    critical_issues: hasErrors\n      ? input.errors.map(e => ({ severity: \"high\", description: e.message || String(e) }))\n      : [],\n    warnings: [],\n    recommendations: hasFiles\n      ? [\"Documentation générée avec succès\"]\n      : [\"Régénérer — aucun fichier produit\"],\n    summary: hasFiles\n      ? `${input.files.length} fichier(s) de documentation générés`\n      : \"Échec de génération documentation\",\n    dimensions: {\n      security: { score: 100 },\n      quality: { score: hasFiles ? 100 : 0 }\n    },\n    timestamp: new Date().toISOString(),\n    files: input.files || []\n  }\n}];"
+        "jsCode": "const input = $input.first().json;\n\nconst hasFiles = Array.isArray(input.files) && input.files.length > 0;\nconst hasErrors = Array.isArray(input.errors) && input.errors.length > 0;\nconst status = hasFiles && !hasErrors ? \"PASS\" : \"FAIL\";\n\nreturn [{\n  json: {\n    success: status === 'PASS',\n    agent: \"Agent Documentation\", _version: '5.5',\n    task_id: input.task_id,\n    status,\n    global_score: hasFiles ? 100 : 0,\n    approved_for_pipeline: status === 'PASS',\n    language: \"markdown\",\n    critical_issues: hasErrors\n      ? input.errors.map(e => ({ severity: \"high\", description: e.message || String(e) }))\n      : [],\n    warnings: [],\n    recommendations: hasFiles\n      ? [\"Documentation générée avec succès\"]\n      : [\"Régénérer — aucun fichier produit\"],\n    summary: hasFiles\n      ? `${input.files.length} fichier(s) de documentation générés`\n      : \"Échec de génération documentation\",\n    dimensions: {\n      security: { score: 100 },\n      quality: { score: hasFiles ? 100 : 0 }\n    },\n    timestamp: new Date().toISOString(),\n    files: input.files || []\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -275,7 +275,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Fallback déterministe si les deux clés Groq échouent\n// Génère un README minimal depuis les données déjà calculées dans Inject Prompt\nconst upstream = $('Inject Prompt').first().json;\nconst task_id = upstream.task_id || 'unknown';\n\n// Extraire project_name depuis le systemPrompt\nlet projectName = 'Application';\nconst sysPrompt = upstream.systemPrompt || '';\nconst match = sysPrompt.match(/EXACTEMENT : ([^\\n)]+)/);\nif (match) projectName = match[1].trim();\n\nconst readme = '# ' + projectName + '\\n\\n' +\n  '> *Documentation générée automatiquement par le pipeline SDLC*\\n\\n' +\n  '## Vue d\\'ensemble\\n\\n' +\n  'Application générée par le pipeline Forge IA.\\n\\n' +\n  '## Installation\\n\\n' +\n  '```bash\\nnpm install\\nnpm start\\n```\\n\\n' +\n  '## Configuration\\n\\n' +\n  'Créer un fichier `.env` :\\n```\\nPORT=3000\\n```\\n\\n' +\n  '## Note\\n\\nDocumentation complète non générée (limite quota Groq). ' +\n  'Relancer la génération demain pour obtenir le README complet.\\n';\n\nreturn [{\n  json: {\n    task_id,\n    agent: 'documentation',\n    files: [{ path: 'README.md', content: readme }],\n    errors: [{ stage: 'groq_fallback', message: 'Les deux clés Groq ont atteint leur limite — README minimal généré.' }]\n  }\n}];"
+        "jsCode": "// Fallback déterministe si les deux clés Groq échouent\n// Génère un README minimal depuis les données déjà calculées dans Inject Prompt\nconst upstream = $('Inject Prompt').first().json;\nconst task_id = upstream.task_id || 'unknown';\n\n// Extraire project_name depuis le systemPrompt\nlet projectName = 'Application';\nconst sysPrompt = upstream.systemPrompt || '';\nconst match = sysPrompt.match(/EXACTEMENT : ([^\\n)]+)/);\nif (match) projectName = match[1].trim();\n\nconst readme = '# ' + projectName + '\\n\\n' +\n  '> *Documentation générée automatiquement par le pipeline SDLC*\\n\\n' +\n  '## Vue d\\'ensemble\\n\\n' +\n  'Application générée par le pipeline Forge IA.\\n\\n' +\n  '## Installation\\n\\n' +\n  '```bash\\nnpm install\\nnpm start\\n```\\n\\n' +\n  '## Configuration\\n\\n' +\n  'Créer un fichier `.env` :\\n```\\nPORT=3000\\n```\\n\\n' +\n  '## Note\\n\\nDocumentation complète non générée (limite quota Groq). ' +\n  'Relancer la génération demain pour obtenir le README complet.\\n';\n\nreturn [{\n  json: {\n    task_id,\n    agent: 'documentation', _version: '5.5',\n    files: [{ path: 'README.md', content: readme }],\n    errors: [{ stage: 'groq_fallback', message: 'Les deux clés Groq ont atteint leur limite — README minimal généré.' }]\n  }\n}];"
       },
       "id": "00dfb3bd-c431-40fd-87ad-f836a7a8d3ea",
       "name": "Fallback README",
@@ -463,11 +463,9 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "9d0c3340-c413-422d-875b-a2d77f833144",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "c77e41168b0abc4c9e72e3dfa70fb293d0acb289b40b847421933eadc146e082"
   },
-  "id": "DKjnn4n3gbFpDrO2",
   "tags": []
 }
