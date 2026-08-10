@@ -710,9 +710,12 @@ function renderResult(data,elapsed){
   const bLabel=data.success?'✓ SUCCÈS':(dec==='REWORK'?'↩ REWORK':'✗ STOP');
   let blockHtml='';
   if(data.blocking_reasons?.length)blockHtml=`<div class="result-card"><strong>Raisons de blocage</strong>${data.blocking_reasons.map(r=>`<div style="color:var(--danger);font-size:12px;margin:4px 0">▸ ${esc(r)}</div>`).join('')}</div>`;
+  // Les champs suggestions/improvements/planned sont émis par l'orchestrateur
+  // SOUS data.results (comme files). Fallback top-level pour compat/restore.
+  const R = data.results || data;
   let improveHtml='';
-  if(data.improvements){
-    const im=data.improvements;
+  if(R.improvements){
+    const im=R.improvements;
     const addTxt=(im.added&&im.added.length)?im.added.map(x=>`<span style="color:#16a34a;font-weight:700">+ ${esc(x)}</span>`).join('  '):'aucune nouvelle ressource';
     const keepTxt=(im.unchanged&&im.unchanged.length)?im.unchanged.map(esc).join(', '):'—';
     const filesTxt=(im.files_added&&im.files_added.length)?`<div style="margin-top:6px;font-size:10px;color:var(--muted);font-family:var(--mono)">${im.files_added.map(esc).join('<br>')}</div>`:'';
@@ -723,7 +726,7 @@ function renderResult(data,elapsed){
     const tabs=files.map((f,i)=>`<button class="file-tab${i===0?' active':''}" onclick="showFile(${i})">${esc(f.path.split('/').pop())}</button>`).join('');
     filesHtml=`<div class="result-card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><strong style="margin-bottom:0">Fichiers générés (${files.length})</strong><div><button class="btn-small btn-dl-zip" onclick="dlZip()" title="Télécharger l'application en .zip">⬇ ZIP</button><button class="btn-small btn-dl-zip" style="margin-left:4px;background:#6c47ff;" onclick="dlSpecificLauncher()" title="Script .bat qui installe et lance l'app sous Windows">⚡ Launcher</button></div></div><div class="file-tabs-scroll">${tabs}</div><div style="margin-top:10px;font-size:10px;font-family:var(--mono);color:var(--muted);margin-bottom:6px" id="current-fname">${esc(files[0].path)}</div><div class="file-content" id="file-viewer"></div><div class="btn-row"><button class="btn-small btn-dl-file" id="btn-dl-current">⬇ Ce fichier</button><button class="btn-small btn-deploy" id="btn-deploy" onclick="deployApp()">🚀 Déployer</button><button class="btn-small btn-improve" id="btn-improve" onclick="improveApp()" style="display:none">🔧 Améliorer</button></div><div id="deploy-result"></div></div>`;
   }
-  window._planned = data.planned_not_implemented || [];
+  window._planned = R.planned_not_implemented || [];
   let backlogHtml='';
   if(files.length){
     const planned=window._planned;
@@ -737,11 +740,11 @@ function renderResult(data,elapsed){
   }
   // Propositions d'amélioration déterministes (après V1 ET V2) — cliquer applique
   // l'amélioration sur l'app courante (sans re-upload du ZIP).
-  window._suggestions = data.suggestions || [];
+  window._suggestions = R.suggestions || [];
   let suggestHtml='';
   if(files.length && window._suggestions.length){
     const _ic={champs:'🧩',relation:'🔗',statut:'🏷️'};
-    const _isImprove=!!data.improvements;
+    const _isImprove=!!R.improvements;
     suggestHtml=`<div class="result-card"><strong>💡 ${_isImprove?'Ce qui peut encore être amélioré':'Propositions d\'amélioration'} (${window._suggestions.length})</strong><div style="font-size:11px;color:var(--muted);margin:2px 0 10px">Suggestions déterministes déduites du modèle généré — clique pour appliquer sur l'app courante.</div><div style="display:flex;flex-direction:column;gap:6px">`+
       window._suggestions.map((s,idx)=>`<div style="display:flex;align-items:center;gap:8px;font-size:12px"><button class="btn-small" style="background:#6c47ff" onclick="askApply(window._suggestions[${idx}].prompt, '${_ic[s.type]||'💡'} Amélioration proposée', esc(window._suggestions[${idx}].label))">✨ Appliquer</button><span>${_ic[s.type]||'•'} ${esc(s.label)}</span></div>`).join('')+
       `</div></div>`;
@@ -799,9 +802,10 @@ function applyPlanned(idx){ var r=(window._planned||[])[idx]; if(!r) return; var
 function applyCustom(){ var el=document.getElementById('custom-add'); var v=el?el.value:''; askApply(v, '➕ Ajout libre', esc((v||'').trim()||'(vide)')); }
 function _recordVersion(data){
   try{
-    var isImp=!!data.improvements;
-    if(!isImp){ var stores=(data.deliverable&&data.deliverable.architecture&&data.deliverable.architecture.stores)||{}; window._impHist=[{n:1, added:Object.keys(stores), summary:'Génération initiale'}]; }
-    else { window._impHist=window._impHist||[{n:1,added:[],summary:'Génération initiale'}]; window._impHist.push({n:window._impHist.length+1, added:(data.improvements.added||[]), summary:'Amélioration différentielle'}); }
+    var R=data.results||data;
+    var isImp=!!R.improvements;
+    if(!isImp){ var _arch=R.architecture||(data.deliverable&&data.deliverable.architecture)||{}; var stores=_arch.stores||{}; window._impHist=[{n:1, added:Object.keys(stores), summary:'Génération initiale'}]; }
+    else { window._impHist=window._impHist||[{n:1,added:[],summary:'Génération initiale'}]; window._impHist.push({n:window._impHist.length+1, added:(R.improvements.added||[]), summary:'Amélioration différentielle'}); }
   }catch(e){}
 }
 function _histHtml(){
