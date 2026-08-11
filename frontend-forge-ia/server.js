@@ -171,7 +171,11 @@ function buildZipBuffer(files) {
   const chunks = [];
   const entries = [];
   files.forEach(f => {
-    let content = f.content || '';
+    // Robustesse : ignorer les entrées sans chemin valide et coercer tout
+    // contenu non-string en chaîne (une entrée malformée ne doit jamais faire
+    // planter la génération du ZIP — cf. sortie différentielle d'amélioration).
+    if (!f || typeof f.path !== 'string' || !f.path) return;
+    let content = (typeof f.content === 'string') ? f.content : String(f.content == null ? '' : f.content);
     content = content.replace(/^\/\/ FILE:.*\n/, '').replace(/^<!-- FILE:.*-->\n/, '').replace(/^\/\* FILE:.*\*\/\n/, '');
     const fileData = enc(content);
     const fileName = enc(f.path);
