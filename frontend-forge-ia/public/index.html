@@ -54,7 +54,8 @@
 
     .input-block{display:none;animation:fadeInUp .3s ease}.input-block.active{display:block}
     @keyframes fadeInUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-    textarea,input[type=text]{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:11px;color:var(--text);font-family:var(--mono);font-size:12px;padding:13px;resize:vertical;outline:none;transition:all .2s}
+    textarea,input[type=text],input[type=search],input[type=password],input[type=email],input:not([type]){width:100%;background:var(--surface);border:1px solid var(--border);border-radius:11px;color:var(--text);font-family:var(--mono);font-size:12px;padding:13px;resize:vertical;outline:none;transition:all .2s}
+    textarea::placeholder,input::placeholder{color:var(--muted);opacity:1}
     textarea{height:130px}
     #input-text{height:280px}
     textarea:focus,input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(139,92,246,.14)}
@@ -175,7 +176,7 @@
     <div class="tagline">// pipeline multi-agents · specs → app</div>
   </div>
   <div class="header-right">
-    <span class="ui-ver" title="Version de l'interface SaaS déployée">UI v6.17</span>
+    <span class="ui-ver" title="Version de l'interface SaaS déployée">UI v6.18</span>
     <button class="btn-history" id="btn-hist" onclick="toggleHistory()">📋 Historique</button>
   </div>
 </header>

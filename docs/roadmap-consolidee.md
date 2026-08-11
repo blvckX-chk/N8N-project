@@ -18,6 +18,7 @@ _Principe invariant : chaque capacité = **générateur déterministe** qui **pa
 - S-D : sécurité du pipeline (OWASP LLM Top 10 : anti-injection, neutralisation).
 
 **Robustesse & UX**
+- **Spec Linter assoupli (V1.4)** : seule la règle « spec trop courte » (< 150 car.) reste **bloquante**. Les règles `NO_ACTOR_ROUTES` (ex. `/clients` dans une pharmacie = ressource métier légitime), `MAX_6_RESOURCES` (l'Architect ignore au-delà de 6, dégradation gracieuse) et `ACCENTS_IN_ROUTES` (noms de store translittérés en ASCII par le générateur) deviennent des **avertissements** — elles ne stoppent plus une spec valide. · **Lisibilité UI** : les champs de saisie sans attribut `type` explicite (ex. ajout libre d'amélioration) reçoivent enfin les couleurs du thème sombre (fond `--surface`, texte `--text`, placeholder `--muted`) — fini le champ blanc illisible. ·
 - Specs longues (Sanitize 2 Mo + **compacteur déterministe** > 38 Ko) · personnalisation visuelle par app ·
   identification admin (badge doré + panneau Comptes) · **backlog de ressources** (prévu-non-implémenté + ajout libre) ·
   amélioration d'une app **déployée** (sans re-upload du ZIP) · sortie du **diff** d'amélioration ·
