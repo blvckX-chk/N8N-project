@@ -176,7 +176,7 @@
     <div class="tagline">// pipeline multi-agents · specs → app</div>
   </div>
   <div class="header-right">
-    <span class="ui-ver" title="Version de l'interface SaaS déployée">UI v6.18</span>
+    <span class="ui-ver" title="Version de l'interface SaaS déployée">UI v6.19</span>
     <button class="btn-history" id="btn-hist" onclick="toggleHistory()">📋 Historique</button>
   </div>
 </header>
@@ -789,7 +789,7 @@ function askApply(prompt, title, detail){
   if(!ov){
     ov=document.createElement('div'); ov.id='imp-overlay';
     ov.style.cssText='position:fixed;inset:0;background:rgba(10,14,25,.55);display:none;align-items:center;justify-content:center;z-index:2000;padding:20px';
-    ov.innerHTML='<div style="background:#fff;border-radius:14px;max-width:460px;width:100%;box-shadow:0 24px 60px rgba(0,0,0,.35);overflow:hidden"><div style="padding:16px 20px;border-bottom:1px solid var(--border,#e5e7eb);font-weight:700" id="imp-title"></div><div style="padding:16px 20px"><div id="imp-detail" style="font-size:13px;font-weight:600;margin-bottom:8px"></div><div style="font-size:11px;color:var(--muted,#6b7280);margin-bottom:10px">Appliqué à l\'app courante en mode différentiel (sans re-upload). Les fichiers existants sont préservés ; seul l\'incrément est ajouté puis re-vérifié (sécurité, Go/No-Go).</div><pre id="imp-prompt" style="background:#f6f7fb;border:1px solid var(--border,#e5e7eb);border-radius:8px;padding:10px;font-size:11px;white-space:pre-wrap;margin:0"></pre></div><div style="display:flex;gap:8px;justify-content:flex-end;padding:12px 20px;border-top:1px solid var(--border,#e5e7eb)"><button class="btn-small imp-cancel" style="background:#6b7280">Annuler</button><button class="btn-small imp-ok" style="background:#16a34a">✓ Confirmer &amp; lancer</button></div></div>';
+    ov.innerHTML='<div style="background:#fff;color:#1f2937;border-radius:14px;max-width:460px;width:100%;box-shadow:0 24px 60px rgba(0,0,0,.35);overflow:hidden"><div style="padding:16px 20px;border-bottom:1px solid var(--border,#e5e7eb);font-weight:700" id="imp-title"></div><div style="padding:16px 20px"><div id="imp-detail" style="font-size:13px;font-weight:600;margin-bottom:8px"></div><div style="font-size:11px;color:var(--muted,#6b7280);margin-bottom:10px">Appliqué à l\'app courante en mode différentiel (sans re-upload). Les fichiers existants sont préservés ; seul l\'incrément est ajouté puis re-vérifié (sécurité, Go/No-Go).</div><pre id="imp-prompt" style="background:#f6f7fb;border:1px solid var(--border,#e5e7eb);border-radius:8px;padding:10px;font-size:11px;white-space:pre-wrap;margin:0"></pre></div><div style="display:flex;gap:8px;justify-content:flex-end;padding:12px 20px;border-top:1px solid var(--border,#e5e7eb)"><button class="btn-small imp-cancel" style="background:#6b7280">Annuler</button><button class="btn-small imp-ok" style="background:#16a34a">✓ Confirmer &amp; lancer</button></div></div>';
     document.body.appendChild(ov);
     ov.addEventListener('click',function(e){ if(e.target===ov||e.target.classList.contains('imp-cancel')){ _impCancel(); } else if(e.target.classList.contains('imp-ok')){ _impConfirm(); } });
     document.addEventListener('keydown',function(e){ if(e.key==='Escape') _impCancel(); });
