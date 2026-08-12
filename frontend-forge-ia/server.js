@@ -15,12 +15,18 @@ const DEPLOY_URL = process.env.DEPLOY_URL || 'http://167.86.93.31:4001';
 // Les autres protections helmet (X-Frame-Options, HSTS, noSniff...) restent actives.
 app.use(helmet({ contentSecurityPolicy: false }));
 
-// Rate-limit global : protège le proxy contre les abus (100 req / 15 min / IP)
+// Rate-limit : protège le proxy contre les abus, MAIS ne compte que les
+// actions coûteuses (POST/PUT/DELETE : génération, amélioration, déploiement).
+// Les GET sont exemptés : le polling interne du résultat (/api/result, 1 appel
+// toutes les 5 s pendant jusqu'à 7 min = ~84 requêtes) et les lectures
+// (/api/apps, ZIP, statiques) épuisaient sinon le quota — une seule génération
+// suivie d'une amélioration dépassait 100 req/15 min → « Trop de requêtes ».
 app.use(rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.method === 'GET',
   message: { error: 'Trop de requetes — reessayez dans quelques minutes.' }
 }));
 
