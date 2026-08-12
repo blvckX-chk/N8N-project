@@ -9,13 +9,16 @@ ne doit l'être.
 | Ordre | Agent | Version | Chemin webhook | Rôle du changement |
 |---|---|---|---|---|
 | 1 | **Agent Spec Linter** | **V1.4** | `spec-linter` | règles advisory (ne bloque plus /clients, MAX_6, accents) |
-| 2 | **Agent Spec Normalizer** | **V1.11** | `spec-normalizer` | extraction prose : bornes/unités/défauts + requis/optionnel |
+| 2 | **Agent Spec Normalizer** | **V1.12** | `spec-normalizer` | extraction prose : bornes/unités/défauts + requis/optionnel ; **fix** : la liste d'enum `parmi : a, b, c` s'arrête à la frontière de champ (plus d'absorption des champs suivants séparés par virgules) |
 | 3 | **Agent Backend** | **V6.22** | `developer` | 4 points + optionnels + Tier 2 + fixes SAST/Secrets + déploiement + garde-fou SAST amélioration |
 | 4 | **Agent Frontend** | **V6.19** | `frontend` | N-N UI, optionnels, afficher/masquer mdp, Mon compte |
 | 5 | **Agent QA** | **V5.7** | `agent-qa` | strictement advisory (ne bloque plus) |
 | 6 | **Orchestrateur** | **V6.16** | (webhook `pipeline`) | transmet `improve_mode` au linter (corps HTTP) |
+| 7 | **Agent SAST** | **V5.4** | `sast` | ⚠️ **REQUIS** : SQLI-001 restreint à `req.*` — sinon faux positif critique sur `'SELECT ... FROM x' + whereSql` (concat de noms whitelistés) → STOP à tort |
 
 _(Agent Tests L0 V1.1 : déjà livré plus tôt ; réimporter seulement s'il n'est pas déjà en place.)_
+
+> **Cause du blocage « SAST critique : 1 vulnérabilité » récurrent** : l'instance faisait tourner **SAST V5.3**, dont la règle SQLI-001 large flague toute chaîne SQL suivie d'un `+`. Le backend déterministe concatène légitimement des noms de table/colonnes whitelistés (jamais `req.*`). Le **V5.4 est le correctif** et doit impérativement être importé.
 
 **Vérification faite** : les 6 chemins webhook des nouveaux agents sont **identiques** à ceux appelés par l'orchestrateur → l'orchestrateur les retrouve sans reconfiguration.
 
@@ -33,7 +36,8 @@ _(Agent Tests L0 V1.1 : déjà livré plus tôt ; réimporter seulement s'il n'e
 ## 3. Agents NON impactés — aucune action
 
 - **Architect V5.5** : *inchangé*. C'est lui qui propage l'enrichissement du Normalizer, et il le fait déjà (`Object.assign`). **Ne pas modifier.**
-- **SAST V5.4 / SCA V5.1 / Secrets V5.1 / DAST V1.4** : scannent les fichiers backend ; les nouveaux fichiers de déploiement sont propres, les endpoints Tier 2 sont sûrs (requêtes paramétrées, bcrypt, révocation). Aucun changement.
+- **SCA V5.1 / Secrets V5.1 / DAST V1.4** : scannent les fichiers backend ; les nouveaux fichiers de déploiement sont propres, les endpoints Tier 2 sont sûrs (requêtes paramétrées, bcrypt, révocation). Aucun changement.
+  - _(SAST : voir la ligne 7 du tableau §1 — le **V5.4 est requis**, contrairement à ce qui était supposé ici initialement.)_
 - **Code Review V5.0** : LLM advisory. Aucun changement.
 - **Documentation V5.5** : n'itère pas les types de champs → insensible aux champs-objets. Aucun changement.
 - **Go/No-Go V1.1** : gère `WARN`/`PASS` de QA. Aucun changement.
