@@ -10,13 +10,15 @@ ne doit l'être.
 |---|---|---|---|---|
 | 1 | **Agent Spec Linter** | **V1.4** | `spec-linter` | règles advisory (ne bloque plus /clients, MAX_6, accents) |
 | 2 | **Agent Spec Normalizer** | **V1.12** | `spec-normalizer` | extraction prose : bornes/unités/défauts + requis/optionnel ; **fix** : la liste d'enum `parmi : a, b, c` s'arrête à la frontière de champ (plus d'absorption des champs suivants séparés par virgules) |
-| 3 | **Agent Backend** | **V6.23** | `developer` | 4 points + optionnels + Tier 2 + fixes SAST/Secrets + déploiement + garde-fou SAST amélioration ; **SECURITY.md complété** (atteste Tier 2, RBAC, partage, uploads, déploiement) |
+| 3 | **Agent Backend** | **V6.24** | `developer` | 4 points + optionnels + Tier 2 + fixes SAST/Secrets + déploiement + garde-fou SAST amélioration ; **SECURITY.md complété** (Tier 2, RBAC, partage, uploads, déploiement) ; **Dockerfile durci non-root** (`USER node`) → lève le critique Semgrep `dockerfile.security.missing-user` |
 | 4 | **Agent Frontend** | **V6.19** | `frontend` | N-N UI, optionnels, afficher/masquer mdp, Mon compte |
 | 5 | **Agent QA** | **V5.7** | `agent-qa` | strictement advisory (ne bloque plus) |
 | 6 | **Orchestrateur** | **V6.16** | (webhook `pipeline`) | transmet `improve_mode` au linter (corps HTTP) |
 
 _(Agent Tests L0 V1.1 : déjà livré plus tôt ; réimporter seulement s'il n'est pas déjà en place.)_
-_(Agent SAST **V5.4** : déjà en place sur l'instance — **aucun import**. La règle SQLI-001 y est déjà restreinte aux entrées `req.*`, donc pas de faux positif sur les concaténations déterministes.)_
+_(Agent SAST **V5.4** : déjà en place sur l'instance — **aucun import**.)_
+
+> **Cause réelle du blocage « SAST critique : 1 vulnérabilité », établie sur la réponse brute du SAST** : le moteur **déterministe V5.4 passe (0 critique)** ; le critique unique venait de **Semgrep** (`engine: "semgrep"`), règle `dockerfile.security.missing-user` — le Dockerfile de déploiement (axe 3) ne fixait pas d'utilisateur non-root → conteneur en `root`. `Merge SAST` unionne les findings Semgrep, donc un seul suffit à faire STOP. **Corrigé à la source** : le Dockerfile généré finit désormais par `USER node` (uid 1000) avec `/app` et `/data` attribués à cet utilisateur. Il restait 2 warnings Semgrep **non bloquants** (nginx `$host`, nonce CSP `_n` dans `<script>` — faux positif).
 
 **Vérification faite** : les 6 chemins webhook des nouveaux agents sont **identiques** à ceux appelés par l'orchestrateur → l'orchestrateur les retrouve sans reconfiguration.
 
@@ -24,7 +26,7 @@ _(Agent SAST **V5.4** : déjà en place sur l'instance — **aucun import**. La 
 
 | Agent modifié | Sortie modifiée | Consommateurs | Verdict |
 |---|---|---|---|
-| Backend V6.23 | `files[]` (+ Dockerfile/compose/nginx/DEPLOY.md, **SECURITY.md complété**), `data_model`, `stores` | SAST, Secrets, SCA, DAST, Tests L0, QA, Code Review, Frontend (via orch.), Documentation, ZIP, Build Final Response | ✅ **compatible** : seule la génération de `SECURITY.md` change (texte statique d'attestation, aucune ligne de code exécutable → **0 règle SAST/Secrets déclenchée** ; vérifié) ; forme de `data_model` inchangée ; fichiers de déploiement propres ; Tests L0 ne cible que `server.js`/`package.json`/`index.html` |
+| Backend V6.24 | `files[]` (+ Dockerfile/compose/nginx/DEPLOY.md, **SECURITY.md complété**), `data_model`, `stores` | SAST, Secrets, SCA, DAST, Tests L0, QA, Code Review, Frontend (via orch.), Documentation, ZIP, Build Final Response | ✅ **compatible** : seule la génération de `SECURITY.md` change (texte statique d'attestation, aucune ligne de code exécutable → **0 règle SAST/Secrets déclenchée** ; vérifié) ; forme de `data_model` inchangée ; fichiers de déploiement propres ; Tests L0 ne cible que `server.js`/`package.json`/`index.html` |
 | Frontend V6.19 | `_app_js`, `_login_html`, `html/css` | ZIP, Build Final Response | ✅ fichiers front autonomes, aucun agent aval ne les re-parse |
 | Normalizer V1.12 | `data_model` enrichi `{type:'number', min, max, unit, default}` + `required_fields` | **Architect** → Backend → Frontend | ✅ **vérifié** : l'Architect fait `Object.assign({id,created_at}, res.fields)` → les objets enrichis sont **préservés par référence** ; `classifyField` (Backend + Frontend) les honore |
 | QA V5.7 | `status` (jamais `FAIL`) | Go/No-Go | ✅ Go/No-Go ne fait REWORK que sur `QA=FAIL` → plus de REWORK QA ; `WARN`/`PASS` déjà gérés |
