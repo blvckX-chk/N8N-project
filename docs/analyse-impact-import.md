@@ -14,13 +14,14 @@ ne doit l'être.
 | 4 | **Agent Frontend** | **V6.19** | `frontend` | N-N UI, optionnels, afficher/masquer mdp, Mon compte |
 | 5 | **Agent QA** | **V5.7** | `agent-qa` | strictement advisory (ne bloque plus) |
 | 6 | **Orchestrateur** | **V6.16** | (webhook `pipeline`) | transmet `improve_mode` au linter (corps HTTP) |
+| 7 | **Agent SAST** | **V5.5** | `sast` | **Semgrep advisory** : le moteur déterministe reste seul juge du STOP ; les critiques Semgrep non corroborées sont rétrogradées en avertissements (rapportées, jamais bloquantes) → plus de STOP sur faux positif Semgrep |
 
 _(Agent Tests L0 V1.1 : déjà livré plus tôt ; réimporter seulement s'il n'est pas déjà en place.)_
-_(Agent SAST **V5.4** : déjà en place sur l'instance — **aucun import**.)_
+_(SAST : V5.4 = mêmes règles déterministes ; V5.5 ajoute la posture **Semgrep advisory** dans `Merge SAST`. Deux protections indépendantes contre le STOP Dockerfile : correction à la source (Backend V6.24) **et** advisory (V5.5).)_
 
 > **Cause réelle du blocage « SAST critique : 1 vulnérabilité », établie sur la réponse brute du SAST** : le moteur **déterministe V5.4 passe (0 critique)** ; le critique unique venait de **Semgrep** (`engine: "semgrep"`), règle `dockerfile.security.missing-user` — le Dockerfile de déploiement (axe 3) ne fixait pas d'utilisateur non-root → conteneur en `root`. `Merge SAST` unionne les findings Semgrep, donc un seul suffit à faire STOP. **Corrigé à la source** : le Dockerfile généré finit désormais par `USER node` (uid 1000) avec `/app` et `/data` attribués à cet utilisateur. Il restait 2 warnings Semgrep **non bloquants** (nginx `$host`, nonce CSP `_n` dans `<script>` — faux positif).
 
-**Vérification faite** : les 6 chemins webhook des nouveaux agents sont **identiques** à ceux appelés par l'orchestrateur → l'orchestrateur les retrouve sans reconfiguration.
+**Vérification faite** : les chemins webhook des nouveaux agents sont **identiques** à ceux appelés par l'orchestrateur → l'orchestrateur les retrouve sans reconfiguration.
 
 ## 2. Impact inter-agents (ce que j'ai changé × qui le consomme)
 
@@ -36,7 +37,8 @@ _(Agent SAST **V5.4** : déjà en place sur l'instance — **aucun import**.)_
 ## 3. Agents NON impactés — aucune action
 
 - **Architect V5.5** : *inchangé*. C'est lui qui propage l'enrichissement du Normalizer, et il le fait déjà (`Object.assign`). **Ne pas modifier.**
-- **SAST V5.4 / SCA V5.1 / Secrets V5.1 / DAST V1.4** : déjà en place, scannent les fichiers backend. Le `SECURITY.md` complété est du texte statique (aucune ligne exécutable) → 0 règle déclenchée ; les fichiers de déploiement sont propres ; les endpoints Tier 2 sont sûrs (requêtes paramétrées, bcrypt, révocation). Aucun changement.
+- **SCA V5.1 / Secrets V5.1 / DAST V1.4** : scannent les fichiers backend. Le `SECURITY.md` complété est du texte statique (aucune ligne exécutable) → 0 règle déclenchée ; les fichiers de déploiement sont propres ; les endpoints Tier 2 sont sûrs (requêtes paramétrées, bcrypt, révocation). Aucun changement.
+  - _(SAST : passe à **V5.5** — voir ligne 7 §1. Le moteur déterministe est inchangé ; seul `Merge SAST` change de posture Semgrep.)_
 - **Code Review V5.0** : LLM advisory. Aucun changement.
 - **Documentation V5.5** : n'itère pas les types de champs → insensible aux champs-objets. Aucun changement.
 - **Go/No-Go V1.1** : gère `WARN`/`PASS` de QA. Aucun changement.
@@ -45,7 +47,7 @@ _(Agent SAST **V5.4** : déjà en place sur l'instance — **aucun import**.)_
 ## 4. Couplages
 
 - **Aucun couplage bloquant** : chaque agent peut être importé indépendamment.
-- Pour la fonctionnalité **complète** (amélioration en place + enrichissement + Tier 2 + déploiement + sécurité de l'amélioration), importer les **6**.
+- Pour la fonctionnalité **complète** (amélioration en place + enrichissement + Tier 2 + déploiement + sécurité de l'amélioration), importer les **7** (SAST V5.5 inclus).
 - L'**amélioration en place** exige spécifiquement **Orchestrateur V6.16** (corps `improve_mode`) **+** un Spec Linter ≥ V1.3 (bypass présent ; V1.4 recommandé).
 
 ## 5. Procédure d'import (n8n)
