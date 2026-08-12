@@ -465,7 +465,11 @@ function addToHistory(data){
     const match = (readmeFile.content || '').match(/^#\s+(.+)/m);
     if (match) projectName = match[1].trim().substring(0, 40);
   }
-  h.unshift({id:data.task_id||('PROJ-'+Date.now()),date:new Date().toISOString(),summary:data.summary||'Projet généré',project_name:projectName,zip_name:currentZipName||('ForgeIA-'+projectName.replace(/[^a-zA-Z0-9]/g,'-')+'-v'+(getProjectVersion()||'1.0')),version:getProjectVersion(),improve_mode:currentTab==='improve',decision:data.decision||'',files_count:currentFiles.length,input_type:currentTab,language:document.getElementById('cfg-lang').value,framework:document.getElementById('cfg-fw').value,files:currentFiles});
+  // Métadonnées d'amélioration (émises sous data.results) — persistées pour que
+  // la restauration depuis l'historique retrouve les MÊMES options d'amélioration
+  // (propositions ✨, ressources prévues 📋, diff) que le résultat en direct.
+  const _R = data.results || data;
+  h.unshift({id:data.task_id||('PROJ-'+Date.now()),date:new Date().toISOString(),summary:data.summary||'Projet généré',project_name:projectName,zip_name:currentZipName||('ForgeIA-'+projectName.replace(/[^a-zA-Z0-9]/g,'-')+'-v'+(getProjectVersion()||'1.0')),version:getProjectVersion(),improve_mode:currentTab==='improve',decision:data.decision||'',files_count:currentFiles.length,input_type:currentTab,language:document.getElementById('cfg-lang').value,framework:document.getElementById('cfg-fw').value,files:currentFiles,suggestions:_R.suggestions||[],planned:_R.planned_not_implemented||[],improvements:_R.improvements||null,blocking_reasons:data.blocking_reasons||[]});
   if(h.length>50)h.pop();
   saveHistory(h);
 }
@@ -534,7 +538,11 @@ function renderHistory(){
     else if(action==='del'&&!isNaN(idx)){e.stopPropagation();delHistory(idx);}
   };
 }
-function restoreHistory(i){const h=getHistory(),item=h[i];if(!item)return;currentFiles=item.files||[];currentTaskId=item.id;document.getElementById('history-view').style.display='none';document.getElementById('result-view').style.display='block';document.getElementById('btn-hist').classList.remove('active');renderResult({success:true,task_id:item.id,summary:item.summary,decision:item.decision,results:{files:item.files}},0);}
+function restoreHistory(i){const h=getHistory(),item=h[i];if(!item)return;currentFiles=item.files||[];currentTaskId=item.id;document.getElementById('history-view').style.display='none';document.getElementById('result-view').style.display='block';document.getElementById('btn-hist').classList.remove('active');
+  // Restaure aussi les métadonnées d'amélioration : renderResult repeuple alors
+  // window._suggestions / window._planned -> les boutons ✨ Appliquer, ➕ Ajouter
+  // et le champ d'ajout libre redeviennent disponibles sur la version restaurée.
+  renderResult({success:item.decision!=='STOP',task_id:item.id,summary:item.summary,decision:item.decision,blocking_reasons:item.blocking_reasons||[],results:{files:item.files||[],suggestions:item.suggestions||[],planned_not_implemented:item.planned||[],improvements:item.improvements||undefined}},0);}
 async function dlHistoryZip(i){
   const h=getHistory(),item=h[i];
   if(!item||!item.files||!item.files.length)return;
