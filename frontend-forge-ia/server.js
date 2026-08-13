@@ -5,7 +5,9 @@ const helmet    = require('helmet');
 const rateLimit = require('express-rate-limit');
 const app  = express();
 const PORT = process.env.PORT || 3000;
-const APP_VERSION = '5.0.0';
+const APP_VERSION = '5.1.0';
+const UI_BUILD    = '6.20';   // aligné sur le badge « UI v6.20 » de public/index.html
+const START_TIME  = new Date().toISOString();   // horodatage du démarrage du process (preuve de restart)
 // URLs externalisées — surchargeables via variables d'environnement (fallback sur le VPS)
 const N8N_URL    = process.env.N8N_URL    || 'http://167.86.93.31:5688/webhook/pipeline';
 const DEPLOY_URL = process.env.DEPLOY_URL || 'http://167.86.93.31:4001';
@@ -31,6 +33,11 @@ app.use(rateLimit({
 }));
 
 app.use(express.json({ limit: '10mb' }));
+
+// Vérifier la version du serveur EN COURS D'EXÉCUTION (pas seulement le fichier
+// sur disque) : GET exempté du rate-limit. -> curl http://localhost:3100/api/version
+app.get('/api/version', (req, res) => res.json({ app_version: APP_VERSION, ui_build: UI_BUILD, started_at: START_TIME }));
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Stockage en mémoire des résultats en attente
