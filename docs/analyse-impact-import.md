@@ -10,8 +10,8 @@ ne doit l'être.
 |---|---|---|---|---|
 | 1 | **Agent Spec Linter** | **V1.4** | `spec-linter` | règles advisory (ne bloque plus /clients, MAX_6, accents) |
 | 2 | **Agent Spec Normalizer** | **V1.12** | `spec-normalizer` | extraction prose : bornes/unités/défauts + requis/optionnel ; **fix** : la liste d'enum `parmi : a, b, c` s'arrête à la frontière de champ (plus d'absorption des champs suivants séparés par virgules) |
-| 3 | **Agent Backend** | **V6.24** | `developer` | 4 points + optionnels + Tier 2 + fixes SAST/Secrets + déploiement + garde-fou SAST amélioration ; **SECURITY.md complété** (Tier 2, RBAC, partage, uploads, déploiement) ; **Dockerfile durci non-root** (`USER node`) → lève le critique Semgrep `dockerfile.security.missing-user` |
-| 4 | **Agent Frontend** | **V6.19** | `frontend` | N-N UI, optionnels, afficher/masquer mdp, Mon compte |
+| 3 | **Agent Backend** | **V6.25** | `developer` | … (comme V6.24) + **filtres LIST par colonne** (enum/booléen/FK égalité, nombres min/max) + **plage de dates** `created_at`, liste blanche stricte + valeurs paramétrées |
+| 4 | **Agent Frontend** | **V6.20** | `frontend` | N-N UI, optionnels, afficher/masquer mdp, Mon compte + **UI de filtres** (select enum/booléen, min/max, plage de dates) reliée au backend ; export CSV filtré |
 | 5 | **Agent QA** | **V5.7** | `agent-qa` | strictement advisory (ne bloque plus) |
 | 6 | **Orchestrateur** | **V6.16** | (webhook `pipeline`) | transmet `improve_mode` au linter (corps HTTP) |
 | 7 | **Agent SAST** | **V5.5** | `sast` | **Semgrep advisory** : le moteur déterministe reste seul juge du STOP ; les critiques Semgrep non corroborées sont rétrogradées en avertissements (rapportées, jamais bloquantes) → plus de STOP sur faux positif Semgrep |
@@ -27,8 +27,8 @@ _(SAST : V5.4 = mêmes règles déterministes ; V5.5 ajoute la posture **Semgrep
 
 | Agent modifié | Sortie modifiée | Consommateurs | Verdict |
 |---|---|---|---|
-| Backend V6.24 | `files[]` (+ Dockerfile/compose/nginx/DEPLOY.md, **SECURITY.md complété**), `data_model`, `stores` | SAST, Secrets, SCA, DAST, Tests L0, QA, Code Review, Frontend (via orch.), Documentation, ZIP, Build Final Response | ✅ **compatible** : seule la génération de `SECURITY.md` change (texte statique d'attestation, aucune ligne de code exécutable → **0 règle SAST/Secrets déclenchée** ; vérifié) ; forme de `data_model` inchangée ; fichiers de déploiement propres ; Tests L0 ne cible que `server.js`/`package.json`/`index.html` |
-| Frontend V6.19 | `_app_js`, `_login_html`, `html/css` | ZIP, Build Final Response | ✅ fichiers front autonomes, aucun agent aval ne les re-parse |
+| Backend V6.25 | `files[]` (+ Dockerfile/compose/nginx/DEPLOY.md, **SECURITY.md complété**), `data_model`, `stores` | SAST, Secrets, SCA, DAST, Tests L0, QA, Code Review, Frontend (via orch.), Documentation, ZIP, Build Final Response | ✅ **compatible** : seule la génération de `SECURITY.md` change (texte statique d'attestation, aucune ligne de code exécutable → **0 règle SAST/Secrets déclenchée** ; vérifié) ; forme de `data_model` inchangée ; fichiers de déploiement propres ; Tests L0 ne cible que `server.js`/`package.json`/`index.html` |
+| Frontend V6.20 | `_app_js`, `_login_html`, `html/css` | ZIP, Build Final Response | ✅ fichiers front autonomes, aucun agent aval ne les re-parse |
 | Normalizer V1.12 | `data_model` enrichi `{type:'number', min, max, unit, default}` + `required_fields` | **Architect** → Backend → Frontend | ✅ **vérifié** : l'Architect fait `Object.assign({id,created_at}, res.fields)` → les objets enrichis sont **préservés par référence** ; `classifyField` (Backend + Frontend) les honore |
 | QA V5.7 | `status` (jamais `FAIL`) | Go/No-Go | ✅ Go/No-Go ne fait REWORK que sur `QA=FAIL` → plus de REWORK QA ; `WARN`/`PASS` déjà gérés |
 | Spec Linter V1.4 | `errors[]` (moins d'erreurs) | orchestrateur `IF LINTER PASS?` | ✅ forme inchangée, juste moins de blocages |
