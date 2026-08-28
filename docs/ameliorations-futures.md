@@ -8,7 +8,7 @@ Feuille de route proposée pour la suite, après l'axe 3 (déploiement clef-en-m
 
 ## Thème A — UI moderne
 
-- ⭐ **Édition en ligne + actions groupées** : éditer une ligne sans quitter la liste ; cases à cocher pour supprimer/exporter en lot (endpoints déjà scopés user_id → aucune surface nouvelle).
+- ✅ **Actions groupées** — **livré** (Frontend V6.21) : cases à cocher par ligne + « tout sélectionner », barre d'actions (supprimer la sélection, exporter la sélection en CSV). La suppression en lot boucle sur l'endpoint DELETE déjà scopé `user_id` (IDOR-safe, vérifié : 404 sur id non possédé) ; l'export sélection est client-side avec neutralisation d'injection de formule. _Édition en ligne : l'édition via formulaire (✏️) reste en place ; l'édition inline-dans-la-ligne pourra suivre._
 - ✅ **Filtres par colonne + plage de dates** — **livré** (Backend V6.25 + Frontend V6.20) : filtres enum/booléen (select), plages numériques (min/max), plage de dates sur `created_at`. Liste blanche de colonnes côté serveur + valeurs paramétrées → anti-injection vérifié (tests fonctionnels + injection sur vraie app SQLite). L'export CSV respecte les filtres actifs.
 - **PWA installable** : `manifest.json` + service worker minimal (cache des assets statiques uniquement, jamais de donnée métier → pas de fuite hors ligne). L'app devient installable sur mobile/desktop.
 - **Composants plus riches** : en-têtes de tableau collants, états vides illustrés, squelettes de chargement, vue détail imprimable soignée, jeu d'icônes SVG inline par ressource (0 dépendance CDN → CSP stricte préservée).
