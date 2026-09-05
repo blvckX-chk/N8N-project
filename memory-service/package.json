@@ -1,0 +1,11 @@
+{
+  "name": "forge-ia-memory",
+  "version": "1.0.0",
+  "description": "Couche mémoire / RAG de Forge IA — stockage vectoriel SQLite + recherche cosinus (abstraction remplaçable par Qdrant).",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "dependencies": {
+    "express": "^4.18.2",
+    "better-sqlite3": "^9.4.3"
+  }
+}
