@@ -563,3 +563,53 @@ passée intacte** (compacteur inactif) ; Sanitize laisse passer 560 Ko sans tron
 
 **À importer** : `Orchestrateur_V6.9.json`, `Agent_Spec_Normalizer_V1.8.json`,
 `Agent_Architect_V5.4.json` (+ panneau `index.html`).
+
+---
+
+## Sprint Mémoire — Couche 4 : RAG / mémoire vectorielle (en cours)
+
+**Contexte** : le protocole prévoyait une couche mémoire (RAG). Jusqu'ici l'agent Knowledge/Memory était un **stub non persistant** (routage READ/WRITE sans stockage). Ce sprint la rend **réelle**, en gardant l'invariant thèse (déterministe + sécurité) et une abstraction **remplaçable par Qdrant**.
+
+### Artefacts livrés
+- **`memory-service/`** — microservice de stockage vectoriel (Express + better-sqlite3).
+  - `POST /store {kind, project?, text, vector[], meta?}` : embedding **normalisé** (norme 1) stocké en BLOB Float32.
+  - `POST /search {vector[], k?, project?, kind?, min_score?}` : **top-k par similarité cosinus** (= produit scalaire sur vecteurs normalisés), filtres `project`/`kind` en **liste blanche**.
+  - `GET /health`, `GET /stats`, `DELETE /memory/:id`.
+  - Dockerfile **non-root**, base persistée en volume `/data`.
+- **Agent Knowledge/Memory V2.0** (`Agent_Knowledge_Memory_V2.0.json`) — nœuds `Validate Input`, `Store Logic`, `Retrieve Logic` réécrits :
+  - WRITE : embedding via **Mistral `mistral-embed`** → `POST /store`.
+  - READ : embedding de la requête → `POST /search` → entrées pertinentes.
+  - **Non bloquant** : toute panne (embedding ou service mémoire indisponible) renvoie un résultat dégradé (`degraded:true`) sans jamais faire échouer le pipeline (mémoire = advisory).
+
+### Décisions d'arbitrage
+| Décision | Choix | Justification |
+|---|---|---|
+| Backend vectoriel | **SQLite + cosinus en mémoire** (pas Qdrant) | Zéro dépendance nouvelle, cohérent avec le reste du système, suffisant pour le volume d'un mémoire ; abstraction `store`/`search` → **swap Qdrant** possible sans toucher aux agents |
+| Où sont calculés les embeddings | **Agent n8n** (credential Mistral) | Le service mémoire ne détient **aucune clé** — il ne fait que stocker/classer |
+| Similarité | Cosinus (vecteurs normalisés → produit scalaire) | Standard RAG ; calcul instantané à cette échelle |
+| Sécurité service | Jeton `X-Memory-Token` (temps constant) + **refus de stocker un secret** (AWS/OpenAI/Groq/PEM/JWT) | Défense en profondeur ; la mémoire ne doit jamais fuiter de secret |
+| Robustesse | Mémoire **non bloquante** | Couche 4 advisory : une panne mémoire ne casse pas une génération |
+
+### Preuves de test (exécutées)
+**Service mémoire** (vrai SQLite + HTTP) :
+```
+store x3 (vecteurs 3D) → id 1,2,3
+search [1,0,0] k=3 → produit 1.000 > article 0.994 > auth 0.000   (ranking cosinus exact)
+filtre kind=pattern → exclut la 'decision'
+secret 'AKIA…' → HTTP 422 (refusé)   |   mauvais jeton → HTTP 401   |   dim 4D vs 3D → 0 résultat
+```
+**Agent V2.0** (nœuds exécutés en async avec mocks HTTP) :
+```
+Validate WRITE/READ → payload normalisé {task_id,operation,kind,project,text,k,meta}
+Store OK       → status STORED, stored:true, entry_id
+Store dégradé  → status STORED, stored:false, degraded:true   (ECONNREFUSED, non bloquant)
+Retrieve OK    → count=2, entries triées par score
+Retrieve dégr. → count=0, degraded:true                        (non bloquant)
+```
+
+### Reste à faire (prochaine étape)
+1. **Déployer le service mémoire** sur le VPS (`docker build/run`, port 4002, `MEMORY_TOKEN`).
+2. **Config n8n** : variables d'env `MEMORY_URL`, `MEMORY_TOKEN` (et `MISTRAL_API_KEY` déjà présent) ; importer/activer Agent Knowledge/Memory V2.0.
+3. **Branchement orchestrateur** (RAG *actif*) : lecture mémoire avant l'Architect (injection des patterns validés dans le contexte) + écritures après génération (specs, décisions SAST/QA). À appliquer **après** le déploiement du service, pour vérifier de bout en bout (l'orchestrateur est le workflow le plus critique — pas de modification à l'aveugle).
+
+**À importer** : `Agent_Knowledge_Memory_V2.0.json` (+ déployer `memory-service/`).
