@@ -1,0 +1,2434 @@
+{
+  "name": "Orchestrateur V6.17",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "pipeline",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "2d787f2d-d5b3-44d9-9a1d-02d30047bc5b",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -232432,
+        -23936
+      ],
+      "webhookId": "4648cf15-5cca-4762-bb41-bbbce55b95a9"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/architect",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "=={{ JSON.stringify({\n  task_id:     $('Validate Input').first().json.task_id,\n  userRequest: $('Validate Input').first().json.userRequest\n}) }}",
+        "options": {}
+      },
+      "id": "3be21094-483e-43ba-9849-44d5d651f8d1",
+      "name": "Agent Architect",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -225984,
+        -23872
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/developer",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "==={{ JSON.stringify({\n  task_id:            $('Validate Input').first().json.task_id,\n  userRequest:        $('Build Backend Payload').first().json.userRequest,\n  language:           $('Validate Input').first().json.language,\n  framework:          $('Validate Input').first().json.framework,\n  improve_mode:       $('Build Backend Payload').first().json.improve_mode || false,\n  improve_prompt:     $('Build Backend Payload').first().json.improve_prompt || '',\n  architecture:       $('Build Backend Payload').first().json.architecture || {},\n  priority_endpoints: $('Build Backend Payload').first().json.priority_endpoints || [],\n  mvp_scope:          $('Build Backend Payload').first().json.mvp_scope || '',\n  data_model:         $('Build Backend Payload').first().json.data_model || {},\n  stores:             $('Build Backend Payload').first().json.stores || {},\n  existing_server_js: $('Build Backend Payload').first().json.existing_server_js || '',\n  existing_routes:    $('Build Backend Payload').first().json.existing_routes || [],\n  existing_stores:    $('Build Backend Payload').first().json.existing_stores || {},\n  existing_version:   $('Build Backend Payload').first().json.existing_version || '1.0',\n  backend_instructions: $('Build Backend Payload').first().json.backend_instructions || []\n}) }}\n",
+        "options": {}
+      },
+      "id": "c08d7b85-1457-44fc-b5ba-49264412d689",
+      "name": "Agent Backend",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -225280,
+        -23872
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/frontend",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "==={{ JSON.stringify({\n  task_id:            $('Validate Input').first().json.task_id,\n  userRequest:        $('Validate Input').first().json.userRequest,\n  improve_mode:       $('Build Frontend Payload').first().json.improve_mode || false,\n  architecture:       $('Build Frontend Payload').first().json.architecture || {},\n  priority_endpoints: $('Build Frontend Payload').first().json.priority_endpoints || [],\n  mvp_scope:          $('Build Frontend Payload').first().json.mvp_scope || '',\n  project_name:       $('Build Frontend Payload').first().json.project_name || '',\n  data_model:         $('Build Frontend Payload').first().json.data_model || {},\n  stores:             $('Build Frontend Payload').first().json.stores || {},\n  frontend_instructions: $('Build Frontend Payload').first().json.frontend_instructions || []\n}) }}",
+        "options": {}
+      },
+      "id": "9ec2c5a2-de35-4c4b-b3c2-f2e0207d0d94",
+      "name": "Agent Frontend",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -224800,
+        -23888
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\n// Parsing securise du body — JSON.parse sans try/catch = crash si body non-JSON\nlet body;\nif (raw.body && typeof raw.body === 'object') {\n  body = raw.body;\n} else if (typeof raw.body === 'string') {\n  try {\n    body = JSON.parse(raw.body.replace(/^=+/, '').trim());\n  } catch(e) {\n    body = raw;\n  }\n} else {\n  body = raw;\n}\n\n// Les payloads binaires volumineux (ZIP a ameliorer, PDF de specs) ne sont PAS\n// propages par la chaine d extraction : Detect Input et Build PDF/DOCX Context\n// reconstruisent un objet allege qui les omet. On les relit donc directement\n// depuis le Webhook, source de verite du run. Meme pattern que Extract PDF Text.\nconst _wh = $('Webhook').first().json;\nconst _whBody = (_wh && _wh.body && typeof _wh.body === 'object') ? _wh.body : (_wh || {});\n\nif (!body.task_id) throw new Error('task_id requis');\nreturn [{ json: {\n  task_id:              String(body.task_id),\n  userRequest:          String(body.userRequest || ''),\n  environment:          String(body.environment || 'staging'),\n  language:             String(body.language    || 'javascript'),\n  framework:            String(body.framework   || 'express'),\n  input_type:           String(body.input_type  || 'direct'),\n  improve_mode:         body.improve_mode         || _whBody.improve_mode || false,\n  improve_prompt:       body.improve_prompt       || body.userRequest || '',\n  existing_zip_base64:  body.existing_zip_base64   || _whBody.existing_zip_base64   || null,\n  existing_zip_filename: body.existing_zip_filename || _whBody.existing_zip_filename || null,\n  pdf_base64:           body.pdf_base64            || _whBody.pdf_base64 || null,\n  pdf_filename:         body.pdf_filename           || _whBody.pdf_filename || null,\n  specs_context:        body.specs_context          || null\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -229520,
+        -23872
+      ],
+      "id": "1e16aef6-c758-4266-9300-1bd3458eaab0",
+      "name": "Validate Input"
+    },
+    {
+      "parameters": {
+        "jsCode": "const arch    = $input.first().json;\nconst initial = $('Validate Input').first().json;\n\n// ── Récupérer les artifacts du LLM Architect ──────────────────────────────────\nconst llmArtifacts = arch.artifacts || arch.architecture || arch.specs || arch.data || arch.result || arch;\n\n// ── Récupérer les invariants déterministes depuis Build Architect Payload ──────\n// Ces invariants sont issus du Spec Normalizer — endpoints et stores exacts\nlet deterministicArtifacts = null;\ntry {\n  deterministicArtifacts = $('Build Architect Payload').first().json._deterministic_artifacts || null;\n} catch(e) {}\n\n// ── FUSION : LLM enrichit, Normalizer contraint ───────────────────────────────\n// INVARIANTS (Normalizer) : priority_endpoints, stores, data_model\n// ENRICHISSEMENTS (LLM)   : mvp_scope, deferred, abuse_cases, project_name, architecture\n\nconst finalEndpoints = (deterministicArtifacts && deterministicArtifacts.priority_endpoints &&\n                         deterministicArtifacts.priority_endpoints.length > 0)\n  ? deterministicArtifacts.priority_endpoints\n  : (llmArtifacts.priority_endpoints && llmArtifacts.priority_endpoints.length > 0)\n    ? llmArtifacts.priority_endpoints : [];\n\nconst finalStores = (deterministicArtifacts && deterministicArtifacts.stores &&\n                      Object.keys(deterministicArtifacts.stores).length > 0)\n  ? deterministicArtifacts.stores\n  : (llmArtifacts.stores && Object.keys(llmArtifacts.stores).length > 0)\n    ? llmArtifacts.stores : {};\n\nconst finalDataModel = (deterministicArtifacts && deterministicArtifacts.data_model &&\n                         Object.keys(deterministicArtifacts.data_model).length > 0)\n  ? deterministicArtifacts.data_model\n  : (llmArtifacts.data_model && Object.keys(llmArtifacts.data_model).length > 0)\n    ? llmArtifacts.data_model : {};\n\n// Enrichissements LLM — avec sanitisation anti-hallucination\n// mvp_scope : string max 300 chars\nconst rawMvpScope = llmArtifacts.mvp_scope;\nconst finalMvpScope = (typeof rawMvpScope === 'string' && rawMvpScope.length > 0)\n  ? rawMvpScope.substring(0, 300)\n  : (deterministicArtifacts ? 'MVP ' + deterministicArtifacts.project_name : '');\n\n// deferred : tableau de strings uniquement\nconst rawDeferred = llmArtifacts.deferred;\nconst finalDeferred = Array.isArray(rawDeferred)\n  ? rawDeferred.map(d => typeof d === 'string' ? d : (d && d.feature ? d.feature : String(d))).filter(d => d.length > 0).slice(0, 10)\n  : [];\n\n// abuse_cases : tableau de strings\nconst rawAbuse = llmArtifacts.abuse_cases;\nconst finalAbuseCases = Array.isArray(rawAbuse)\n  ? rawAbuse.map(a => typeof a === 'string' ? a : (a && a.name ? a.name : String(a))).filter(a => a.length > 0).slice(0, 8)\n  : [];\n\n// project_name : string courte sans caractères dangereux\nconst rawProjectName = llmArtifacts.project_name;\nconst finalProjectName = (typeof rawProjectName === 'string' && rawProjectName.length > 0 && rawProjectName.length < 50)\n  ? rawProjectName.replace(/[<>\"'&;]/g, '').trim()\n  : (deterministicArtifacts && deterministicArtifacts.project_name) || '';\n\nconst mergedArtifacts = {\n  stack:       llmArtifacts.stack       || 'Node.js / Express',\n  architecture:llmArtifacts.architecture || 'MVC',\n  auth:        llmArtifacts.auth         || 'none',\n  database:    llmArtifacts.database     || 'none',\n  project_name:     finalProjectName,\n  mvp_scope:        finalMvpScope,\n  priority_endpoints: finalEndpoints,\n  data_model:       finalDataModel,\n  stores:           finalStores,\n  deferred:         finalDeferred,\n  abuse_cases:      finalAbuseCases,\n  file_manifest:    llmArtifacts.file_manifest || ['server.js','package.json','.env.example','frontend/index.html','frontend/style.css','frontend/app.js']\n};\n\n// ── Contexte ZIP si mode amélioration ────────────────────────────────────────\nlet existingServerJs = '';\nlet existingRoutes   = [];\nlet existingStores   = {};\nlet existingVersion  = '1.0';\ntry {\n  const zipResult = $('Agent ZIP Analyzer').first().json;\n  if (zipResult && zipResult.improve_mode) {\n    existingServerJs = zipResult.existing_server_js || '';\n    existingRoutes   = zipResult.existing_routes    || [];\n    existingStores   = zipResult.existing_stores    || {};\n    existingVersion  = zipResult.existing_version   || '1.0';\n  }\n} catch(e) {}\n\nreturn [{\n  json: {\n    task_id:            initial.task_id,\n    environment:        initial.environment || 'staging',\n    userRequest:        (initial.improve_mode && initial.specs_context)\n                          ? initial.specs_context : initial.userRequest,\n    improve_prompt:     initial.improve_mode ? (initial.improve_prompt || initial.userRequest) : '',\n    language:           initial.language,\n    framework:          initial.framework,\n    improve_mode:       initial.improve_mode || false,\n    architecture:       mergedArtifacts,\n    priority_endpoints: finalEndpoints,\n    mvp_scope:          finalMvpScope,\n    project_name:       finalProjectName,\n    data_model:         finalDataModel,\n    stores:             finalStores,\n    shared_resources:   (initial.shared_resources\n                          || (mergedArtifacts && mergedArtifacts.shared_resources)\n                          || Object.keys(finalStores).filter(function(k){ return finalStores[k] && finalStores[k].shared; }).map(function(k){ return finalStores[k].store_name; })),\n    roles:              (initial.roles || (mergedArtifacts && mergedArtifacts.roles) || []),\n    permissions:        (initial.permissions || (mergedArtifacts && mergedArtifacts.permissions) || {}),\n    existing_server_js: existingServerJs,\n    existing_routes:    existingRoutes,\n    existing_stores:    existingStores,\n    existing_version:   existingVersion,\n    backend_instructions: mergedArtifacts.backend_instructions || []\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -225616,
+        -24016
+      ],
+      "id": "d02a75b2-6dd5-42f2-b84c-dc97669a4a16",
+      "name": "Build Backend Payload"
+    },
+    {
+      "parameters": {
+        "jsCode": "const backend   = $input.first().json;\nconst initial   = $('Validate Input').first().json;\nconst artifacts = backend.artifacts || backend.architecture || {};\n\nconst stores = (backend.stores && Object.keys(backend.stores).length > 0)\n  ? backend.stores\n  : (artifacts.stores && Object.keys(artifacts.stores).length > 0) ? artifacts.stores : {};\n\nconst dataModel = (backend.data_model && Object.keys(backend.data_model).length > 0)\n  ? backend.data_model\n  : (artifacts.data_model && Object.keys(artifacts.data_model).length > 0) ? artifacts.data_model : {};\n\nconst endpoints = (backend.priority_endpoints && backend.priority_endpoints.length > 0)\n  ? backend.priority_endpoints\n  : (artifacts.priority_endpoints && artifacts.priority_endpoints.length > 0) ? artifacts.priority_endpoints : [];\n\n// project_name : ordre de priorité\n// 1. _deterministic_artifacts (Normalizer + specs_context → toujours correct)\n// 2. Build Backend Payload (LLM enrichment)\n// 3. backend.project_name / artifacts.project_name (fallbacks)\nlet projectName = '';\ntry { projectName = $('Build Architect Payload').first().json._deterministic_artifacts?.project_name || ''; } catch(e) {}\nif (!projectName) { try { projectName = $('Build Backend Payload').first().json.project_name || ''; } catch(e) {} }\nif (!projectName) { projectName = backend.project_name || artifacts.project_name || ''; }\n\nconst mvpScope = backend.mvp_scope || artifacts.mvp_scope\n  || (() => { try { return $('Build Backend Payload').first().json.mvp_scope || ''; } catch(e) { return ''; } })()\n  || projectName;\n\nreturn [{ json: {\n  task_id:               initial.task_id,\n  userRequest:           initial.userRequest,\n  improve_mode:          initial.improve_mode || false,\n  architecture:          artifacts,\n  priority_endpoints:    endpoints,\n  mvp_scope:             mvpScope,\n  project_name:          projectName,\n  data_model:            dataModel,\n  stores:                stores,\n  roles:                 (initial.roles || artifacts.roles || (function(){ try { return $('Build Backend Payload').first().json.roles || []; } catch(e){ return []; } })()),\n  permissions:           (initial.permissions || artifacts.permissions || (function(){ try { return $('Build Backend Payload').first().json.permissions || {}; } catch(e){ return {}; } })()),\n  frontend_instructions: artifacts.frontend_instructions || []\n}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -225104,
+        -23872
+      ],
+      "id": "b8a07d58-8404-4302-ba4f-6d27a2b94fb7",
+      "name": "Build Frontend Payload"
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial  = $('Validate Input').first().json;\nconst backend  = $('Agent Backend').first().json;\nconst frontend = $('Agent Frontend').first().json;\n\nconst files = [\n  ...(backend.files  || []),\n  ...(frontend.files || [])\n];\nconst code = files.map(f =>\n  `// FILE: ${f.path}\\n${f.content || ''}`\n).join('\\n\\n') || '// no code';\n\nreturn [{\n  json: {\n    task_id:  initial.task_id,\n    language: initial.language,\n    code,\n    files\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -223568,
+        -24304
+      ],
+      "id": "c8303043-4fd6-4468-93c7-4b46f6ceed5b",
+      "name": "Build Review Payload"
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial  = $('Validate Input').first().json;\nconst backend  = $('Agent Backend').first().json;\nconst frontend = $('Agent Frontend').first().json;\n\nconst files = [\n  ...(backend.files  || []),\n  ...(frontend.files || [])\n];\nconst code = files.map(f =>\n  `// FILE: ${f.path}\\n${f.content || ''}`\n).join('\\n\\n') || '// no code';\n\nreturn [{\n  json: {\n    task_id:  initial.task_id,\n    language: initial.language,\n    code,\n    files\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -223600,
+        -24144
+      ],
+      "id": "f6f74c13-b3ae-4408-94db-baae753debe5",
+      "name": "Build QA Payload"
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial = $('Validate Input').first().json;\nconst backend = $('Agent Backend').first().json;\n\nconst files = backend.files || [];\nconst code = files.map(f =>\n  `// FILE: ${f.path}\\n${f.content || ''}`\n).join('\\n\\n') || '// no code';\n\nreturn [{\n  json: {\n    task_id: initial.task_id,\n    language: initial.language,\n    code,\n    files\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -223600,
+        -23968
+      ],
+      "id": "a86d3411-e9d1-40cd-9757-d8f48d41ee44",
+      "name": "Build SAST Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/agent-code-review",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "=={{ JSON.stringify({\n  task_id:  $('Validate Input').first().json.task_id,\n  language: $('Validate Input').first().json.language,\n  code:     $('Build Review Payload').first().json.code || '',\n  files:    $('Build Review Payload').first().json.files || []\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -223312,
+        -24304
+      ],
+      "id": "8eab93cc-e2fc-4d0d-af75-83e5627e5d80",
+      "name": "Agent Code Review"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/sast",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "=={{ JSON.stringify({\n  task_id:  $('Validate Input').first().json.task_id,\n  language: $('Validate Input').first().json.language,\n  code:     $('Build SAST Payload').first().json.code || '',\n  files:    $('Build SAST Payload').first().json.files || []\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -223280,
+        -23968
+      ],
+      "id": "7676a1e9-6df9-4983-8a5a-b3a1f4f8a6ce",
+      "name": "Agent SAST"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -223072,
+        -24192
+      ],
+      "id": "2a3d04d3-eb85-44ba-91b5-ce0a170d2ae6",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial = $('Validate Input').first().json;\nconst backend = $('Agent Backend').first().json;\n\n// Chercher le vrai package.json généré par le Backend\nconst pkgFile = (backend.files || []).find(f => f.path === 'package.json');\nlet packageJson = null;\n\nif (pkgFile && pkgFile.content) {\n  try {\n    // Nettoyer le commentaire // FILE: package.json\n    const cleaned = pkgFile.content.replace(/^\\/\\/ FILE:.*\\n/, '').trim();\n    packageJson = JSON.parse(cleaned);\n  } catch(e) {\n    packageJson = null;\n  }\n}\n\n// Fallback si pas de package.json valide\nif (!packageJson) {\n  packageJson = {\n    name: 'generated-app',\n    version: '1.0.0',\n    dependencies: { express: '4.21.2' },\n    devDependencies: {}\n  };\n}\n\nreturn [{\n  json: {\n    task_id:      initial.task_id,\n    language:     initial.language,\n    package_json: packageJson\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -222880,
+        -24320
+      ],
+      "id": "5a33f77d-a4a7-4bf5-ab3c-7e1fb06e77be",
+      "name": "Build SCA Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/agent-sca",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "==={{ JSON.stringify({\n  task_id:      $('Build SCA Payload').first().json.task_id,\n  language:     $('Build SCA Payload').first().json.language,\n  package_json: $('Build SCA Payload').first().json.package_json\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -222736,
+        -24320
+      ],
+      "id": "abc028eb-0c27-4f4d-a875-b48bebf7d1a7",
+      "name": "Agent SCA"
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial = $('Validate Input').first().json;\nconst backend = $('Agent Backend').first().json;\n\nreturn [{\n  json: {\n    task_id: initial.task_id,\n    language: initial.language,\n    files: backend.files || []\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -222880,
+        -24144
+      ],
+      "id": "a3c8d923-0a87-42cc-9358-78ac331b5fd1",
+      "name": "Build Secrets Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/agent-secrets",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "==={{ JSON.stringify({\n  task_id:  $('Build Secrets Payload').first().json.task_id,\n  language: $('Build Secrets Payload').first().json.language,\n  files:    $('Build Secrets Payload').first().json.files\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -222704,
+        -24144
+      ],
+      "id": "19a6f76a-0c59-4191-83c4-4032ff1cbb72",
+      "name": "Agent Secrets"
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial = $('Validate Input').first().json;\n// Agent Architect peut ne pas être exécuté (chemin déterministe)\nlet archData = {};\ntry { archData = $('Agent Architect').first().json; } catch(e) {\n  try { archData = $('Build Architect Payload').first().json; } catch(e2) {}\n}\nconst arch = archData;\nconst artifacts = arch.artifacts || arch;\nconst endpoints = artifacts.priority_endpoints || [];\n\n// Construire les vrais endpoints depuis l'Architect\nconst realEndpoints = endpoints\n  .filter(ep => ep.path !== '/health')\n  .map(ep => ep.path.replace(/:id/g, '1'));\n\n\n// Recuperer le server.js genere pour un DAST base sur le vrai code (robuste aux formes)\nlet _serverJs = '';\ntry {\n  var _bk = $('Agent Backend').first().json || {};\n  var _files = _bk.files || (_bk.json && _bk.json.files) || (_bk.data && _bk.data.files) || [];\n  if (Array.isArray(_files)) {\n    var _sf = _files.find(function(f){ return f && typeof f.path === 'string' && f.path.replace(/^.*\\//, '') === 'server.js'; });\n    if (_sf) _serverJs = _sf.content || '';\n  }\n} catch(e) {}\n\nreturn [{\n  json: {\n    task_id:     initial.task_id,\n    server_js:   _serverJs,\n    server_js_len: _serverJs.length,\n    environment: initial.environment,\n    target_url:  'http://localhost:3000',\n    endpoints:   realEndpoints.length ? realEndpoints : ['/health'],\n    simulate:    'pass'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -222864,
+        -23968
+      ],
+      "id": "225cd6f9-44a3-46e4-bc86-edab77773503",
+      "name": "Build DAST Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/agent-dast",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -222704,
+        -23968
+      ],
+      "id": "a0d6233e-50a4-4b1a-8900-4a0b6a4ab9b4",
+      "name": "Agent DAST"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -222480,
+        -24192
+      ],
+      "id": "0612823f-2c52-42ac-b36a-285388906af1",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/agent-qa",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "=={{ JSON.stringify({\n  task_id:  $('Validate Input').first().json.task_id,\n  language: $('Validate Input').first().json.language,\n  code:     $('Build QA Payload').first().json.code || ''\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -223296,
+        -24144
+      ],
+      "id": "91124398-4aa1-4421-9144-76fdc21b931a",
+      "name": "Agent QA"
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial = $('Validate Input').first().json;\n\n// Référencer chaque agent directement par son nom de nœud\nconst codeReview = $('Agent Code Review').first().json;\nconst qa         = $('Agent QA').first().json;\nconst sast       = $('Agent SAST').first().json;\nconst sca        = $('Agent SCA').first().json;\nconst secrets    = $('Agent Secrets').first().json;\nconst dast       = $('Agent DAST').first().json;\n\nreturn [{\n  json: {\n    task_id: initial.task_id,\n    results: {\n      code_review: {\n        status: codeReview.status || 'SKIP',\n        global_score: codeReview.global_score || 100,\n        critical_issues: codeReview.critical_issues || []\n      },\n      qa: {\n        status: qa.status || 'SKIP',\n        global_score: qa.global_score || 100,\n        critical_issues: qa.critical_issues || []\n      },\n      sast: {\n        status: sast.status || 'SKIP',\n        global_score: sast.global_score || 100,\n        critical_issues: sast.critical_issues || []\n      },\n      sca: {\n        status: sca.status || 'SKIP',\n        global_score: sca.global_score || 100,\n        critical_issues: sca.critical_issues || []\n      },\n      secrets: {\n        status: secrets.status || 'SKIP',\n        global_score: secrets.global_score || 100,\n        critical_issues: secrets.critical_issues || []\n      },\n      dast: {\n        status: dast.status || 'SKIP',\n        global_score: dast.global_score || 100,\n        critical_issues: dast.critical_issues || []\n      }\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -222304,
+        -24176
+      ],
+      "id": "22c34a43-b948-4edc-b6e0-96c2ca395d3f",
+      "name": "Build GoNoGo Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/agent-gonogo",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "=={{ JSON.stringify({ task_id: $json.task_id, results: $json.results }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -222144,
+        -24176
+      ],
+      "id": "742294b9-3a9e-41ea-aa4f-f04d12032a27",
+      "name": "Agent Go/No-Go"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b6299bbf-6475-4c7a-b58e-32dc2fccd936",
+              "leftValue": "={{ $json.decision }}",
+              "rightValue": "CONTINUE",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -221968,
+        -24176
+      ],
+      "id": "8ed6bd37-25c4-463d-bd0b-9b6ce7dcd50b",
+      "name": "If — CONTINUE ?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/agent-devops",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "=={{ JSON.stringify({\n  task_id:         $('Validate Input').first().json.task_id,\n  environment:     $('Validate Input').first().json.environment,\n  gonogo_decision: \"CONTINUE\",\n  code: {\n    language:  $('Validate Input').first().json.language,\n    framework: $('Validate Input').first().json.framework,\n    files:     $('Agent Backend').first().json.files || []\n  }\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -221776,
+        -24288
+      ],
+      "id": "69d79313-92e3-4da4-8df7-35783e4039c4",
+      "name": "Agent DevOps/Deploy"
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial = $('Validate Input').first().json;\nconst gonogo  = $('Agent Go/No-Go').first().json;\nlet partialFiles = [];\ntry {\n  const backend  = $('Agent Backend').first().json;\n  const frontend = $('Agent Frontend').first().json;\n  partialFiles = [...(backend.files || []), ...(frontend.files || [])];\n} catch(e) {}\nreturn [{\n  json: {\n    success:          false,\n    pipeline:         \"SDLC Multi-Agent\",\n    task_id:          initial.task_id,\n    input_type:       initial.input_type || 'direct',\n    decision:         gonogo.decision,\n    blocking_reasons: gonogo.blocking_reasons || [],\n    summary:          `Pipeline arrêté — décision : ${gonogo.decision}`,\n    completed_at:     new Date().toISOString(),\n    results: {\n      files:       partialFiles,\n      files_count: partialFiles.length,\n      note:        \"Fichiers partiellement générés avant arrêt du pipeline\"\n    },\n    metrics: {\n      language:    initial.language,\n      framework:   initial.framework,\n      environment: initial.environment\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -221776,
+        -24080
+      ],
+      "id": "728f8b2b-17e2-4a1f-a334-aef8f03ceb07",
+      "name": "Respond STOP"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -221568,
+        -24080
+      ],
+      "id": "a937c272-f8d1-4f66-8894-4fdecb23c6bd",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial = $('Validate Input').first().json;\nconst devops  = $('Agent DevOps/Deploy').first().json;\nconst deployUrl = devops.deployment_url || devops.service_url || devops.url\n  || `http://167.86.93.31:${initial.environment === 'production' ? '3000' : '3001'}`;\nreturn [{\n  json: {\n    task_id:     initial.task_id,\n    environment: initial.environment,\n    service_url: deployUrl,\n    deployed_at: devops.deployed_at || new Date().toISOString(),\n    simulate:    \"healthy\"\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -221568,
+        -24288
+      ],
+      "id": "4592903c-0783-452e-a1d8-387d32ceb839",
+      "name": "Build Monitoring Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/agent-monitoring",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "==={{ JSON.stringify({\n  task_id:     $('Validate Input').first().json.task_id,\n  environment: $('Validate Input').first().json.environment,\n  service_url: 'https://app-' + $('Validate Input').first().json.environment + '.monprojet.com',\n  deployed_at: $('Agent DevOps/Deploy').first().json.deployed_at || new Date().toISOString(),\n  simulate:    'healthy'\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -221392,
+        -24288
+      ],
+      "id": "624696cc-1d58-46a3-a8eb-4e4c06cf4dfc",
+      "name": "Agent Monitoring"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "8ebfc90c-b978-4b9e-850c-a31a2d3a519a",
+              "leftValue": "={{ $json.monitoring_status }}",
+              "rightValue": "HEALTHY",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -221232,
+        -24288
+      ],
+      "id": "f8be117d-0708-434f-8e86-4286e2b28f24",
+      "name": "If HEALTHY"
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial    = $('Validate Input').first().json;\nconst devops     = $('Agent DevOps/Deploy').first().json;\nconst monitoring = $('Agent Monitoring').first().json;\nconst deployUrl  = devops.deployment_url || devops.service_url || devops.url || 'http://167.86.93.31:3001';\nreturn [{\n  json: {\n    task_id:     initial.task_id,\n    environment: initial.environment,\n    service: {\n      url:       deployUrl,\n      framework: initial.framework,\n      language:  initial.language,\n      status:    monitoring.monitoring_status || 'HEALTHY'\n    },\n    thresholds: {\n      max_cost_per_hour_usd: 0.5,\n      max_response_time_ms:  1000,\n      max_cpu_percent:       80,\n      max_memory_percent:    85\n    },\n    simulate: \"\"\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -221056,
+        -24384
+      ],
+      "id": "12bc52ac-bf27-4fe2-be9d-03276ff166d3",
+      "name": "Build Cost Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/agent-cost-performance",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "==={{ JSON.stringify({\n  task_id:     $('Validate Input').first().json.task_id,\n  environment: $('Validate Input').first().json.environment,\n  service: {\n    url:       'https://app-' + $('Validate Input').first().json.environment + '.monprojet.com',\n    framework: $('Validate Input').first().json.framework,\n    language:  $('Validate Input').first().json.language,\n    status:    $('Agent Monitoring').first().json.monitoring_status || 'HEALTHY'\n  },\n  thresholds: {\n    max_cost_per_hour_usd: 0.5,\n    max_response_time_ms:  1000,\n    max_cpu_percent:       80,\n    max_memory_percent:    85\n  },\n  simulate: \"\"\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -220896,
+        -24384
+      ],
+      "id": "70c52b3b-ee90-4e9a-a33f-a51fd47e281a",
+      "name": "Agent Cost & Performance"
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial    = $('Validate Input').first().json;\nconst devops     = $('Agent DevOps/Deploy').first().json;\nconst monitoring = $('Agent Monitoring').first().json;\nconst deployUrl  = devops.deployment_url || devops.service_url || devops.url || 'http://167.86.93.31:3001';\nconst monStatus  = monitoring.monitoring_status || 'HEALTHY';\nconst issues     = monitoring.critical_issues   || [];\nreturn [{\n  json: {\n    task_id:     initial.task_id,\n    environment: initial.environment,\n    incident: {\n      type:             monStatus === 'HEALTHY' ? 'none' : 'performance',\n      severity:         monStatus === 'HEALTHY' ? 'low'  : 'high',\n      service_url:      deployUrl,\n      error_message:    issues.map(i => i.description || i).join(', ') || 'Aucun incident',\n      duration_minutes: monStatus === 'HEALTHY' ? 0 : 5\n    },\n    monitoring_report: { status: monStatus, violations: issues }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -221056,
+        -24208
+      ],
+      "id": "58e0b111-4861-400b-9966-5788fdc31bb2",
+      "name": "Build Runtime Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/agent-runtime-feedback",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "==={{ JSON.stringify({\n  task_id:     $('Validate Input').first().json.task_id,\n  environment: $('Validate Input').first().json.environment,\n  incident: {\n    type:             'none',\n    severity:         'low',\n    service_url:      'https://app-' + $('Validate Input').first().json.environment + '.monprojet.com',\n    error_message:    'Aucun incident',\n    duration_minutes: 0\n  },\n  monitoring_report: {\n    status:     $('Agent Monitoring').first().json.monitoring_status || 'HEALTHY',\n    violations: $('Agent Monitoring').first().json.critical_issues   || []\n  }\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -220880,
+        -24208
+      ],
+      "id": "3f3ba723-921c-439c-93d3-ceb2da10b7ec",
+      "name": "Agent Runtime Feedback"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -220672,
+        -24288
+      ],
+      "id": "710bd24b-051f-4c86-afe5-252d4ba87e1c",
+      "name": "Merge2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial  = $('Validate Input').first().json;\n// Agent Architect peut ne pas être exécuté (chemin déterministe)\nlet archData = {};\ntry { archData = $('Agent Architect').first().json; } catch(e) {\n  try { archData = $('Build Architect Payload').first().json; } catch(e2) {}\n}\nconst arch = archData;\nconst backend  = $('Agent Backend').first().json;\nconst frontend = $('Agent Frontend').first().json;\nconst devops   = $('Agent DevOps/Deploy').first().json;\n\nconst artifacts = arch.artifacts || arch.architecture || arch;\nconst allFiles  = [...(backend.files || []), ...(frontend.files || [])];\n\nconst endpoints = (artifacts.priority_endpoints || [])\n  .map(ep => `${ep.method} ${ep.path} — ${ep.description || ''}`)\n  .join('\\n');\n\nconst deployUrl = devops.deployment_url || devops.service_url || devops.url || null;\n\n// Récupérer project_name de l'Architect\nconst projectName = artifacts.project_name || '';\n\nreturn [{\n  json: {\n    task_id:     initial.task_id,\n    project_name: projectName,\n    userRequest: initial.userRequest,\n    architecture: {\n      stack:      artifacts.stack      || '',\n      mvp_scope:  artifacts.mvp_scope  || '',\n      endpoints:  endpoints,\n      data_model: artifacts.data_model || {}\n    },\n    deploy_url:  deployUrl,\n    files:       allFiles\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -220528,
+        -24288
+      ],
+      "id": "f82867f3-cb30-42dc-8cba-94dc2b9d2346",
+      "name": "Build Doc Payload"
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial    = $('Validate Input').first().json;\nconst gonogo     = $('Agent Go/No-Go').first().json;\nconst monitoring = $('Agent Monitoring').first().json;\nconst devops     = $('Agent DevOps/Deploy').first().json;\nconst backend    = $('Agent Backend').first().json;\n\n// RAG (couche 4) — mémoriser la SPEC et son issue, pour que des projets futurs\n// similaires en profitent (recherche par similarité). L'agent Knowledge/Memory\n// calcule l'embedding et stocke ; si la mémoire est indisponible, c'est non bloquant.\nconst _spec = String(initial.specs_context || initial.userRequest || '').slice(0, 6000);\nreturn [{\n  json: {\n    task_id:   initial.task_id,\n    operation: \"WRITE\",\n    kind:      \"spec\",\n    project:   \"\",\n    text:      _spec,\n    meta: {\n      project_name:    initial.project_name || null,\n      environment:     initial.environment,\n      language:        initial.language,\n      framework:       initial.framework,\n      input_type:      initial.input_type || 'direct',\n      decision:        gonogo.decision,\n      monitoring:      monitoring.monitoring_status || 'HEALTHY',\n      deployment_url:  devops.deployment_url || devops.service_url || null,\n      files_generated: (backend.files || []).length,\n      timestamp:       new Date().toISOString()\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -220064,
+        -24288
+      ],
+      "id": "41309737-f33d-4dc4-88f3-b7bc2fa6cfec",
+      "name": "Build Knowledge Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/agent-knowledge",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "=={{ JSON.stringify({ task_id: $json.task_id, operation: $json.operation, category: $json.category, data: $json.data }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -219904,
+        -24288
+      ],
+      "id": "2be2cf4f-84b2-443a-ae40-b2d01a41ced0",
+      "name": "Agent Knowledge/Memory"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -219584,
+        -24288
+      ],
+      "id": "ad5ccf7c-338a-409e-bc12-858f3384c12a",
+      "name": "Respond Final"
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial    = $('Validate Input').first().json;\nconst gonogo     = $('Agent Go/No-Go').first().json;\n// Agent Architect peut ne pas être exécuté (chemin déterministe)\nlet archData = {};\ntry { archData = $('Agent Architect').first().json; } catch(e) {\n  try { archData = $('Build Architect Payload').first().json; } catch(e2) {}\n}\nconst arch = archData;\nconst backend    = $('Agent Backend').first().json;\nconst frontend   = $('Agent Frontend').first().json;\nconst devops     = $('Agent DevOps/Deploy').first().json;\nconst monitoring = $('Agent Monitoring').first().json;\nconst doc        = $('Agent Documentation').first().json;\n\n// Inclure backend + frontend + documentation dans le ZIP\nlet allFiles = [\n  ...(backend.files  || []),\n  ...(frontend.files || []),\n  ...(doc.files      || []),\n  // Scripts de démarrage local dynamiques\n  ...(function() {\n    const _artifacts = arch.artifacts || arch.architecture || {};\n    const pn = _artifacts.project_name || initial.project_name || 'Application';\n    return [\n      {\n        path: 'start.sh',\n        content: '#!/bin/bash\\n'\n          + '# Démarrage ' + pn + ' sur Linux/Mac\\n'\n          + '# PRÉ-REQUIS : Node.js >= 16 installé (https://nodejs.org)\\n'\n          + 'if ! command -v node &> /dev/null; then\\n'\n          + '  echo \"Node.js non trouvé. Installe-le depuis https://nodejs.org\"\\n'\n          + '  exit 1\\n'\n          + 'fi\\n'\n          + 'echo \"Node.js OK : $(node -v)\"\\n'\n          + 'echo \"Installation des dépendances...\"\\n'\n          + 'npm install\\n'\n          + 'echo \"Démarrage du serveur...\"\\n'\n          + 'echo \"Ouvre http://localhost:3000 dans ton navigateur\"\\n'\n          + 'node server.js\\n'\n      },\n      {\n        path: 'start.bat',\n        content: '@echo off\\n'\n          + 'REM Démarrage ' + pn + ' sur Windows\\n'\n          + 'REM PRÉ-REQUIS : Node.js >= 16 installé (https://nodejs.org)\\n'\n          + 'where node >nul 2>nul\\n'\n          + 'if %ERRORLEVEL% neq 0 (\\n'\n          + '  echo.\\n'\n          + '  echo  Node.js non trouve. Installe-le depuis : https://nodejs.org\\n'\n          + '  echo  Choisis la version LTS et coche \"Add to PATH\"\\n'\n          + '  echo  Apres installation, relance start.bat\\n'\n          + '  echo.\\n'\n          + '  pause\\n'\n          + '  exit /b 1\\n'\n          + ')\\n'\n          + 'echo Node.js OK && node -v\\n'\n          + 'echo Installation des dependances...\\n'\n          + 'call npm install\\n'\n          + 'echo Demarrage de ' + pn + '...\\n'\n          + 'echo Ouvre http://localhost:3000 dans ton navigateur\\n'\n          + 'node server.js\\n'\n          + 'pause\\n'\n      }\n    ];\n  })()\n];\n\n\n// ── Sprint 5 : mode différentiel (Approche A) ────────────────────────────────\n// Si le nœud \"Build Differential Output\" a produit une app complète additive\n// (existant préservé + incréments back/front), on l'utilise à la place de la\n// régénération complète. La doc et les scripts de démarrage restent joints.\ntry {\n  const _diff = $('Build Differential Output').first().json;\n  if (_diff && _diff.differential === true && Array.isArray(_diff.files) && _diff.files.length) {\n    const _extra = [ ...(doc.files || []) ];\n    const _seen = {};\n    const _merged = _diff.files.slice();\n    _merged.forEach(f => { _seen[f.path] = true; });\n    // Conserver scripts de démarrage (start.sh/start.bat) déjà présents dans allFiles\n    allFiles.filter(f => /^(start\\.sh|start\\.bat)$/.test(f.path)).forEach(f => { if (!_seen[f.path]) { _merged.push(f); _seen[f.path] = true; } });\n    _extra.forEach(f => { if (!_seen[f.path]) { _merged.push(f); _seen[f.path] = true; } });\n    allFiles = _merged;\n  }\n} catch (e) { /* pas de nœud différentiel : régénération complète normale */ }\n\nconst deployUrl = devops.deployment_url || devops.service_url || devops.url || null;\n\nconst _finalArtifacts = arch.artifacts || arch.architecture || {};\nlet _projectName = '';\n// Priorité : display_name du Normalizer (nettoyé) > _deterministic_artifacts > fallbacks\ntry {\n  const _normOut = $('Agent Spec Normalizer').first().json;\n  _projectName = _normOut.project_name || _normOut.display_name || '';\n} catch(e) {}\nif (!_projectName) {\n  try { _projectName = $('Build Architect Payload').first().json._deterministic_artifacts?.project_name || ''; } catch(e2) {}\n}\nif (!_projectName) _projectName = _finalArtifacts.project_name || arch.project_name || initial.project_name || 'Application';\nlet _version = initial.improve_mode ? (initial.next_version || '1.1') : '1.0';\nif (!/^\\d+\\.\\d+$/.test(String(_version))) _version = '1.0';  // format attendu X.Y\n// Si _projectName est une phrase, extraire le mot le plus significatif (nom propre probable)\nlet _cleanName = _projectName.trim();\nif (_cleanName.indexOf(' ') !== -1) {\n  const _words = _cleanName.split(/\\s+/).filter(w => w.length > 2 && !/^(la|le|les|un|une|des|pour|de|du|et|the|for|app|application|plateforme|platform|systeme|system)$/i.test(w));\n  _cleanName = _words.sort((a,b) => b.length - a.length)[0] || _cleanName;\n}\n_cleanName = _cleanName.replace(/[^a-zA-Z0-9]/g, '');\nconst _zipName = 'ForgeIA-' + _cleanName + '-v' + _version.replace(/\\./g, '_');\n\n// Registre des versions actives des agents (lu depuis la sortie de chaque agent)\nvar _agentNodes = [['Agent Spec Normalizer','Spec Normalizer'],['Agent Architect','Architect'],['Agent Backend','Backend'],['Agent Frontend','Frontend'],['Agent Code Review','Code Review'],['Agent SAST','SAST'],['Agent SCA','SCA'],['Agent Secrets','Secrets'],['Agent DAST','DAST'],['Agent QA','QA'],['Agent Tests L0','Tests L0'],['Agent Go/No-Go','Go/No-Go'],['Agent Documentation','Documentation']];\nvar _agentVersions = { Orchestrateur: 'V6.12' };\n_agentNodes.forEach(function(pair){ try { var v = $(pair[0]).first().json._version; _agentVersions[pair[1]] = (v != null ? String(v) : 'n/a'); } catch(e){ _agentVersions[pair[1]] = 'n/a'; } });\n\n(function(){\n  function _gate(nodeName, label){\n    try {\n      var j = $(nodeName).first().json;\n      var st = j.status || (j.approved_for_pipeline === true ? 'PASS' : (j.approved_for_pipeline === false ? 'FAIL' : '')) || j.verdict || j.decision || 'N/A';\n      var sc = (j.global_score != null ? j.global_score : (j.score != null ? j.score : (j.overall_score != null ? j.overall_score : '')));\n      return '| ' + label + ' | ' + String(st) + ' | ' + String(sc) + ' |';\n    } catch(e){ return '| ' + label + ' | N/A | |'; }\n  }\n  var sec = ['', '## Resultats des gates de securite du pipeline', '', '| Gate | Verdict | Score |', '|---|---|---|'];\n  sec.push(_gate('Agent SAST', 'SAST (analyse statique)'));\n  sec.push(_gate('Agent SCA', 'SCA (dependances)'));\n  sec.push(_gate('Agent Secrets', 'Secrets Scanning'));\n  sec.push(_gate('Agent Code Review', 'Code Review'));\n  sec.push(_gate('Agent DAST', 'DAST (analyse du code)'));\n  sec.push(_gate('Agent QA', 'QA'));\n  sec.push(_gate('Agent Tests L0', 'Tests L0'));\n  sec.push(_gate('Agent Go/No-Go', 'Decision Go/No-Go'));\n  sec.push('');\n  sec.push('## Detail des findings par agent de securite');\n  function _detail(nodeName, label){\n    try {\n      var j = $(nodeName).first().json || {};\n      var crit = j.critical_issues || j.critical || j.vulnerabilities || j.findings_critical || [];\n      var warns = j.warnings || j.findings_warning || [];\n      if (!Array.isArray(crit)) crit = [];\n      if (!Array.isArray(warns)) warns = [];\n      var out = ['', '### ' + label + '  (v' + (j._version != null ? j._version : 'n/a') + ')', '- Critiques : ' + crit.length + ' | Avertissements : ' + warns.length];\n      function _lbl(x){ return String((x && (x.description || x.message || x.rule || x.title || x.id || x.package || x.name)) || (typeof x === 'string' ? x : JSON.stringify(x))).slice(0, 160); }\n      crit.slice(0,8).forEach(function(x){ out.push('  - [CRITIQUE] ' + _lbl(x)); });\n      warns.slice(0,8).forEach(function(x){ out.push('  - [warn] ' + _lbl(x)); });\n      if (!crit.length && !warns.length) out.push('  - Aucun finding.');\n      return out;\n    } catch(e){ return ['', '### ' + label, '- (rapport indisponible)']; }\n  }\n  [['Agent SAST','SAST'],['Agent SCA','SCA'],['Agent Secrets','Secrets Scanning'],['Agent DAST','DAST'],['Agent Code Review','Code Review']].forEach(function(p){ _detail(p[0], p[1]).forEach(function(l){ sec.push(l); }); });\n  sec.push('');\n  sec.push('## Versions des agents du pipeline');\n  sec.push('');\n  sec.push('| Agent | Version |');\n  sec.push('|---|---|');\n  Object.keys(_agentVersions).forEach(function(k){ sec.push('| ' + k + ' | ' + _agentVersions[k] + ' |'); });\n  sec.push('');\n  var _secText = sec.join('\\n');\n  var _sf = allFiles.find(function(f){ return f.path === 'SECURITY.md'; });\n  if (_sf) { _sf.content = String(_sf.content || '') + '\\n' + _secText; }\n  else { allFiles.push({ path: 'SECURITY.md', content: '# Rapport de securite (gates pipeline)\\n' + _secText }); }\n})();\n\n\nreturn [{\n  json: {\n    success:      true,\n    pipeline:     \"SDLC Multi-Agent\",\n    task_id:      initial.task_id,\n    project_name: _projectName,\n    zip_name:     _zipName,\n    input_type:   initial.input_type   || 'direct',\n    decision:     gonogo.decision,\n    completed_at: new Date().toISOString(),\n    summary:      `Pipeline terminé avec succès — décision : ${gonogo.decision}`,\n    results: {\n      architecture:  arch.artifacts || arch.architecture || {},\n      files:         allFiles,\n      files_count:   allFiles.length,\n      planned_not_implemented: (function(){\n        try {\n          var _norm = $('Agent Spec Normalizer').first().json || {};\n          if (_norm.body && typeof _norm.body === 'object') _norm = _norm.body;\n          var _def = Array.isArray(_norm.deferred_resources) ? _norm.deferred_resources : [];\n          if (!_def.length) return [];\n          var _impl = {};\n          var _st = (arch.artifacts && arch.artifacts.stores) || arch.stores || {};\n          Object.keys(_st).forEach(function(k){ _impl[k.toLowerCase()]=1; if(_st[k] && _st[k].store_name) _impl[String(_st[k].store_name).toLowerCase()]=1; });\n          try { var _cs = $('Agent ZIP Analyzer').first().json.current_state; (_cs && _cs.resources || []).forEach(function(r){ if(r.store_name) _impl[String(r.store_name).toLowerCase()]=1; if(r.name) _impl[String(r.name).toLowerCase()]=1; }); } catch(e){}\n          return _def.filter(function(r){ var n=String(r.name_plural||r.name||r.store_name||'').toLowerCase(); var s=String(r.store_name||r.name_plural||'').toLowerCase(); return n && !_impl[n] && !_impl[s]; })\n            .map(function(r){ return { name: r.name || r.name_plural, store_name: r.name_plural || r.store_name || ((r.name||'')+'s'), fields: r.fields||{}, required_fields: r.required_fields||[] }; });\n        } catch(e){ return []; }\n      })(),\n      suggestions: (function(){\n        try {\n          var _art = (arch && (arch.artifacts || arch)) || {};\n          var _dm = _art.data_model || {}; var _st = _art.stores || {};\n          var _rn = Object.keys(_st.length ? _st : _dm);\n          if (!_rn.length) _rn = Object.keys(_dm);\n          var out = [];\n          function _fields(rn){ return Object.keys(_dm[rn] || {}).filter(function(k){ return ['id','created_at'].indexOf(k) < 0; }); }\n          // 1) ressources peu detaillees\n          _rn.forEach(function(rn){ var c = _fields(rn).length; if (c > 0 && c < 3) out.push({ type:'champs', label:'Enrichir la ressource « ' + rn + ' » (peu de champs)', prompt:'Ajoute 2 a 3 champs pertinents a la ressource ' + rn }); });\n          // 2) aucune relation entre ressources\n          var hasFk = _rn.some(function(rn){ return _fields(rn).some(function(k){ return /_id$/.test(k); }); });\n          if (_rn.length >= 2 && !hasFk) out.push({ type:'relation', label:'Relier « ' + _rn[0] + ' » et « ' + _rn[1] + ' »', prompt:'Ajoute une relation entre ' + _rn[0] + ' et ' + _rn[1] + ' via un champ ' + String(_rn[1]).replace(/s$/,'') + '_id' });\n          // 3) pas de champ statut / enum\n          _rn.forEach(function(rn){ var f = _dm[rn] || {}; var has = Object.keys(f).some(function(k){ return /statut|status|etat|priorite/i.test(k) || (f[k] && typeof f[k]==='object' && f[k].type==='enum'); }); if (!has) out.push({ type:'statut', label:'Ajouter un statut a « ' + rn + ' »', prompt:'Ajoute un champ statut de type enum (valeurs: actif, inactif) a la ressource ' + rn }); });\n          // 4) ressources compagnes par domaine (deterministe, prudent : ne propose que des compagnons non deja presents)\n          var _DOMAINS = { commande:[{n:'paiement',f:{montant:'number',mode:'string',statut:'string'}},{n:'livraison',f:{adresse:'string',statut:'string',date_livraison:'string'}}], order:[{n:'payment',f:{amount:'number',method:'string',status:'string'}}], produit:[{n:'categorie',f:{nom:'string'}},{n:'avis',f:{note:'number',commentaire:'string'}}], patient:[{n:'rendezvous',f:{date_rdv:'string',motif:'string'}},{n:'ordonnance',f:{medicament:'string',posologie:'string'}}], client:[{n:'facture',f:{montant:'number',statut:'string',date_emission:'string'}}], employe:[{n:'conge',f:{date_debut:'string',date_fin:'string',statut:'string'}}], projet:[{n:'tache',f:{titre:'string',statut:'string',echeance:'string'}}], evenement:[{n:'inscription',f:{participant:'string',statut:'string'}}], restaurant:[{n:'reservation',f:{date_resa:'string',couverts:'number'}}], etudiant:[{n:'note',f:{matiere:'string',valeur:'number'}}], livre:[{n:'emprunt',f:{date_emprunt:'string',date_retour:'string',statut:'string'}}], vehicule:[{n:'reservation',f:{date_debut:'string',date_fin:'string'}}] };\n          var _impl = {}; _rn.forEach(function(rn){ _impl[rn]=1; }); Object.keys(_st).forEach(function(k){ _impl[k]=1; if(_st[k]&&_st[k].store_name) _impl[String(_st[k].store_name).replace(/s$/,'')]=1; });\n          _rn.forEach(function(rn){ var key=null; Object.keys(_DOMAINS).forEach(function(dk){ if(!key && rn.indexOf(dk)>=0) key=dk; }); if(!key) return; _DOMAINS[key].forEach(function(comp){ if(_impl[comp.n]) return; if(out.length>=8) return; var flds=Object.keys(comp.f); out.push({ type:'ressource', label:'Ajouter la ressource compagne « ' + comp.n + ' » (li\\u00e9e \\u00e0 ' + rn + ')', prompt:'Ajoute la ressource ' + comp.n + ' avec les champs ' + flds.map(function(x){return x+' ('+comp.f[x]+')';}).join(', ') + ', reli\\u00e9e \\u00e0 ' + rn }); }); });\n          return out.slice(0, 8);\n        } catch(e){ return []; }\n      })(),\n      improvements:  (function(){ try { var _d=$('Build Differential Output').first().json; if(_d && _d.differential===true && _d.diff){ return { mode:'differentiel', added:_d.diff.added_resources||[], unchanged:_d.diff.unchanged_resources||[], files_added:(_d.diff.files_generated||[]) }; } } catch(e){} return null; })(),\n      documentation: (doc.files || []).find(f => f.path === 'README.md') || null,\n      deployment: {\n        url:         deployUrl,\n        environment: initial.environment,\n        status:      monitoring.monitoring_status || 'HEALTHY',\n        deployed_at: devops.deployed_at || new Date().toISOString()\n      }\n    },\n    metrics: {\n      language:          initial.language,\n      framework:         initial.framework,\n      environment:       initial.environment,\n      gonogo_score:      gonogo.overall_score || null,\n      monitoring_status: monitoring.monitoring_status || 'HEALTHY',\n      orchestrator_version: 'V6.16',\n      agent_versions:    _agentVersions\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -219744,
+        -24288
+      ],
+      "id": "55f58552-bdcd-4411-b0b4-1b67f3e8455f",
+      "name": "Build Final Response"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/documentation",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "=={{ JSON.stringify({\n  task_id:      $('Validate Input').first().json.task_id,\n  userRequest:  $('Validate Input').first().json.userRequest,\n  architecture: $('Build Doc Payload').first().json.architecture || $input.first().json.artifacts || {},\n  files:        $('Build Doc Payload').first().json.files || [],\n  deployment:   $('Build Doc Payload').first().json.deployment || {}\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -220208,
+        -24288
+      ],
+      "id": "9b2c93cf-482a-421b-8f12-6d99f39c437c",
+      "name": "Agent Documentation"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw  = $input.first().json;\nconst body = (raw.body && typeof raw.body === 'object') ? raw.body : raw;\n\n// Détecter par présence de la clé ET longueur minimale\n// Ne pas lire la valeur complète — juste vérifier qu'elle existe\nconst hasPdf   = typeof body.pdf_base64   === 'string' && body.pdf_base64.length   > 100;\nconst hasDocx  = typeof body.docx_base64  === 'string' && body.docx_base64.length  > 100;\nconst hasImage = typeof body.image_base64 === 'string' && body.image_base64.length > 100;\nconst hasUrl   = typeof body.url === 'string' && body.url.startsWith('http');\n\n// Fallback : détecter par nom de fichier si base64 tronqué\nconst hasPdfFilename   = typeof body.pdf_filename   === 'string';\nconst hasDocxFilename  = typeof body.docx_filename  === 'string';\nconst hasImageFilename = typeof body.image_filename === 'string';\n\nlet input_type;\nif      (hasPdf   || hasPdfFilename)   input_type = 'pdf';\nelse if (hasDocx  || hasDocxFilename)  input_type = 'docx';\nelse if (hasImage || hasImageFilename) input_type = 'image';\nelse if (hasUrl)                       input_type = 'url';\nelse                                   input_type = 'direct';\n\nconst improveMode   = body.improve_mode   || false;\nconst improvePrompt = body.improve_prompt || (improveMode ? body.userRequest : '') || '';\n\nreturn [{\n  json: {\n    input_type,\n    improve_mode:   improveMode,\n    improve_prompt: improvePrompt,\n    task_id:        String(body.task_id || ('TASK-' + Date.now())),\n    environment:    String(body.environment || 'staging'),\n    language:       String(body.language    || 'javascript'),\n    framework:      String(body.framework   || 'express'),\n    userRequest:    body.userRequest || body.text || body.markdown || null,\n    pdf_filename:   body.pdf_filename   || 'document.pdf',\n    docx_filename:  body.docx_filename  || 'document.docx',\n    image_filename: body.image_filename || 'image.png',\n    image_mime:     body.image_mime     || 'image/png',\n    url:            body.url            || null\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -232256,
+        -23936
+      ],
+      "id": "1c4d1bf0-b560-4313-99fb-bebb840dd2fb",
+      "name": "Detect Input"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-ifpdf-bbb2-bbb2-bbb2-bbb2bbb2bbb2",
+              "leftValue": "={{ $json.input_type }}",
+              "rightValue": "pdf",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -231856,
+        -23936
+      ],
+      "id": "3af259bd-e7ae-4d7d-8d50-5d1d57664393",
+      "name": "IF PDF?"
+    },
+    {
+      "parameters": {
+        "jsCode": "const detected = $('Detect Input').first().json;\nconst raw      = $input.first().json;\n\nlet parsed;\nif (raw.text || raw.success !== undefined) {\n  parsed = raw;\n} else if (raw.stdout) {\n  try { parsed = JSON.parse(raw.stdout); } catch(e) { parsed = { text: raw.stdout, success: false }; }\n} else {\n  parsed = { text: '', success: false };\n}\n\nconst fullText = (parsed.text || '').trim();\nconst MAX      = 6000;\nconst specsContext = fullText;\n\n// En mode amélioration : userRequest = prompt d'amélioration (pas le PDF)\n// En mode normal : userRequest = contenu du PDF\nconst improveMode    = detected.improve_mode || false;\nconst improvePrompt  = detected.improve_prompt || detected.userRequest || '';\n\nconst userRequest = improveMode\n  ? improvePrompt  // Garder le prompt d'amélioration\n  : (fullText.length > MAX ? fullText.substring(0, MAX) + '\\n...[tronqué — voir specs_context]' : fullText);\n\nreturn [{\n  json: {\n    input_type:     'pdf',\n    task_id:        detected.task_id,\n    userRequest,\n    specs_context:  specsContext.length > MAX ? specsContext.substring(0, MAX) : specsContext,\n    improve_mode:   improveMode,\n    improve_prompt: improvePrompt,\n    pdf_filename:   detected.pdf_filename,\n    pages:          parsed.pages || null,\n    environment:    detected.environment,\n    language:       detected.language,\n    framework:      detected.framework\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -231120,
+        -24192
+      ],
+      "id": "dc373cac-716e-40e7-9397-99913ddb1ad9",
+      "name": "Build PDF Context"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-ifdocx-eee5-eee5-eee5-eee5eee5eee5",
+              "leftValue": "={{ $json.input_type }}",
+              "rightValue": "docx",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -231616,
+        -23856
+      ],
+      "id": "6bc7ee33-df42-4406-9974-6792e2ddf0db",
+      "name": "IF DOCX?"
+    },
+    {
+      "parameters": {
+        "jsCode": "const detected  = $('Detect Input').first().json;\nconst extracted = $input.first().json;\n\n// LlamaParse retourne { pages: [{ text: \"...\" }], ... }\nlet fullText = '';\nif (extracted.pages && Array.isArray(extracted.pages)) {\n  fullText = extracted.pages.map(p => p.text || p.content || '').join('\\n\\n');\n} else {\n  fullText = extracted.text || extracted.content || extracted.result || '';\n}\n\nconst MAX         = 6000;\nconst userRequest = fullText.length > MAX\n  ? fullText.substring(0, MAX) + '\\n...[tronqué — voir specs_context]'\n  : fullText;\n\nreturn [{\n  json: {\n    input_type:    'docx',\n    task_id:       detected.task_id,\n    userRequest,\n    specs_context: fullText,\n    docx_filename: detected.docx_filename,\n    environment:   detected.environment,\n    language:      detected.language,\n    framework:     detected.framework\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -231120,
+        -24016
+      ],
+      "id": "40d9eed9-ae71-47f5-949b-464e395ee859",
+      "name": "Build DOCX Context"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-ifurl-hhh8-hhh8-hhh8-hhh8hhh8hhh8",
+              "leftValue": "={{ $json.input_type }}",
+              "rightValue": "url",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -231392,
+        -23792
+      ],
+      "id": "621770aa-6d15-4a61-afc4-49a19f87cf7a",
+      "name": "IF URL?"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -231040,
+        -23840
+      ],
+      "id": "3cb2a524-d81c-4369-9b11-d04485330c5b",
+      "name": "Fetch URL Content"
+    },
+    {
+      "parameters": {
+        "jsCode": "const detected = $('Detect Input').first().json;\nconst fetched  = $input.first().json;\nconst raw = fetched.body || fetched.data || fetched || '';\nconst fullText = typeof raw === 'string' ? raw : JSON.stringify(raw);\nconst MAX = 6000;\nconst userRequest = fullText.length > MAX\n  ? fullText.substring(0, MAX) + '\\n...[tronqué]'\n  : fullText;\nreturn [{\n  json: {\n    input_type:    'url',\n    task_id:       detected.task_id,\n    userRequest,\n    specs_context: fullText,\n    source_url:    detected.url,\n    environment:   detected.environment,\n    language:      detected.language,\n    framework:     detected.framework\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -230768,
+        -23840
+      ],
+      "id": "941e7a4e-ceeb-465b-9738-093b4914c987",
+      "name": "Build URL Context"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-ifimg-kkk1-kkk1-kkk1-kkk1kkk1kkk1",
+              "leftValue": "={{ $json.input_type }}",
+              "rightValue": "image",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -231040,
+        -23648
+      ],
+      "id": "3ce9f569-e6f0-43bb-b2da-592280e74ce4",
+      "name": "IF IMAGE?"
+    },
+    {
+      "parameters": {
+        "jsCode": "const detected  = $('Detect Input').first().json;\nconst extracted = $input.first().json;\n\n// Groq Vision retourne { choices: [{ message: { content: \"...\" } }] }\nlet fullText = '';\nif (extracted.choices && extracted.choices[0]) {\n  fullText = extracted.choices[0].message?.content || '';\n} else {\n  fullText = extracted.text || extracted.description || extracted.content || '';\n}\n\nconst MAX         = 6000;\nconst userRequest = fullText.length > MAX\n  ? fullText.substring(0, MAX) + '\\n...[tronqué — voir specs_context]'\n  : fullText;\n\nreturn [{\n  json: {\n    input_type:     'image',\n    task_id:        detected.task_id,\n    userRequest,\n    specs_context:  fullText,\n    image_filename: detected.image_filename,\n    environment:    detected.environment,\n    language:       detected.language,\n    framework:      detected.framework\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -230352,
+        -23728
+      ],
+      "id": "d03dcc75-43e5-4615-9984-e37c24e49650",
+      "name": "Build Image Context"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json;\nreturn [{\n  json: {\n    input_type:    body.input_type || 'direct',\n    task_id:       body.task_id,\n    userRequest:   String(body.userRequest || body.text || body.markdown || ''),\n    specs_context: null,\n    environment:   body.environment,\n    language:      body.language,\n    framework:     body.framework\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -230400,
+        -23520
+      ],
+      "id": "26d3ec2f-6c94-4835-928d-1945f125929f",
+      "name": "Build Direct Context"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -230016,
+        -23888
+      ],
+      "id": "95333e09-2903-4fcd-8114-a6ffb2a0c960",
+      "name": "Merge Input Paths"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json;\n\n// ── 1. Taille maximale : troncature EXPLICITE, jamais de crash ─────────────\n// Une spec (surtout PDF/DOCX) est naturellement longue. On accepte largement et,\n// au-dela, on tronque proprement en le signalant (au lieu de throw -> reponse vide).\nconst MAX_PROMPT = 2000000;                // 2 Mo : plafond anti-DoS ; le compacteur\n                                           // (Normalizer) reduit ensuite intelligemment.\nlet _ur = String(body.userRequest || '');\nconst _specOriginalLen = _ur.length;\nlet _specTruncated = false;\nif (_ur.length > MAX_PROMPT) { _ur = _ur.slice(0, MAX_PROMPT); _specTruncated = true; }\n\n// ── 2. Prompt injection ───────────────────────────────────────────────────\nconst INJECTION_PATTERNS = [\n  /ignore\\s+(all\\s+)?(previous|prior|above)\\s+instructions?/i,\n  /disregard\\s+(all\\s+)?(previous|prior|above|the)\\s+/i,\n  /forget\\s+(everything|all|previous)/i,\n  /you\\s+are\\s+now/i,\n  /act\\s+as\\s+(a\\s+)?(different|new|dan|jailbroken)/i,\n  /new\\s+(system\\s+)?(instructions?|prompt|role)\\s*[:=]/i,\n  /system\\s*(prompt|message)\\s*[:=]/i,\n  /(reveal|print|show|repeat|leak)\\s+(your\\s+)?(system\\s+)?(prompt|instructions?|secret|api[_\\s-]?key|token)/i,\n  /jailbreak|do\\s+anything\\s+now/i,\n  /<\\s*script[\\s\\S]*?>/i,\n  /\\beval\\s*\\(/i,\n  /\\bexec\\s*\\(/i,\n  /(process\\.env|require\\s*\\(|child_process|__proto__|constructor\\s*\\[)/i,\n  /-{3,}\\s*(end|begin)\\s+(of\\s+)?(system|prompt)/i,\n];\nconst textToCheck = _ur;\nlet _injectionDetected = false;\nfor (const pattern of INJECTION_PATTERNS) {\n  if (pattern.test(textToCheck)) { _injectionDetected = true; break; }\n}\n\n// ── 3. Validation base64 — juste présence et type string ─────────────────\nif (body.pdf_base64   && typeof body.pdf_base64   !== 'string') throw new Error('pdf_base64 invalide');\nif (body.docx_base64  && typeof body.docx_base64  !== 'string') throw new Error('docx_base64 invalide');\nif (body.image_base64 && typeof body.image_base64 !== 'string') throw new Error('image_base64 invalide');\n\n// ── 4. Validation URL ─────────────────────────────────────────────────────\nif (body.url) {\n  const urlRegex = /^https?:\\/\\/.+/;\n  if (!urlRegex.test(body.url)) {\n    throw new Error('URL invalide — doit commencer par http:// ou https://');\n  }\n  const BLOCKED = /https?:\\/\\/(localhost|127\\.|10\\.|192\\.168\\.|172\\.(1[6-9]|2[0-9]|3[01])\\.|0\\.0\\.0\\.0)/;\n  if (BLOCKED.test(body.url)) {\n    throw new Error('URL non autorisée — accès réseau interne bloqué');\n  }\n}\n\n// ── 5. Sanitize le prompt ─────────────────────────────────────────────────\nlet sanitized = _ur\n  .replace(/<[^>]*>/g, '')\n  .replace(/[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F\\x7F]/g, '')\n  .trim();\n\nif (_injectionDetected) {\n  INJECTION_PATTERNS.forEach(function(p){ sanitized = sanitized.replace(new RegExp(p.source, p.flags.indexOf('g') < 0 ? p.flags + 'g' : p.flags), '[filtre]'); });\n}\n\nreturn [{\n  json: {\n    ...body,\n    userRequest:  sanitized || _ur || body.userRequest || null,\n    spec_truncated:    _specTruncated,\n    spec_original_len: _specOriginalLen,\n    security_flags: []\n      .concat(_injectionDetected ? ['prompt_injection_neutralized'] : [])\n      .concat(_specTruncated ? ['spec_tronquee_' + _specOriginalLen + '_chars'] : []),\n    sanitized:    true,\n    sanitized_at: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -232080,
+        -23936
+      ],
+      "id": "6c656f2e-3ee5-4cee-b78f-14b59cd9f935",
+      "name": "Sanitize Input"
+    },
+    {
+      "parameters": {
+        "jsCode": "const node_fetch = require('node-fetch');\nconst webhook = $('Webhook').first().json;\nconst body    = (webhook.body && typeof webhook.body === 'object') ? webhook.body : webhook;\n\nconst payload = {\n  model: 'meta-llama/llama-4-scout-17b-16e-instruct',\n  messages: [{\n    role: 'user',\n    content: [\n      {\n        type: 'image_url',\n        image_url: {\n          url: 'data:' + (body.image_mime || 'image/png') + ';base64,' + body.image_base64\n        }\n      },\n      {\n        type: 'text',\n        text: 'Extrais et retranscris intégralement tout le texte visible dans cette image. Retourne uniquement le texte brut, sans commentaire.'\n      }\n    ]\n  }],\n  max_tokens: 2000\n};\n\nconst response = await node_fetch('https://api.groq.com/openai/v1/chat/completions', {\n  method:  'POST',\n  headers: {\n    'Content-Type':  'application/json',\n    'Authorization': 'Bearer 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'\n  },\n  body: JSON.stringify(payload)\n});\n\nif (!response.ok) {\n  const err = await response.text();\n  throw new Error(`Groq ${response.status} - ${err}`);\n}\n\nconst data = await response.json();\nreturn [{ json: data }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -230640,
+        -23664
+      ],
+      "id": "afdb2fd0-0f14-4c60-86e4-88cb82f73e5d",
+      "name": "Extract Image Text"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -227600,
+        -23856
+      ],
+      "id": "9d0892c9-b973-4a41-96f4-ef96260edf95",
+      "name": "Wait — Architect",
+      "webhookId": "cec3f8f4-875b-49dc-b914-75736f9a7d50"
+    },
+    {
+      "parameters": {
+        "amount": 25
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -225440,
+        -23888
+      ],
+      "id": "04da8090-ebe7-446f-ae53-bcd89c4dc091",
+      "name": "Wait — Backend",
+      "webhookId": "212796db-01d1-41b2-90a2-a26e450b8378"
+    },
+    {
+      "parameters": {
+        "amount": 65
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -224944,
+        -23888
+      ],
+      "id": "fc369dac-ab84-483e-94b8-28bc8cbf81f1",
+      "name": "Wait — Frontend",
+      "webhookId": "54a51a89-a4ca-4c1a-8f2e-23e88467ff8c"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -223440,
+        -24304
+      ],
+      "id": "fd6efe16-0a73-4acb-8f4c-490fa5cb6078",
+      "name": "Wait — Code Review",
+      "webhookId": "6a217d9a-46c6-4b83-9102-6879fdce8fa5"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -223440,
+        -24144
+      ],
+      "id": "26cde10a-625a-48f3-903f-7ab8f1c37679",
+      "name": "Wait — QA",
+      "webhookId": "a0950285-807b-45e6-8293-b00b65afe24c"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -223440,
+        -23968
+      ],
+      "id": "52ae5698-dd0b-40c5-96a1-8ab005e3de78",
+      "name": "Wait — SAST",
+      "webhookId": "4b4d212c-5b31-4eae-aafb-e5c7789d0636"
+    },
+    {
+      "parameters": {
+        "amount": 30
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -220384,
+        -24288
+      ],
+      "id": "af5bc8bc-912d-46d8-83d9-2ef6f9dfab70",
+      "name": "Wait — Documentation",
+      "webhookId": "e7f69f72-3982-4c90-ad0c-a63a331cc683"
+    },
+    {
+      "parameters": {
+        "jsCode": "const node_fetch = require('node-fetch');\nconst webhook = $('Webhook').first().json;\nconst body    = (webhook.body && typeof webhook.body === 'object') ? webhook.body : webhook;\n\nconst response = await node_fetch('http://host.docker.internal:3002/extract-docx', {\n  method:  'POST',\n  headers: { 'Content-Type': 'application/json' },\n  body:    JSON.stringify({\n    docx_base64: body.docx_base64,\n    filename:    body.docx_filename || 'document.docx'\n  })\n});\n\nif (!response.ok) {\n  const err = await response.text();\n  throw new Error(`HTTP ${response.status} - ${err}`);\n}\n\nconst data = await response.json();\nreturn [{ json: data }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -231392,
+        -23952
+      ],
+      "id": "5e809fb0-c2aa-4137-aaa2-7c0a97da7a99",
+      "name": "Extract DOCX Text"
+    },
+    {
+      "parameters": {
+        "jsCode": "const fetch = require('node-fetch');\n\n// Lit directement depuis le Webhook\nconst webhook = $('Webhook').first().json;\nconst body = (webhook.body && typeof webhook.body === 'object') ? webhook.body : webhook;\n\nconst response = await fetch('http://host.docker.internal:3002/extract', {\n  method: 'POST',\n  headers: {\n    'Content-Type': 'application/json',\n  },\n  body: JSON.stringify({\n    pdf_base64: body.pdf_base64,\n    filename: body.pdf_filename || 'document.pdf',\n  }),\n});\n\nif (!response.ok) {\n  const errorText = await response.text();\n  throw new Error(`HTTP ${response.status} - ${errorText}`);\n}\n\nconst data = await response.json();\n\nreturn [{ json: data }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -231616,
+        -24032
+      ],
+      "id": "702401db-2d3a-4d4c-a331-7488a2cad77d",
+      "name": "Extract PDF Text"
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial = $('Validate Input').first().json;\n\n// Mode amélioration — les 3 entrées sont obligatoires\nif (!initial.existing_zip_base64) {\n  // Mode génération normale — pas d'amélioration\n  return [{ json: {\n    task_id: initial.task_id,\n    improve_mode: false,\n    project_name: '',\n    existing_version: null,\n    next_version: null,\n    existing_routes: [],\n    existing_stores: {},\n    changelog_context: ''\n  }}];\n}\n\n// Mode amélioration — passer les 3 entrées au ZIP Analyzer\nreturn [{ json: {\n  task_id:              initial.task_id,\n  language:             initial.language,\n  userRequest:          initial.userRequest,\n  improve_mode:         true,\n  existing_zip_base64:  initial.existing_zip_base64,\n  existing_zip_filename: initial.existing_zip_filename || 'existing.zip',\n  // Le document de specs est déjà extrait par le nœud Extract PDF/DOCX\n  // et disponible via userRequest (specs_context)\n  specs_context:        initial.specs_context || initial.userRequest || ''\n}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -226784,
+        -24256
+      ],
+      "id": "62eec263-b939-424e-ac04-e96969de052a",
+      "name": "Build ZIP Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/zip-analyzer",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "=={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -226624,
+        -24256
+      ],
+      "id": "0476af1f-77cf-4bc4-82fe-b34dfe9893eb",
+      "name": "Agent ZIP Analyzer"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "be7f1eb8-1b4d-40ff-b6c1-1fc3a5cca4a9",
+              "leftValue": "={{ $('Validate Input').first().json.improve_mode }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -227456,
+        -23872
+      ],
+      "id": "473ab1ff-c676-42f3-91ac-0e068d6dd97d",
+      "name": "If — Improve Mode ?"
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial   = $('Validate Input').first().json;\nconst zipResult = $input.first().json;\n\nreturn [{\n  json: {\n    task_id:            initial.task_id,\n    improve_prompt:     initial.improve_prompt || initial.userRequest || '',\n    existing_server_js: zipResult.existing_server_js || '',\n    existing_routes:    zipResult.existing_routes    || [],\n    existing_stores:    zipResult.existing_stores    || {},\n    existing_version:   zipResult.existing_version   || '1.0'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -226432,
+        -24256
+      ],
+      "id": "53194ba3-08ca-4cd9-a43b-350bf40eb2ef",
+      "name": "Build VM Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/version-manager",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "=={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -226240,
+        -24256
+      ],
+      "id": "fef7c515-aa7a-4a48-a57c-0e352cfd7657",
+      "name": "Agent Version Manager"
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial = $('Validate Input').first().json;\nreturn [{\n  json: {\n    task_id:     initial.task_id,\n    // Mode amélioration : prompt incrémental court → le linter le fait PASS (contexte = ZIP existant)\n    improve_mode: initial.improve_mode || false,\n    // specs_context = toujours le PDF complet, même en mode amélioration\n    userRequest: initial.specs_context || initial.userRequest\n  }\n}];"
+      },
+      "id": "e9fc3560-9386-421d-a96a-899a31fd51bb",
+      "name": "Build Spec Linter Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -229360,
+        -23872
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/spec-linter",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "=={{ JSON.stringify({task_id: $json.task_id, improve_mode: $json.improve_mode, userRequest: $json.userRequest}) }}",
+        "options": {}
+      },
+      "id": "3daa8599-76cc-4aa3-94b6-9fa05f505184",
+      "name": "Agent Spec Linter",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -229232,
+        -23872
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "f50e5732-fec5-43c4-889f-1a5d41aea20b",
+              "leftValue": "={{ $json.linter_status }}",
+              "rightValue": "PASS",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "bf379e94-c7e1-40c4-b583-92d0e8b4300f",
+      "name": "IF LINTER PASS?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -229024,
+        -23872
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial = $('Validate Input').first().json;\nconst linter  = $input.first().json;\nreturn [{\n  json: {\n    success:       false,\n    pipeline:      'SDLC Multi-Agent',\n    task_id:       initial.task_id,\n    stage:         'SPEC_LINTER',\n    decision:      'BLOCKED',\n    linter_status: linter.linter_status,\n    errors:        linter.errors   || [],\n    warnings:      linter.warnings || [],\n    summary:       linter.summary  || 'Spec invalide — pipeline bloque',\n    message:       'Pipeline arrete avant l Architect. Corrigez les erreurs et relancez.',\n    checked_at:    linter.checked_at || new Date().toISOString()\n  }\n}];"
+      },
+      "id": "fb56a001-cab8-452b-8247-37752663166e",
+      "name": "Respond Linter Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -228704,
+        -23792
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "dfee76d6-0602-4fa7-9c23-c567798ed820",
+      "name": "Respond Linter Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -228480,
+        -23792
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial  = $('Validate Input').first().json;\nconst backend  = $('Agent Backend').first().json;\nconst frontend = $('Agent Frontend').first().json;\nreturn [{\n  json: {\n    task_id:   initial.task_id,\n    language:  initial.language,\n    framework: initial.framework,\n    files: [\n      ...(backend.files  || []),\n      ...(frontend.files || [])\n    ]\n  }\n}];"
+      },
+      "id": "a54a91ef-c7b4-494a-b5d1-add8cfd30ec2",
+      "name": "Build Tests L0 Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -224640,
+        -23888
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/tests-l0",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "=={{ JSON.stringify({task_id: $json.task_id, language: $json.language, framework: $json.framework, files: $json.files}) }}",
+        "options": {}
+      },
+      "id": "de7dba2d-0bad-4b91-b85c-210240cc9219",
+      "name": "Agent Tests L0",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -224464,
+        -23888
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "a16774bb-6421-49e3-9c83-13646eec98e1",
+              "leftValue": "={{ $json.tests_l0_status }}",
+              "rightValue": "PASS",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "7ae94f3a-aafc-45b6-ac62-98cc440db76c",
+      "name": "IF TESTS L0 PASS?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -224288,
+        -23872
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial = $('Validate Input').first().json;\nconst testsL0 = $input.first().json;\nreturn [{\n  json: {\n    success:         false,\n    pipeline:        'SDLC Multi-Agent',\n    task_id:         initial.task_id,\n    stage:           'TESTS_L0',\n    decision:        'BLOCKED',\n    tests_l0_status: testsL0.tests_l0_status,\n    results:         testsL0.results  || [],\n    summary:         testsL0.summary  || 'Tests L0 echoues — pipeline bloque',\n    message:         'Le code genere ne passe pas les tests statiques. Pipeline arrete avant Code Review/QA/SAST.',\n    checked_at:      testsL0.checked_at || new Date().toISOString()\n  }\n}];"
+      },
+      "id": "21f4aa74-3900-474d-ad94-d5856e494eab",
+      "name": "Respond Tests L0 Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -223552,
+        -23568
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "e87acf6b-517e-436b-b6b5-86655e7aa0f6",
+      "name": "Respond Tests L0 Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -223360,
+        -23568
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const initial = $('Validate Input').first().json;\nif (initial.improve_mode) {\n  return [{ json: { task_id: initial.task_id, normalized: false,\n    normalized_userRequest: initial.specs_context || initial.userRequest,\n    structured_context: '', language: initial.language || 'javascript',\n    framework: initial.framework || 'express', _skipped: 'improve_mode' } }];\n}\nreturn [{ json: { task_id: initial.task_id,\n  userRequest: initial.specs_context || initial.userRequest,\n  language: initial.language || 'javascript', framework: initial.framework || 'express' } }];"
+      },
+      "id": "24b427ae-133c-41b1-b295-29855f568924",
+      "name": "Build Spec Normalizer Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -228688,
+        -24144
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const normData = $input.first().json;\nconst initial  = $('Validate Input').first().json;\nconst sc = (normData.structured_context && normData.structured_context.length > 20)\n  ? normData.structured_context : '';\n\n// ── Construire les artifacts déterministes depuis structured_context ──────────\n// Ces données sont les INVARIANTS — le LLM ne peut pas les modifier\nlet deterministicArtifacts = null;\nif (sc && !initial.improve_mode) {\n  try {\n    const norm = JSON.parse(sc);\n    if (norm && Array.isArray(norm.resources) && norm.resources.length > 0) {\n      // Nom technique du Spec Normalizer (ex: \"diaspokoli-marketplace\")\n      const rawPn = norm.project_name || 'Application';\n      // Essayer d'extraire le vrai nom d'affichage :\n      // 1. display_name du Normalizer V1.1 (déjà nettoyé)\n      // 2. Première ligne de specs_context si c'est un nom court propre\n      let pn = normData.display_name || rawPn;\n      try {\n        const specsText = initial.specs_context || initial.userRequest || '';\n        const firstLines = specsText.split('\\n').map(l => l.trim()).filter(l => l.length > 1);\n        const firstLine  = firstLines[0] || '';\n        const firstWords = firstLine.split(/\\s+/);\n        const lastWord   = (firstWords[firstWords.length - 1] || '').toLowerCase();\n        const PREP_FR    = ['de','du','la','le','les','et','ou','pour','avec','sur','par','web','une','un'];\n        const isCleanName = firstLine.length < 25\n          && /^[A-ZÀ-Ü]/.test(firstLine)\n          && !/[:|=\\t]/.test(firstLine)\n          && firstWords.length <= 2\n          && !PREP_FR.includes(lastWord);\n        if (isCleanName) pn = firstLine;\n      } catch(e) {}\n      const endpoints = [{ method: 'GET', path: '/health', description: 'health check' }];\n      (norm.routes || []).filter(r => r.path !== '/health').slice(0, 6).forEach(r => {\n        endpoints.push({ method: r.method, path: r.path, description: r.description || (r.method + ' ' + r.path) });\n      });\n      const dataModel = {};\n      const stores    = {};\n      (norm.resources || []).forEach(res => {\n        const fields = Object.assign({ id: 'number', created_at: 'string' }, res.fields || {});\n        dataModel[res.name] = fields;\n        stores[res.name]    = {\n          store_name:     res.name_plural || (res.name + 's'),\n          required_fields: (res.required_fields || []).filter(f => !['id','created_at'].includes(f))\n        };\n      });\n      deterministicArtifacts = { project_name: pn, priority_endpoints: endpoints,\n        data_model: dataModel, stores: stores };\n    }\n  } catch(e) {}\n}\n\n// ── Toujours envoyer au LLM Architect (même si structured_context valide) ────\n// Le LLM enrichit : mvp_scope, deferred, abuse_cases, architecture\n// Les invariants (endpoints, stores, data_model) sont protégés par Build Backend Payload\nconst userRequest = (normData.normalized_userRequest && normData.normalized_userRequest.length > 20)\n  ? normData.normalized_userRequest\n  : (initial.specs_context || initial.userRequest);\n\nreturn [{ json: {\n  _deterministic_architect:  false,  // toujours LLM\n  _deterministic_artifacts:  deterministicArtifacts,  // invariants pour Build Backend\n  task_id:           initial.task_id,\n  userRequest:       userRequest,\n  structured_context: sc,\n  specs_context:     initial.specs_context || initial.userRequest,\n  project_name:      normData.project_name || '',\n  language:          initial.language    || 'javascript',\n  framework:         initial.framework   || 'express',\n  environment:       initial.environment || 'staging',\n  improve_mode:      initial.improve_mode || false,\n  improve_prompt:    initial.improve_mode ? (initial.improve_prompt || initial.userRequest) : '',\n  existing_routes:   initial.existing_routes  || [],\n  existing_stores:   initial.existing_stores  || {},\n  existing_version:  initial.existing_version || '1.0',\n  next_version:      initial.next_version     || '1.1',\n  changelog_context: initial.changelog_context || '',\n  backend_instructions:  initial.backend_instructions  || [],\n  frontend_instructions: initial.frontend_instructions || []\n}}];"
+      },
+      "id": "8acf3770-45d6-4fb6-9a15-93e24948b6a3",
+      "name": "Build Architect Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -228336,
+        -24144
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://167.86.93.31:5688/webhook/spec-normalizer",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({task_id: $json.task_id, userRequest: $json.userRequest, language: $json.language, framework: $json.framework}) }}",
+        "options": {}
+      },
+      "id": "eb481170-3930-42b3-93e6-fc96b9ffd400",
+      "name": "Agent Spec Normalizer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -228528,
+        -24144
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "a1f31625-1a4f-49bd-894e-dc5f0bc8df6a",
+              "leftValue": "={{ $json._deterministic_architect }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b21da51b-f161-4425-9871-a1765e112ba4",
+      "name": "IF Deterministic Architect?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -228144,
+        -24144
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================================\n// SPRINT 5 — Nœud Orchestrateur \"Build Differential Output\" (Approche A)\n// ----------------------------------------------------------------------------\n// À COLLER dans un Code node de l'Orchestrateur, placé APRÈS l'Agent Architect\n// (donc après l'Agent ZIP Analyzer), sur la branche mode Améliorer.\n//\n// Entrées (lues via références de nœuds, tolérant aux formes {body}/{json}) :\n//   - Agent ZIP Analyzer  -> current_state (avec all_files) — cf. ZIP Analyzer V2.3\n//   - Agent Architect     -> artifacts.stores + artifacts.data_model (spec cible)\n//\n// Sortie ($json) :\n//   { differential: true, mode, diff, files: [ {path, content} ... ], new_resources }\n//   `files` = APP COMPLÈTE (existant préservé + incréments backend + frontend + index.html augmenté).\n//\n// Câblage dans Build Final Response (1 ligne) : si $json.differential, utiliser\n//   `$json.files` comme allFiles au lieu de backend.files + frontend.files.\n//   (Voir docs/sprint5-differentiel.md, section « Câblage ».)\n// ============================================================================\n\n// ---- lecture robuste d'une sortie de nœud (HTTP Request ou Code) ----\nfunction _readNode(name) {\n  var j = null;\n  try { j = $(name).first().json; } catch (e) { return null; }\n  if (!j) return null;\n  // HTTP Request : le corps peut être sous .body (objet ou string JSON)\n  if (j.body !== undefined) {\n    if (typeof j.body === 'string') { try { return JSON.parse(j.body.replace(/^=+/, '').trim()); } catch (e) { return j; } }\n    if (typeof j.body === 'object') return j.body;\n  }\n  return j;\n}\n\n// ---- spec cible depuis l'Architect ----\nfunction deriveTarget(architect) {\n  architect = architect || {};\n  var art = architect.artifacts || {};\n  var stores = art.stores || {};\n  var dm = art.data_model || {};\n  var resources = Object.keys(stores).map(function (resName) {\n    var st = stores[resName] || {};\n    var fields = {};\n    var f = dm[resName] || {};\n    Object.keys(f).forEach(function (k) { if (k !== 'id' && k !== 'created_at') fields[k] = f[k]; });\n    return {\n      name: resName,\n      store_name: st.store_name || (resName + 's'),\n      fields: fields,\n      required_fields: st.required_fields || []\n    };\n  });\n  return { resources: resources };\n}\n\nfunction computeIncrements(current_state, target) {\n  current_state = current_state || {};\n  target = target || {};\n  var curResources = current_state.resources || [];\n  var curMigrations = current_state.migrations || [];   // ex: ['migrations/002_add_notes.sql']\n  var curModules = current_state.modules || [];          // ex: ['modules/010_notes.routes.js']\n  var tgtResources = target.resources || [];\n\n  // -- Index des stores existants\n  var existingStores = {};\n  curResources.forEach(function (r) { if (r && r.store_name) existingStores[r.store_name] = true; });\n\n  // -- Numéros de départ (on incrémente à partir du max existant)\n  function maxNum(list, re) {\n    var m = 1; // 001_init occupe toujours le 1 pour les migrations\n    (list || []).forEach(function (p) {\n      var mm = String(p).match(re);\n      if (mm) { var n = parseInt(mm[1], 10); if (n > m) m = n; }\n    });\n    return m;\n  }\n  var migNum = Math.max(1, maxNum(curMigrations, /(\\d+)_/));      // migrations : 001_init -> suivant\n  var modNum = maxNum(curModules, /(\\d+)_/);                       // modules : 000 si aucun\n  if (modNum < 10) modNum = 9;                                     // convention : modules démarrent à 010\n\n  // -- Type SQLite depuis un type logique\n  function sqlType(t) {\n    t = String(t || 'string').toLowerCase();\n    if (t === 'number' || t === 'integer' || t === 'int') return 'INTEGER';\n    if (t === 'real' || t === 'float' || t === 'decimal') return 'REAL';\n    return 'TEXT';\n  }\n  function pad(n) { return (n < 10 ? '00' : (n < 100 ? '0' : '')) + n; }\n\n  var newResources = [];\n  var files = [];            // incréments backend (migrations + modules)\n  var frontendFiles = [];    // frontend/ui_<store>.js (nouveaux fichiers autonomes)\n  var injSections = [];      // sections HTML à injecter dans index.html\n  var injScripts = [];       // balises <script> à injecter dans index.html\n\n  tgtResources.forEach(function (r) {\n    if (!r || !r.store_name) return;\n    if (existingStores[r.store_name]) return; // déjà présent -> préservé, aucun incrément\n\n    var store = r.store_name;\n    var fields = r.fields || {};\n    var required = r.required_fields || [];\n    var fieldNames = Object.keys(fields);\n    // fallback : si pas de fields détaillés, on part des required_fields (type string par défaut)\n    if (fieldNames.length === 0 && required.length) {\n      required.forEach(function (f) { fields[f] = 'string'; });\n      fieldNames = required.slice();\n    }\n\n    // ---- migration SQL (colonnes métier + user_id + created_at) ----\n    migNum += 1;\n    var migName = 'migrations/' + pad(migNum) + '_add_' + store + '.sql';\n    var cols = [];\n    cols.push('  id INTEGER PRIMARY KEY AUTOINCREMENT');\n    fieldNames.forEach(function (f) {\n      var notNull = (required.indexOf(f) >= 0) ? ' NOT NULL' : '';\n      cols.push('  ' + f + ' ' + sqlType(fields[f]) + notNull);\n    });\n    cols.push('  user_id INTEGER NOT NULL REFERENCES users(id)');\n    cols.push(\"  created_at TEXT DEFAULT (datetime('now'))\");\n    var sql = '-- Increment Sprint 5 : table ' + store + '\\n' +\n      'CREATE TABLE IF NOT EXISTS ' + store + ' (\\n' + cols.join(',\\n') + '\\n);\\n';\n    files.push({ path: migName, content: sql });\n\n    // ---- module routes.js (factory chargée par le socle Sprint 3) ----\n    modNum += 1;\n    var modName = 'modules/' + pad(modNum) + '_' + store + '.routes.js';\n    var insCols = ['user_id'].concat(fieldNames);\n    var insPlace = insCols.map(function () { return '?'; }).join(', ');\n    var insVals = ['req.user.sub'].concat(fieldNames.map(function (f) { return 'req.body.' + f; }));\n    var reqCheck = required.length\n      ? ('    var _miss = [' + required.map(function (f) { return \"'\" + f + \"'\"; }).join(', ') +\n         '].filter(function(k){ return req.body[k] === undefined || req.body[k] === null || req.body[k] === \"\"; });\\n' +\n         '    if (_miss.length) return res.status(400).json({ message: \"Champs requis manquants : \" + _miss.join(\", \") });\\n')\n      : '';\n\n    var L = [];\n    L.push('// Module additif genere par Forge IA (Sprint 5) pour la ressource ' + store);\n    L.push('// Charge automatiquement par le socle : factory app, db, authMiddleware');\n    L.push('module.exports = function (app, db, authMiddleware) {');\n    L.push(\"  app.post('/\" + store + \"', authMiddleware, function (req, res) {\");\n    L.push('    try {');\n    if (reqCheck) L.push(reqCheck.replace(/\\n$/, ''));\n    L.push(\"      var stmt = db.prepare('INSERT INTO \" + store + \" (\" + insCols.join(', ') + \") VALUES (\" + insPlace + \")');\");\n    L.push('      var result = stmt.run(' + insVals.join(', ') + ');');\n    L.push(\"      var item = db.prepare('SELECT * FROM \" + store + \" WHERE id = ?').get(result.lastInsertRowid);\");\n    L.push('      res.status(201).json(item);');\n    L.push(\"    } catch (e) { console.error('[POST /\" + store + \"]', e.message); res.status(500).json({ message: 'Erreur interne' }); }\");\n    L.push('  });');\n    L.push(\"  app.get('/\" + store + \"', authMiddleware, function (req, res) {\");\n    L.push(\"    try { res.json(db.prepare('SELECT * FROM \" + store + \" WHERE user_id = ? ORDER BY id ASC').all(req.user.sub)); }\");\n    L.push(\"    catch (e) { console.error('[GET /\" + store + \"]', e.message); res.status(500).json({ message: 'Erreur interne' }); }\");\n    L.push('  });');\n    L.push(\"  app.delete('/\" + store + \"/:id', authMiddleware, function (req, res) {\");\n    L.push('    try {');\n    L.push('      var id = parseInt(req.params.id, 10);');\n    L.push(\"      var found = db.prepare('SELECT id FROM \" + store + \" WHERE id = ? AND user_id = ?').get(id, req.user.sub);\");\n    L.push(\"      if (!found) return res.status(404).json({ message: 'Introuvable' });\");\n    L.push(\"      db.prepare('DELETE FROM \" + store + \" WHERE id = ? AND user_id = ?').run(id, req.user.sub);\");\n    L.push(\"      res.json({ message: 'Supprime' });\");\n    L.push(\"    } catch (e) { console.error('[DELETE /\" + store + \"]', e.message); res.status(500).json({ message: 'Erreur interne' }); }\");\n    L.push('  });');\n    L.push('};');\n    files.push({ path: modName, content: L.join('\\n') });\n\n    // ---- frontend : frontend/ui_<store>.js (CSP-safe, additif) ----\n    // Aucun gestionnaire inline : on définit window.loadItems_<store> /\n    // window.deleteItem_<store> et on branche le formulaire via addEventListener.\n    // La délégation data-refresh / data-del est déjà gérée par app.js existant.\n    var uiName = 'frontend/ui_' + store + '.js';\n    var singular = String(r.name || store.replace(/s$/, ''));\n    var label = store.charAt(0).toUpperCase() + store.slice(1);\n    var titleField = fieldNames[0] || 'id';\n    var metaFields = fieldNames.slice(1);\n\n    var U = [];\n    U.push('// Module frontend additif genere par Forge IA (Sprint 5) pour la ressource ' + store);\n    U.push('// CSP-safe : aucun handler inline. Reutilise app.js (escapeHtml, showFeedback, delegation data-*).');\n    U.push('(function () {');\n    U.push('  var STORE = \"' + store + '\";');\n    U.push('  var API = \"/' + store + '\";');\n    U.push('  function esc(s) {');\n    U.push('    if (typeof window.escapeHtml === \"function\") return window.escapeHtml(s);');\n    U.push('    return String(s == null ? \"\" : s).replace(/[&<>\"\\']/g, function (c) {');\n    U.push('      return ({ \"&\": \"&amp;\", \"<\": \"&lt;\", \">\": \"&gt;\", \"\\\\\"\": \"&quot;\", \"\\'\": \"&#39;\" })[c];');\n    U.push('    });');\n    U.push('  }');\n    U.push('  function fb(msg, type) { if (typeof window.showFeedback === \"function\") window.showFeedback(STORE, msg, type); }');\n    // ---- loadItems ----\n    U.push('  window.loadItems_' + store + ' = async function () {');\n    U.push('    var list = document.getElementById(\"list-' + store + '\");');\n    U.push('    if (!list) return;');\n    U.push('    list.innerHTML = \"<div class=\\'loading\\'>Chargement...</div>\";');\n    U.push('    try {');\n    U.push('      var res = await fetch(API, { headers: { \"Accept\": \"application/json\" } });');\n    U.push('      if (!res.ok) { list.innerHTML = \"<div class=\\'empty-state\\'>Erreur de chargement</div>\"; return; }');\n    U.push('      var items = await res.json();');\n    U.push('      if (!Array.isArray(items) || !items.length) { list.innerHTML = \"<div class=\\'empty-state\\'>Aucun element</div>\"; return; }');\n    U.push('      var html = \"\";');\n    U.push('      items.forEach(function (item) {');\n    U.push('        var title = esc(item.' + titleField + ' != null ? item.' + titleField + ' : (\"#\" + item.id));');\n    U.push('        var _meta = [];');\n    metaFields.forEach(function (f) {\n      U.push('        if (item.' + f + ' != null && item.' + f + ' !== \"\") _meta.push(\"' + f + ' : \" + esc(item.' + f + '));');\n    });\n    U.push('        var meta = _meta.join(\" | \");');\n    U.push('        html += \"<div class=\\'item-card\\'><div class=\\'item-info\\'>\" +');\n    U.push('          \"<div class=\\'item-title\\'>\" + title + \"</div>\" +');\n    U.push('          \"<div class=\\'item-meta\\'>\" + meta + \"</div></div>\" +');\n    U.push('          \"<button class=\\'btn-danger\\' data-del=\\'\" + STORE + \"\\' data-id=\\'\" + item.id + \"\\'>Supprimer</button></div>\";');\n    U.push('      });');\n    U.push('      list.innerHTML = html;');\n    U.push('    } catch (err) { console.error(\"[loadItems_' + store + ']\", err.message); list.innerHTML = \"<div class=\\'empty-state\\'>Erreur</div>\"; }');\n    U.push('  };');\n    // ---- deleteItem ----\n    U.push('  window.deleteItem_' + store + ' = async function (id) {');\n    U.push('    try { await fetch(API + \"/\" + id, { method: \"DELETE\" }); window.loadItems_' + store + '(); }');\n    U.push('    catch (err) { console.error(\"[deleteItem_' + store + ']\", err.message); }');\n    U.push('  };');\n    // ---- init (formulaire + premier chargement) ----\n    U.push('  document.addEventListener(\"DOMContentLoaded\", function () {');\n    U.push('    var form = document.getElementById(\"form-create-' + store + '\");');\n    U.push('    if (form) {');\n    U.push('      form.addEventListener(\"submit\", async function (e) {');\n    U.push('        e.preventDefault();');\n    U.push('        var payload = {};');\n    fieldNames.forEach(function (f) {\n      var isNum = sqlType(fields[f]) !== 'TEXT';\n      U.push('        var _el_' + f + ' = document.getElementById(\"field-' + store + '-' + f + '\");');\n      U.push('        if (_el_' + f + ') payload.' + f + ' = ' + (isNum ? 'Number(_el_' + f + '.value)' : '_el_' + f + '.value') + ';');\n    });\n    U.push('        try {');\n    U.push('          var res = await fetch(API, { method: \"POST\", headers: { \"Content-Type\": \"application/json\" }, body: JSON.stringify(payload) });');\n    U.push('          if (res.ok) { form.reset(); fb(\"Cree avec succes\", \"success\"); window.loadItems_' + store + '(); }');\n    U.push('          else { var d = await res.json().catch(function () { return {}; }); fb(d.message || \"Erreur\", \"error\"); }');\n    U.push('        } catch (err) { fb(err.message, \"error\"); }');\n    U.push('      });');\n    U.push('    }');\n    U.push('    window.loadItems_' + store + '();');\n    U.push('  });');\n    U.push('})();');\n    frontendFiles.push({ path: uiName, content: U.join('\\n') });\n\n    // ---- section HTML à injecter dans index.html (attributs double-quote, style existant) ----\n    var S = [];\n    S.push('    <section class=\"card\" id=\"section-create-' + store + '\">');\n    S.push('      <h2 class=\"card-title\">Creer ' + singular + '</h2>');\n    S.push('      <form id=\"form-create-' + store + '\" class=\"create-form\">');\n    fieldNames.forEach(function (f) {\n      var inputType = (sqlType(fields[f]) !== 'TEXT') ? 'number' : 'text';\n      var reqAttr = (required.indexOf(f) >= 0) ? ' required' : '';\n      S.push('        <div class=\"form-group\">');\n      S.push('          <label for=\"field-' + store + '-' + f + '\">' + f + '</label>');\n      S.push('          <input type=\"' + inputType + '\" id=\"field-' + store + '-' + f + '\" name=\"' + f + '\" placeholder=\"' + f + '\" class=\"form-input\"' + reqAttr + '>');\n      S.push('        </div>');\n    });\n    S.push('        <button type=\"submit\" class=\"btn btn-primary\">Creer</button>');\n    S.push('      </form>');\n    S.push('      <div id=\"feedback-' + store + '\" class=\"feedback\"></div>');\n    S.push('    </section>');\n    S.push('    <section class=\"card\" id=\"section-list-' + store + '\">');\n    S.push('      <div class=\"section-header\">');\n    S.push('        <h2 class=\"card-title\">Liste ' + label + '</h2>');\n    S.push('        <button data-refresh=\"' + store + '\" class=\"btn btn-secondary\">Actualiser</button>');\n    S.push('      </div>');\n    S.push('      <div id=\"list-' + store + '\"></div>');\n    S.push('    </section>');\n    injSections.push({ store: store, html: S.join('\\n') });\n    injScripts.push({ store: store, tag: '  <script src=\"ui_' + store + '.js\"></script>' });\n\n    newResources.push({ name: r.name || store.replace(/s$/, ''), store_name: store, fields: fields, required_fields: required, migration: migName, module: modName, ui: uiName });\n  });\n\n  var unchanged = curResources.map(function (r) { return r.store_name; });\n  var allGenerated = files.map(function (f) { return f.path; })\n    .concat(frontendFiles.map(function (f) { return f.path; }));\n\n  return {\n    mode: newResources.length ? 'differential' : 'noop',\n    diff: {\n      added_resources: newResources.map(function (r) { return r.store_name; }),\n      unchanged_resources: unchanged,\n      files_generated: allGenerated\n    },\n    increment_files: files,            // backend : migrations + modules\n    frontend_files: frontendFiles,     // frontend : ui_<store>.js\n    html_injection: { sections: injSections, scripts: injScripts },\n    new_resources: newResources\n  };\n}\n\nfunction mergeFiles(existingFiles, result) {\n  existingFiles = existingFiles || [];\n  result = result || {};\n  var out = existingFiles.map(function (f) { return { path: f.path, content: f.content }; });\n  var byPath = {};\n  out.forEach(function (f) { byPath[f.path] = f; });\n\n  function addOrKeep(f) {\n    if (byPath[f.path]) { byPath[f.path].content = f.content; }  // ne devrait pas arriver (incrément = nouveau)\n    else { out.push(f); byPath[f.path] = f; }\n  }\n  (result.increment_files || []).forEach(addOrKeep);\n  (result.frontend_files || []).forEach(addOrKeep);\n\n  var inj = result.html_injection || {};\n  var sections = inj.sections || [];\n  var scripts = inj.scripts || [];\n  if (sections.length || scripts.length) {\n    // Repérer index.html (priorité à frontend/index.html)\n    var idx = null;\n    out.forEach(function (f) {\n      if (/(^|\\/)index\\.html$/i.test(f.path)) {\n        if (!idx || /(^|\\/)frontend\\/index\\.html$/i.test(f.path)) idx = f;\n      }\n    });\n    if (idx) {\n      var html = idx.content || '';\n      sections.forEach(function (s) {\n        if (html.indexOf('id=\"section-create-' + s.store + '\"') !== -1) return; // déjà injectée\n        if (html.indexOf('</main>') !== -1) html = html.replace('</main>', s.html + '\\n  </main>');\n        else if (html.indexOf('</body>') !== -1) html = html.replace('</body>', s.html + '\\n</body>');\n        else html = html + '\\n' + s.html;\n      });\n      scripts.forEach(function (s) {\n        if (html.indexOf(s.tag.trim()) !== -1) return; // déjà présent\n        if (html.indexOf('</body>') !== -1) html = html.replace('</body>', s.tag + '\\n</body>');\n        else html = html + '\\n' + s.tag;\n      });\n      idx.content = html;\n    }\n  }\n  return out;\n}\n\n// ---- exécution ----\nvar _zip = _readNode('Agent ZIP Analyzer') || {};\nvar current_state = _zip.current_state || (_zip.json && _zip.json.current_state) || {};\nvar _architect = _readNode('Agent Architect') || {};\nvar _passthrough = $input.first() ? $input.first().json : {};\n\n// GARDE-FOU : n'activer le mode différentiel QUE si on améliore une app existante\n// (improve_mode + fichiers existants extraits). Sinon -> régénération complète normale.\nvar _hasExisting = current_state && Array.isArray(current_state.all_files) && current_state.all_files.length > 0;\nvar _improve = _zip.improve_mode === true && _hasExisting;\nif (!_improve) {\n  return [{ json: Object.assign({}, _passthrough, {\n    differential: false,\n    mode: 'full_regen',\n    reason: _hasExisting ? 'improve_mode absent' : 'aucun fichier existant extrait'\n  }) }];\n}\n\nvar target = deriveTarget(_architect);\nvar result = computeIncrements(current_state, target);\n\n// Additif v1 : on ne prend le raccourci différentiel QUE s'il y a de NOUVELLES ressources.\n// Un changement non-additif (nouveau champ, renommage, UI...) -> régénération complète (sûr).\nif (result.mode !== 'differential') {\n  return [{ json: Object.assign({}, _passthrough, {\n    differential: false,\n    mode: 'full_regen',\n    reason: 'aucune nouvelle ressource (changement non-additif) -> regeneration complete',\n    diff: result.diff\n  }) }];\n}\n\nvar files = mergeFiles(current_state.all_files, result);\n\nreturn [{\n  json: {\n    differential: true,\n    mode: result.mode,\n    diff: result.diff,\n    files: files,\n    new_resources: result.new_resources,\n    task_id: (_zip.task_id || _architect.task_id || 'unknown')\n  }\n}];\n"
+      },
+      "id": "sprint5-diff-node-0001",
+      "name": "Build Differential Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -219684,
+        -24288
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Detect Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent Architect": {
+      "main": [
+        [
+          {
+            "node": "Build Backend Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent Backend": {
+      "main": [
+        [
+          {
+            "node": "Build Frontend Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Build Spec Linter Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Backend Payload": {
+      "main": [
+        [
+          {
+            "node": "Wait — Backend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Frontend Payload": {
+      "main": [
+        [
+          {
+            "node": "Wait — Frontend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent Frontend": {
+      "main": [
+        [
+          {
+            "node": "Build Tests L0 Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Review Payload": {
+      "main": [
+        [
+          {
+            "node": "Wait — Code Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build QA Payload": {
+      "main": [
+        [
+          {
+            "node": "Wait — QA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build SAST Payload": {
+      "main": [
+        [
+          {
+            "node": "Wait — SAST",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent Code Review": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent SAST": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Build SCA Payload",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build Secrets Payload",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build DAST Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build SCA Payload": {
+      "main": [
+        [
+          {
+            "node": "Agent SCA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Secrets Payload": {
+      "main": [
+        [
+          {
+            "node": "Agent Secrets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build DAST Payload": {
+      "main": [
+        [
+          {
+            "node": "Agent DAST",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent Secrets": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Agent SCA": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent DAST": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Agent QA": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Build GoNoGo Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build GoNoGo Payload": {
+      "main": [
+        [
+          {
+            "node": "Agent Go/No-Go",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent Go/No-Go": {
+      "main": [
+        [
+          {
+            "node": "If — CONTINUE ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If — CONTINUE ?": {
+      "main": [
+        [
+          {
+            "node": "Agent DevOps/Deploy",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond STOP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond STOP": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent DevOps/Deploy": {
+      "main": [
+        [
+          {
+            "node": "Build Monitoring Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Monitoring Payload": {
+      "main": [
+        [
+          {
+            "node": "Agent Monitoring",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent Monitoring": {
+      "main": [
+        [
+          {
+            "node": "If HEALTHY",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If HEALTHY": {
+      "main": [
+        [
+          {
+            "node": "Build Cost Payload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Runtime Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Cost Payload": {
+      "main": [
+        [
+          {
+            "node": "Agent Cost & Performance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Runtime Payload": {
+      "main": [
+        [
+          {
+            "node": "Agent Runtime Feedback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent Runtime Feedback": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Agent Cost & Performance": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge2": {
+      "main": [
+        [
+          {
+            "node": "Build Doc Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Doc Payload": {
+      "main": [
+        [
+          {
+            "node": "Wait — Documentation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Knowledge Payload": {
+      "main": [
+        [
+          {
+            "node": "Agent Knowledge/Memory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent Knowledge/Memory": {
+      "main": [
+        [
+          {
+            "node": "Build Differential Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Final Response": {
+      "main": [
+        [
+          {
+            "node": "Respond Final",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent Documentation": {
+      "main": [
+        [
+          {
+            "node": "Build Knowledge Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detect Input": {
+      "main": [
+        [
+          {
+            "node": "Sanitize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF PDF?": {
+      "main": [
+        [
+          {
+            "node": "Extract PDF Text",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF DOCX?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build PDF Context": {
+      "main": [
+        [
+          {
+            "node": "Merge Input Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF DOCX?": {
+      "main": [
+        [
+          {
+            "node": "Extract DOCX Text",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF URL?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build DOCX Context": {
+      "main": [
+        [
+          {
+            "node": "Merge Input Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF URL?": {
+      "main": [
+        [
+          {
+            "node": "Fetch URL Content",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF IMAGE?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch URL Content": {
+      "main": [
+        [
+          {
+            "node": "Build URL Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build URL Context": {
+      "main": [
+        [
+          {
+            "node": "Merge Input Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF IMAGE?": {
+      "main": [
+        [
+          {
+            "node": "Extract Image Text",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Direct Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Image Context": {
+      "main": [
+        [
+          {
+            "node": "Merge Input Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Direct Context": {
+      "main": [
+        [
+          {
+            "node": "Merge Input Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Input Paths": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sanitize Input": {
+      "main": [
+        [
+          {
+            "node": "IF PDF?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Image Text": {
+      "main": [
+        [
+          {
+            "node": "Build Image Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait — Backend": {
+      "main": [
+        [
+          {
+            "node": "Agent Backend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait — Frontend": {
+      "main": [
+        [
+          {
+            "node": "Agent Frontend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait — Code Review": {
+      "main": [
+        [
+          {
+            "node": "Agent Code Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait — QA": {
+      "main": [
+        [
+          {
+            "node": "Agent QA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait — SAST": {
+      "main": [
+        [
+          {
+            "node": "Agent SAST",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait — Documentation": {
+      "main": [
+        [
+          {
+            "node": "Agent Documentation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait — Architect": {
+      "main": [
+        [
+          {
+            "node": "If — Improve Mode ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract DOCX Text": {
+      "main": [
+        [
+          {
+            "node": "Build DOCX Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract PDF Text": {
+      "main": [
+        [
+          {
+            "node": "Build PDF Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build ZIP Payload": {
+      "main": [
+        [
+          {
+            "node": "Agent ZIP Analyzer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent ZIP Analyzer": {
+      "main": [
+        [
+          {
+            "node": "Build VM Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If — Improve Mode ?": {
+      "main": [
+        [
+          {
+            "node": "Build ZIP Payload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Agent Architect",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build VM Payload": {
+      "main": [
+        [
+          {
+            "node": "Agent Version Manager",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent Version Manager": {
+      "main": [
+        [
+          {
+            "node": "Agent Architect",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Spec Linter Payload": {
+      "main": [
+        [
+          {
+            "node": "Agent Spec Linter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent Spec Linter": {
+      "main": [
+        [
+          {
+            "node": "IF LINTER PASS?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF LINTER PASS?": {
+      "main": [
+        [
+          {
+            "node": "Build Spec Normalizer Payload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Linter Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond Linter Error": {
+      "main": [
+        [
+          {
+            "node": "Respond Linter Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Tests L0 Payload": {
+      "main": [
+        [
+          {
+            "node": "Agent Tests L0",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent Tests L0": {
+      "main": [
+        [
+          {
+            "node": "IF TESTS L0 PASS?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF TESTS L0 PASS?": {
+      "main": [
+        [
+          {
+            "node": "Build Review Payload",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build QA Payload",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build SAST Payload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Tests L0 Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond Tests L0 Error": {
+      "main": [
+        [
+          {
+            "node": "Respond Tests L0 Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Spec Normalizer Payload": {
+      "main": [
+        [
+          {
+            "node": "Agent Spec Normalizer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent Spec Normalizer": {
+      "main": [
+        [
+          {
+            "node": "Build Architect Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Architect Payload": {
+      "main": [
+        [
+          {
+            "node": "IF Deterministic Architect?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Deterministic Architect?": {
+      "main": [
+        [
+          {
+            "node": "Build Backend Payload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait — Architect",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Differential Output": {
+      "main": [
+        [
+          {
+            "node": "Build Final Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "meta": {
+    "instanceId": "c77e41168b0abc4c9e72e3dfa70fb293d0acb289b40b847421933eadc146e082"
+  },
+  "tags": []
+}

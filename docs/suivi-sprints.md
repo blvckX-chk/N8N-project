@@ -607,9 +607,14 @@ Retrieve OK    → count=2, entries triées par score
 Retrieve dégr. → count=0, degraded:true                        (non bloquant)
 ```
 
-### Reste à faire (prochaine étape)
-1. **Déployer le service mémoire** sur le VPS (`docker build/run`, port 4002, `MEMORY_TOKEN`).
-2. **Config n8n** : variables d'env `MEMORY_URL`, `MEMORY_TOKEN` (et `MISTRAL_API_KEY` déjà présent) ; importer/activer Agent Knowledge/Memory V2.0.
-3. **Branchement orchestrateur** (RAG *actif*) : lecture mémoire avant l'Architect (injection des patterns validés dans le contexte) + écritures après génération (specs, décisions SAST/QA). À appliquer **après** le déploiement du service, pour vérifier de bout en bout (l'orchestrateur est le workflow le plus critique — pas de modification à l'aveugle).
+### Branchement RAG dans le pipeline (livré)
+- **Écriture** — Orchestrateur **V6.17**, nœud `Build Knowledge Payload` réécrit : après chaque génération, mémorise la **spec** (`kind:'spec'`, corpus global) + son issue en métadonnées (décision Go/No-Go, environnement, nb de fichiers, URL de déploiement). Alimente le corpus au fil des générations.
+- **Lecture** — Architect **V5.6**, nœud `Build Prompt (Architect)` : avant la génération, récupère (best-effort) les **specs de projets similaires déjà réalisés** (`operation:READ`, top-3, **seuil de similarité 0.75**) et les injecte dans le prompt du LLM **en tant qu'inspiration NON contraignante**. Nourrit la *compréhension* du LLM — **jamais le code déterministe**.
+- **Non bloquant vérifié** (nœuds exécutés avec mocks) : mémoire présente → section injectée, entrées faibles (< 0.75) exclues ; mémoire indisponible → **prompt construit normalement** ; mode amélioration → pas de lecture (contexte = ZIP existant).
 
-**À importer** : `Agent_Knowledge_Memory_V2.0.json` (+ déployer `memory-service/`).
+### Reste à faire (activation runtime)
+1. **Déployer le service mémoire** sur le VPS (`docker build/run`, port 4002, `MEMORY_TOKEN`).
+2. **Config n8n** : variables d'env `MEMORY_URL`, `MEMORY_TOKEN` (`MISTRAL_API_KEY` déjà présent).
+3. **Importer/activer** : Agent Knowledge/Memory **V2.0**, Orchestrateur **V6.17**, Architect **V5.6** (re-sélectionner la credential Mistral sur l'Architect).
+
+**À importer** : `Agent_Knowledge_Memory_V2.0.json`, `Orchestrateur_V6.17.json`, `Agent_Architect_V5.6.json` (+ déployer `memory-service/`).
