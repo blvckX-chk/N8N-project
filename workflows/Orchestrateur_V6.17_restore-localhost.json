@@ -619,7 +619,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "=={{ JSON.stringify({ task_id: $json.task_id, operation: $json.operation, category: $json.category, data: $json.data }) }}",
+        "body": "=={{ JSON.stringify({ task_id: $json.task_id, operation: $json.operation, kind: $json.kind, project: $json.project, text: $json.text, meta: $json.meta }) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
