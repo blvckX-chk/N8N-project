@@ -1,0 +1,28 @@
+# Forge IA — couche mémoire / RAG (stockage vectoriel)
+# Déploiement : depuis ce dossier, avec un fichier .env contenant MEMORY_TOKEN=<secret>
+#   docker compose -f docker-compose.memory.yml up -d --build
+# Publie 4002 sur l'hôte -> joignable par n8n_local via http://host.docker.internal:4002
+services:
+  forge-memory:
+    build: .
+    image: forge-memory:1.0.0
+    container_name: forge-memory
+    restart: unless-stopped
+    ports:
+      - "4002:4002"
+    environment:
+      - PORT=4002
+      - MEMORY_DB_PATH=/data/memory.db
+      # Token d'accès partagé (X-Memory-Token). DOIT être défini (fichier .env local).
+      # Le même token devra être placé dans l'env de n8n (MEMORY_TOKEN).
+      - MEMORY_TOKEN=${MEMORY_TOKEN:?Definir MEMORY_TOKEN dans memory-service/.env}
+    volumes:
+      - forge_memory_data:/data          # persistance de la base vectorielle
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:4002/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  forge_memory_data:
