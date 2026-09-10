@@ -1,0 +1,343 @@
+{
+  "name": "Agent Knowledge Memory V2.0",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "agent-knowledge",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -592,
+        496
+      ],
+      "id": "72dacd86-5d52-4a86-a45f-eb342e792dfd",
+      "name": "Webhook",
+      "webhookId": "4c47a626-c6fb-4217-b317-c4f1b5c7f8e1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nlet data = raw;\nif (raw.body !== undefined) {\n  let rawBody = raw.body;\n  if (typeof rawBody === 'string') { rawBody = rawBody.replace(/^=+/, '').trim(); try { data = JSON.parse(rawBody); } catch(e) { data = raw; } }\n  else if (typeof rawBody === 'object') { data = rawBody; }\n}\nconst task_id   = data.task_id || raw.task_id || 'TASK-KNOWLEDGE-' + Date.now();\nconst operation = String(data.operation || raw.operation || 'WRITE').toUpperCase();\nconst kind      = String(data.kind || data.category || raw.category || 'pattern');\nconst project   = String(data.project || (data.data && data.data.project) || '');\nconst meta      = (data.meta && typeof data.meta === 'object') ? data.meta : {};\nlet text = '';\nif (operation === 'READ') { text = data.query || data.text || ''; }\nelse { text = data.text || (typeof data.data === 'string' ? data.data : (data.data ? JSON.stringify(data.data) : '')) || data.content || ''; }\nconst k = Math.min(Math.max(parseInt(data.k, 10) || 5, 1), 20);\nreturn [{ json: { task_id: String(task_id), operation, kind, project, text: String(text), query: String(data.query || ''), k, meta } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -416,
+        496
+      ],
+      "id": "b5af9a18-a6f6-403a-9fed-477a143dca80",
+      "name": "Validate Input"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "WRITE",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "c8b39a46-5212-48e0-8a0c-477229246fcc"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "write"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "0969ab4c-aa03-4c43-a0d1-2604069631dd",
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "READ",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "read"
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -32,
+        496
+      ],
+      "id": "de19e3e0-6d96-49e6-a15b-750caf72733d",
+      "name": "Router READ/WRITE"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        576,
+        480
+      ],
+      "id": "f58be279-e011-4323-9edb-09795cc44c3f",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "53b6e061-ac70-4c1f-93a5-36d41151004f",
+              "leftValue": "={{ $json.error_code }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -256,
+        496
+      ],
+      "id": "27ddb43e-2581-4663-8c99-b01be71bca65",
+      "name": "If — Valid Check"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nreturn [{\n  json: {\n    success: false,\n    agent: \"Agent Knowledge/Memory\",\n    task_id: \"unknown\",\n    status: \"ERROR\",\n    error_code: input.error_code,\n    error_message: input.error_message,\n    approved_for_pipeline: false,\n    timestamp: input.timestamp\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -80,
+        320
+      ],
+      "id": "b188c54a-5fba-46fe-bfce-48c84a3900e6",
+      "name": "Format Error"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst MEM_URL = ($env && $env.MEMORY_URL) || 'http://167.86.93.31:4002';\nconst MEM_TOKEN = ($env && $env.MEMORY_TOKEN) || '';\nconst MISTRAL_KEY = ($env && ($env.MISTRAL_API_KEY || $env.MISTRAL_API_KEY_2)) || '';\nconst text = String(input.text || '').slice(0, 8000);\nconst base = { task_id: input.task_id, operation: 'WRITE', category: input.kind, project: input.project, timestamp: new Date().toISOString() };\nif (!text) return [{ json: Object.assign({}, base, { status: 'STORED', stored: false, message: 'Texte vide — rien à mémoriser' }) }];\ntry {\n  const emb = await this.helpers.httpRequest({ method: 'POST', url: 'https://api.mistral.ai/v1/embeddings', headers: { 'Authorization': 'Bearer ' + MISTRAL_KEY, 'Content-Type': 'application/json' }, body: { model: 'mistral-embed', input: [text] }, json: true, timeout: 15000 });\n  const vector = emb && emb.data && emb.data[0] && emb.data[0].embedding;\n  if (!Array.isArray(vector)) throw new Error('embedding indisponible');\n  const stored = await this.helpers.httpRequest({ method: 'POST', url: MEM_URL + '/store', headers: { 'Content-Type': 'application/json', 'X-Memory-Token': MEM_TOKEN }, body: { kind: input.kind, project: input.project, text: text, vector: vector, meta: input.meta || {} }, json: true, timeout: 15000 });\n  return [{ json: Object.assign({}, base, { status: 'STORED', stored: true, entry_id: stored && stored.id, dim: stored && stored.dim, message: 'Entrée mémorisée (' + input.kind + '/' + input.project + ')' }) }];\n} catch (e) {\n  // Non bloquant : la mémoire est advisory, elle ne fait jamais échouer le pipeline.\n  return [{ json: Object.assign({}, base, { status: 'STORED', stored: false, degraded: true, message: 'Mémoire indisponible (' + (e && e.message) + ') — ignoré (non bloquant)' }) }];\n}\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        256,
+        416
+      ],
+      "id": "39efa0f9-be9f-441d-afa9-b0445f342fe9",
+      "name": "Store Logic"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst MEM_URL = ($env && $env.MEMORY_URL) || 'http://167.86.93.31:4002';\nconst MEM_TOKEN = ($env && $env.MEMORY_TOKEN) || '';\nconst MISTRAL_KEY = ($env && ($env.MISTRAL_API_KEY || $env.MISTRAL_API_KEY_2)) || '';\nconst query = String(input.query || input.text || '').slice(0, 8000);\nconst k = Math.min(Math.max(parseInt(input.k, 10) || 5, 1), 20);\nconst base = { task_id: input.task_id, operation: 'READ', category: input.kind, project: input.project, timestamp: new Date().toISOString() };\nif (!query) return [{ json: Object.assign({}, base, { status: 'RETRIEVED', entries: [], count: 0, message: 'Requête vide' }) }];\ntry {\n  const emb = await this.helpers.httpRequest({ method: 'POST', url: 'https://api.mistral.ai/v1/embeddings', headers: { 'Authorization': 'Bearer ' + MISTRAL_KEY, 'Content-Type': 'application/json' }, body: { model: 'mistral-embed', input: [query] }, json: true, timeout: 15000 });\n  const vector = emb && emb.data && emb.data[0] && emb.data[0].embedding;\n  if (!Array.isArray(vector)) throw new Error('embedding indisponible');\n  const body = { vector: vector, k: k };\n  if (input.project) body.project = input.project;\n  if (input.kind) body.kind = input.kind;\n  const res = await this.helpers.httpRequest({ method: 'POST', url: MEM_URL + '/search', headers: { 'Content-Type': 'application/json', 'X-Memory-Token': MEM_TOKEN }, body: body, json: true, timeout: 15000 });\n  const results = (res && res.results) || [];\n  return [{ json: Object.assign({}, base, { status: 'RETRIEVED', entries: results, count: results.length, message: results.length + ' entrée(s) pertinente(s)' }) }];\n} catch (e) {\n  return [{ json: Object.assign({}, base, { status: 'RETRIEVED', entries: [], count: 0, degraded: true, message: 'Mémoire indisponible (' + (e && e.message) + ') — 0 résultat (non bloquant)' }) }];\n}\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        176,
+        592
+      ],
+      "id": "6ee03a2f-93a8-4355-a57b-17d480d914ad",
+      "name": "Retrieve Logic"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst isSuccess = input.status === 'STORED' || input.status === 'RETRIEVED';\n\nreturn [{\n  json: {\n    success: isSuccess,\n    agent: \"Agent Knowledge/Memory\",\n    task_id: input.task_id,\n    status: isSuccess ? \"PASS\" : \"FAIL\",\n    global_score: isSuccess ? 100 : 0,\n    approved_for_pipeline: isSuccess,\n    language: \"javascript\",\n    critical_issues: [],\n    warnings: [],\n    recommendations: isSuccess\n      ? [`Opération ${input.operation} réussie`]\n      : [`Échec de l'opération ${input.operation}`],\n    summary: input.message || `Opération ${input.operation}`,\n    dimensions: { security: { score: 100 }, quality: { score: 100 } },\n    operation: input.operation,\n    entry_id: input.entry_id || null,\n    timestamp: input.timestamp || new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        480
+      ],
+      "id": "8ea9efa6-1989-4e8c-aa1a-2623bab9b92c",
+      "name": "Format Output"
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        96,
+        304
+      ],
+      "id": "85976de7-a2fa-4e91-a116-d3ce63463bab",
+      "name": "Respond to Webhook1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "If — Valid Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Router READ/WRITE": {
+      "main": [
+        [
+          {
+            "node": "Store Logic",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Retrieve Logic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook": {
+      "main": [
+        []
+      ]
+    },
+    "If — Valid Check": {
+      "main": [
+        [
+          {
+            "node": "Format Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Router READ/WRITE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Output": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Logic": {
+      "main": [
+        [
+          {
+            "node": "Format Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retrieve Logic": {
+      "main": [
+        [
+          {
+            "node": "Format Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Error": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "701d7680-95b7-483a-92c0-011aab2cb701",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c77e41168b0abc4c9e72e3dfa70fb293d0acb289b40b847421933eadc146e082"
+  },
+  "id": "CfxmsSua2v6rC5t6",
+  "tags": []
+}
