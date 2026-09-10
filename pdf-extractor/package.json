@@ -1,0 +1,15 @@
+{
+  "name": "forge-extractor",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Forge IA — microservice d'extraction de texte PDF/DOCX (appelé par l'Orchestrateur n8n)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "pdf-parse": "1.1.1",
+    "mammoth": "^1.7.2"
+  }
+}
