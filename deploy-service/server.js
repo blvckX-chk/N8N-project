@@ -69,6 +69,30 @@ function writeFiles(dir, files) {
 }
 function stopApp(name) { if (procs[name]) { try { procs[name].kill('SIGTERM'); } catch (e) {} delete procs[name]; } }
 
+// Beaucoup d'apps générées sont API-only (pas d'express.static) alors que le
+// frontend est fourni dans frontend/ (ou public/). Pour que le lien déployé
+// ouvre bien l'app, on injecte — si absent — un service statique juste après
+// l'initialisation d'Express. Injection sûre (try/catch) et idempotente.
+function ensureStaticServing(dir) {
+  try {
+    const sp = path.join(dir, 'server.js');
+    if (!fs.existsSync(sp)) return;
+    let code = fs.readFileSync(sp, 'utf8');
+    if (/express\.static/.test(code)) return; // déjà servi
+    // cherche une ligne d'init d'app express
+    const m = code.match(/(^|\n)([^\n]*=\s*express\(\)\s*;?)/);
+    if (!m) return;
+    const at = m.index + m[0].length;
+    const snippet = "\n/* forge-deploy: sert le frontend généré (frontend/ ou public/) + fallback index.html */\n"
+      + "try{(function(){var _p=require('path'),_fs=require('fs'),_ex=require('express');"
+      + "['frontend','public','dist','client','www'].forEach(function(_d){var _dir=_p.join(__dirname,_d);"
+      + "if(_fs.existsSync(_dir)){app.use(_ex.static(_dir));"
+      + "app.get('/',function(_q,_r,_n){var _i=_p.join(_dir,'index.html');return _fs.existsSync(_i)?_r.sendFile(_i):_n();});}});})();}catch(_e){}\n";
+    code = code.slice(0, at) + snippet + code.slice(at);
+    fs.writeFileSync(sp, code);
+  } catch (e) { console.error('[static-serving]', e.message); }
+}
+
 function npmInstall(dir) {
   return new Promise(function (res, rej) {
     if (!fs.existsSync(path.join(dir, 'package.json'))) return res(); // rien à installer
@@ -126,6 +150,7 @@ async function deploy(req, res) {
     // écriture propre : on repart d'un dossier vide (garde la base .db si présente)
     fs.mkdirSync(dir, { recursive: true });
     writeFiles(dir, files);
+    ensureStaticServing(dir);   // sert le frontend si le backend ne le fait pas
 
     await npmInstall(dir);
     startApp(name, dir, port);
@@ -139,7 +164,7 @@ async function deploy(req, res) {
       updated_at: new Date().toISOString()
     };
     saveState();
-    return res.json({ name: name, url: urlOf(port), deployment_url: urlOf(port), port: port, status: state[name].status });
+    return res.json({ success: true, name: name, url: urlOf(port), deployment_url: urlOf(port), port: port, status: state[name].status });
   } catch (e) {
     console.error('[deploy]', e.message);
     return res.status(500).json({ error: String(e.message || e) });
