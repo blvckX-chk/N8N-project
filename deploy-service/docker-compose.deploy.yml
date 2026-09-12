@@ -1,0 +1,29 @@
+# Forge IA — service de déploiement/hébergement des apps générées
+# Déploiement : depuis ce dossier, `docker compose -f docker-compose.deploy.yml up -d --build`
+# Publie l'API sur 4001 (attendu par le panel via DEPLOY_URL=host.docker.internal:4001)
+# et la plage 4100-4140 pour les apps hébergées.
+services:
+  forge-deploy:
+    build: .
+    image: forge-deploy:1.0.0
+    container_name: forge-deploy
+    restart: unless-stopped
+    ports:
+      - "4001:4001"            # API de déploiement
+      - "4100-4140:4100-4140"  # apps hébergées
+    environment:
+      - PORT=4001
+      - PUBLIC_HOST=167.86.93.31
+      - APPS_DIR=/data/apps
+      - PORT_MIN=4100
+      - PORT_MAX=4140
+    volumes:
+      - forge_deploy_apps:/data   # persiste les apps déployées + leur base
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:4001/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  forge_deploy_apps:

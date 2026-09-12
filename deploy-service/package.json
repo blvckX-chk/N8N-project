@@ -1,0 +1,9 @@
+{
+  "name": "forge-deploy",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Forge IA — service de déploiement/hébergement des apps générées (appelé par le panel)",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "dependencies": { "express": "^4.19.2" }
+}
