@@ -176,7 +176,7 @@
     <div class="tagline">// pipeline multi-agents · specs → app</div>
   </div>
   <div class="header-right">
-    <span class="ui-ver" title="Version de l'interface SaaS déployée">UI v6.21</span>
+    <span class="ui-ver" title="Version de l'interface SaaS déployée">UI v6.22</span>
     <button class="btn-history" id="btn-hist" onclick="toggleHistory()">📋 Historique</button>
   </div>
 </header>
@@ -670,6 +670,8 @@ async function deployApp(){
           <div style="font-size:11px;color:var(--muted);margin-bottom:4px">🛡️ Scan dynamique (DAST) — sur l'app en ligne</div>
           <div>Sécurité : <strong style="color:${_c}">${esc(s.dast_status||'?')}</strong> · score ${s.dast_score}/100 · ${s.findings} finding(s)</div>
           <div style="color:var(--muted);font-size:11px">Monitoring : ${esc(s.monitoring||'?')} · latence ${s.latency_ms}ms · uptime ${s.uptime_s}s</div>
+          ${s.supply_chain?(function(){var sc=s.supply_chain,scc=sc.status==='PASS'?'var(--success)':(sc.status==='FAIL'?'var(--danger)':'var(--warning)'),v=sc.vulnerabilities||{};return '<div style="color:var(--muted);font-size:11px">📦 Validation externe (npm audit, registre officiel) : <strong style="color:'+scc+'">'+esc(sc.status)+'</strong>'+(sc.vulnerabilities?(' · '+ (v.critical||0)+' crit., '+(v.high||0)+' hautes, '+(v.total||0)+' au total'):'')+'</div>';})():''}
+          ${s.verdict?('<div style="margin-top:4px">Verdict validation : <strong style="color:'+(s.verdict==='PASS'?'var(--success)':(s.verdict==='FAIL'?'var(--danger)':'var(--warning)'))+'">'+esc(s.verdict)+'</strong></div>'):''}
           ${(s.top_findings&&s.top_findings.length)?('<ul style="margin:6px 0 0;padding-left:16px;font-size:11px;color:var(--warning)">'+s.top_findings.map(function(f){return '<li>['+esc(f.severity)+'] '+esc(f.message)+'</li>';}).join('')+'</ul>'):''}
         </div>`;}
       document.getElementById('deploy-result').innerHTML=`<div class="deploy-card"><div style="color:var(--success);font-weight:bold;margin-bottom:8px">✅ Application déployée — ${esc(d.app_name||d.name||'')}</div><div>🌐 <a href="${d.url}" target="_blank">${d.url}</a></div><div>❤️ <a href="${d.health_url}" target="_blank">${d.health_url}</a></div><div style="color:var(--muted)">📁 ${d.files_deployed} fichiers · port ${d.port} · itération ${d.iteration||1}</div>${_scan}</div>`;}

@@ -103,6 +103,35 @@ function npmInstall(dir) {
       });
   });
 }
+// Validation externe indépendante : audit des dépendances via `npm audit`
+// (base d'avis officielle du registre npm). Crédibilise les sorties de Forge.
+function npmAudit(dir) {
+  return new Promise(function (resolve) {
+    if (!fs.existsSync(path.join(dir, 'package.json'))) return resolve({ available: false, reason: 'pas de package.json' });
+    execFile('npm', ['audit', '--json'], { cwd: dir, timeout: 120000, maxBuffer: 16 * 1024 * 1024 },
+      function (err, so, se) {
+        // `npm audit` sort avec un code != 0 quand il trouve des vulnérabilités :
+        // on parse toujours stdout (le JSON y est présent quel que soit le code).
+        try {
+          const j = JSON.parse(so || '');
+          const m = (j.metadata && j.metadata.vulnerabilities) || {};
+          const names = Object.keys(j.vulnerabilities || {}).slice(0, 25);
+          resolve({
+            available: true,
+            source: 'npm audit — registre npm officiel',
+            vulnerabilities: {
+              critical: m.critical || 0, high: m.high || 0, moderate: m.moderate || 0,
+              low: m.low || 0, info: m.info || 0, total: m.total || 0
+            },
+            packages: names
+          });
+        } catch (e) {
+          resolve({ available: false, reason: 'sortie audit illisible : ' + String(se || e.message).slice(0, 200) });
+        }
+      });
+  });
+}
+
 function startApp(name, dir, port) {
   stopApp(name);
   const logPath = path.join(dir, '_app.log');
@@ -197,9 +226,22 @@ async function runScan(name) {
 
   score = Math.max(0, score);
   const status = findings.some(function (f) { return f.severity === 'critical' || f.severity === 'high'; }) ? 'FAIL' : (findings.length ? 'REVIEW' : 'PASS');
+
+  // Validation externe indépendante des dépendances (npm audit / registre officiel)
+  const supply = await npmAudit(appDir(name));
+  const sv = (supply && supply.vulnerabilities) || {};
+  const supplyStatus = supply && supply.available
+    ? ((sv.critical || 0) + (sv.high || 0) > 0 ? 'FAIL' : ((sv.moderate || 0) + (sv.low || 0) > 0 ? 'REVIEW' : 'PASS'))
+    : 'N/A';
+
   return {
     scanned_at: new Date().toISOString(),
     target: 'http://127.0.0.1:' + port,
+    external_validation: {
+      supply_chain: Object.assign({ status: supplyStatus }, supply),
+      // verdict global de la validation externe : combine DAST runtime + dépendances
+      verdict: (status === 'FAIL' || supplyStatus === 'FAIL') ? 'FAIL' : ((status === 'REVIEW' || supplyStatus === 'REVIEW') ? 'REVIEW' : 'PASS')
+    },
     dast: {
       status: status, score: score, findings: findings,
       security_headers: {
@@ -264,7 +306,11 @@ async function deploy(req, res) {
         top_findings: scan.dast ? scan.dast.findings.slice(0, 5) : [],
         latency_ms: scan.monitoring && scan.monitoring.latency_ms,
         uptime_s: scan.monitoring && scan.monitoring.uptime_s,
-        monitoring: scan.monitoring && scan.monitoring.status
+        monitoring: scan.monitoring && scan.monitoring.status,
+        verdict: scan.external_validation && scan.external_validation.verdict,
+        supply_chain: scan.external_validation && scan.external_validation.supply_chain
+          ? { status: scan.external_validation.supply_chain.status, vulnerabilities: scan.external_validation.supply_chain.vulnerabilities || null, source: scan.external_validation.supply_chain.source || null }
+          : null
       } : null
     });
   } catch (e) {
