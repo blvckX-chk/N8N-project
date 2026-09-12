@@ -136,6 +136,89 @@ function waitReady(port, timeoutMs) {
   });
 }
 
+// ── Scan dynamique réel (DAST + Monitoring + Cost) contre l'app LANCÉE ────────
+function httpProbe(port, opts, timeoutMs) {
+  return new Promise(function (resolve) {
+    const data = opts.body ? (typeof opts.body === 'string' ? opts.body : JSON.stringify(opts.body)) : null;
+    const headers = Object.assign({}, opts.headers || {});
+    if (data) { headers['Content-Type'] = headers['Content-Type'] || 'application/json'; headers['Content-Length'] = Buffer.byteLength(data); }
+    const req = http.request({ host: '127.0.0.1', port: port, path: opts.path || '/', method: opts.method || 'GET', headers: headers, timeout: timeoutMs || 4000 },
+      function (r) {
+        let body = ''; let n = 0;
+        r.on('data', function (c) { n += c.length; if (body.length < 4000) body += c.toString(); });
+        r.on('end', function () { resolve({ status: r.statusCode, headers: r.headers, body: body, bytes: n, ms: Date.now() - t0 }); });
+      });
+    const t0 = Date.now();
+    req.on('error', function (e) { resolve({ error: e.code || e.message, ms: Date.now() - t0 }); });
+    req.on('timeout', function () { req.destroy(); resolve({ error: 'timeout', ms: Date.now() - t0 }); });
+    if (data) req.write(data);
+    req.end();
+  });
+}
+
+async function runScan(name) {
+  const a = state[name];
+  if (!a) return { error: 'introuvable' };
+  const port = a.port;
+  const findings = []; let score = 100;
+  function add(sev, id, msg, pts) { findings.push({ severity: sev, id: id, message: msg }); score -= pts; }
+
+  const health = await httpProbe(port, { path: '/health' }, 4000);
+  const base = (health && !health.error) ? health : await httpProbe(port, { path: '/' }, 4000);
+  const H = (base && base.headers) || {};
+
+  // 1) En-têtes de sécurité (helmet)
+  if (!H['x-content-type-options']) add('medium', 'HDR-nosniff', 'X-Content-Type-Options absent', 10);
+  if (!H['content-security-policy'] && !H['x-frame-options']) add('medium', 'HDR-csp', 'CSP / X-Frame-Options absents (clickjacking)', 10);
+  if (H['x-powered-by']) add('low', 'HDR-powered', 'X-Powered-By expose la stack', 5);
+
+  // 2) Contrôle d'accès : routes protégées sans authentification -> 401/403 attendu
+  const protPaths = ['/api/me', '/api/uploads', '/api/audit', '/dashboard'];
+  for (let i = 0; i < protPaths.length; i++) {
+    const r = await httpProbe(port, { path: protPaths[i] }, 4000);
+    if (r && !r.error && r.status === 200) add('high', 'ACL', 'Route protégée ' + protPaths[i] + ' accessible sans authentification (200)', 25);
+  }
+
+  // 3) Injection : bypass d'auth via SQLi sur /api/login -> pas de 200
+  const inj = await httpProbe(port, { method: 'POST', path: '/api/login', body: { username: "' OR '1'='1' --", password: 'x' } }, 4000);
+  if (inj && !inj.error && inj.status === 200) add('critical', 'INJ-sqli', "Bypass d'authentification possible via injection SQL sur /api/login", 40);
+
+  // 4) Limitation de débit : rafale -> 429 attendu
+  let got429 = false, loginExists = false;
+  for (let i = 0; i < 15; i++) {
+    const r = await httpProbe(port, { method: 'POST', path: '/api/login', body: { username: 'scan_probe_' + i, password: 'x' } }, 3000);
+    if (r && !r.error) { loginExists = loginExists || (r.status !== 404); if (r.status === 429) { got429 = true; break; } }
+  }
+  if (loginExists && !got429) add('medium', 'DOS-ratelimit', 'Aucune limitation de débit détectée sur /api/login', 10);
+
+  // 5) Gestion d'erreur : route inconnue -> pas de trace d'exécution
+  const err = await httpProbe(port, { path: '/__forge_scan_404__' }, 4000);
+  if (err && !err.error && /Error:[\s\S]*\n\s+at\s+.*:\d+:\d+/.test(err.body || '')) add('medium', 'ERR-stack', "Trace d'exécution exposée sur erreur (fuite d'information)", 15);
+
+  score = Math.max(0, score);
+  const status = findings.some(function (f) { return f.severity === 'critical' || f.severity === 'high'; }) ? 'FAIL' : (findings.length ? 'REVIEW' : 'PASS');
+  return {
+    scanned_at: new Date().toISOString(),
+    target: 'http://127.0.0.1:' + port,
+    dast: {
+      status: status, score: score, findings: findings,
+      security_headers: {
+        'x-content-type-options': H['x-content-type-options'] || null,
+        'content-security-policy': H['content-security-policy'] ? 'présent' : null,
+        'x-frame-options': H['x-frame-options'] || null,
+        'x-powered-by': H['x-powered-by'] || null
+      }
+    },
+    monitoring: {
+      status: (health && !health.error && health.status === 200) ? 'HEALTHY' : 'UNKNOWN',
+      health_code: (health && health.status) || null,
+      latency_ms: base ? base.ms : null,
+      uptime_s: a.updated_at ? Math.round((Date.now() - new Date(a.updated_at).getTime()) / 1000) : null
+    },
+    performance: { response_ms: base ? base.ms : null, payload_bytes: base ? base.bytes : null }
+  };
+}
+
 async function deploy(req, res) {
   try {
     const b = req.body || {};
@@ -164,7 +247,13 @@ async function deploy(req, res) {
       updated_at: new Date().toISOString()
     };
     saveState();
-    return res.json({ success: true, name: name, url: urlOf(port), deployment_url: urlOf(port), port: port, status: state[name].status });
+    // Scan dynamique réel de l'app tout juste lancée (best-effort, non bloquant)
+    let scan = null;
+    if (ready) { try { scan = await runScan(name); state[name].last_scan = scan; saveState(); } catch (e) { scan = { error: String(e.message || e) }; } }
+    return res.json({
+      success: true, name: name, url: urlOf(port), deployment_url: urlOf(port), port: port, status: state[name].status,
+      scan: scan ? { dast_status: scan.dast && scan.dast.status, dast_score: scan.dast && scan.dast.score, findings: scan.dast ? scan.dast.findings.length : 0, latency_ms: scan.monitoring && scan.monitoring.latency_ms } : null
+    });
   } catch (e) {
     console.error('[deploy]', e.message);
     return res.status(500).json({ error: String(e.message || e) });
@@ -200,6 +289,17 @@ app.delete('/apps/:name', function (req, res) {
   try { fs.rmSync(appDir(name), { recursive: true, force: true }); } catch (e) {}
   delete state[name]; saveState();
   res.json({ deleted: name });
+});
+// Scan dynamique à la demande (DAST + Monitoring + Cost) contre l'app lancée
+app.get('/apps/:name/scan', async function (req, res) {
+  const name = sanitize(req.params.name);
+  if (!state[name]) return res.status(404).json({ error: 'introuvable' });
+  try {
+    const rep = await runScan(name);
+    if (rep.error) return res.status(409).json(rep);
+    state[name].last_scan = rep; saveState();
+    res.json(rep);
+  } catch (e) { res.status(500).json({ error: String(e.message || e) }); }
 });
 app.post('/deploy', deploy);
 app.post('/improve', deploy);
