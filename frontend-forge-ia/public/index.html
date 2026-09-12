@@ -176,7 +176,7 @@
     <div class="tagline">// pipeline multi-agents · specs → app</div>
   </div>
   <div class="header-right">
-    <span class="ui-ver" title="Version de l'interface SaaS déployée">UI v6.20</span>
+    <span class="ui-ver" title="Version de l'interface SaaS déployée">UI v6.21</span>
     <button class="btn-history" id="btn-hist" onclick="toggleHistory()">📋 Historique</button>
   </div>
 </header>
@@ -655,10 +655,24 @@ async function deployApp(){
   btn.disabled=true;btn.textContent='⏳ Déploiement...';
   document.getElementById('deploy-result').innerHTML='<div class="deploy-card" style="color:var(--muted)">⏳ Déploiement en cours...</div>';
   try{
-    const _appName=((typeof getProjectName==='function'&&getProjectName())||currentTaskId).toLowerCase().replace(/[^a-z0-9]/g,'-').replace(/^-+|-+$/g,'').substring(0,30)||'app';
+    function _slug(s){return String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'-').replace(/-+/g,'-').replace(/^-+|-+$/g,'').substring(0,30);}
+    let _appName=_slug((typeof getProjectName==='function'&&getProjectName())||'');
+    // Nom générique/mauvais -> on demande à l'utilisateur (pré-rempli)
+    if(!_appName||_appName==='app'||_appName==='forge-ia'||_appName==='api-api'||/^task/.test(_appName)||/^proj-\d/.test(_appName)){
+      _appName=_slug(prompt('Nom pour cette app déployée :', _appName||'mon-app')||_appName||'app')||'app';
+    }
     const _res=await apiFetchJson(DEPLOY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task_id:currentTaskId,app_name:_appName,files:currentFiles})});
     const d=_res.data;
-    if(d.success){btn.textContent='✅ Déployé !';btn.style.background='#059669';deployedAppName=d.app_name;const ib=document.getElementById('btn-improve');if(ib)ib.style.display='inline-block';loadApps();document.getElementById('deploy-result').innerHTML=`<div class="deploy-card"><div style="color:var(--success);font-weight:bold;margin-bottom:8px">✅ Application déployée</div><div>🌐 <a href="${d.url}" target="_blank">${d.url}</a></div><div>❤️ <a href="${d.health_url}" target="_blank">${d.health_url}</a></div><div style="color:var(--muted)">📁 ${d.files_deployed} fichiers · port ${d.port}</div></div>`;}
+    if(d.success){btn.textContent='✅ Déployé !';btn.style.background='#059669';deployedAppName=d.app_name||d.name;const ib=document.getElementById('btn-improve');if(ib)ib.style.display='inline-block';loadApps();
+      let _scan='';
+      if(d.scan){var s=d.scan;var _c=s.dast_status==='PASS'?'var(--success)':(s.dast_status==='FAIL'?'var(--danger)':'var(--warning)');
+        _scan=`<div style="margin-top:10px;border-top:1px solid rgba(255,255,255,.08);padding-top:8px">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px">🛡️ Scan dynamique (DAST) — sur l'app en ligne</div>
+          <div>Sécurité : <strong style="color:${_c}">${esc(s.dast_status||'?')}</strong> · score ${s.dast_score}/100 · ${s.findings} finding(s)</div>
+          <div style="color:var(--muted);font-size:11px">Monitoring : ${esc(s.monitoring||'?')} · latence ${s.latency_ms}ms · uptime ${s.uptime_s}s</div>
+          ${(s.top_findings&&s.top_findings.length)?('<ul style="margin:6px 0 0;padding-left:16px;font-size:11px;color:var(--warning)">'+s.top_findings.map(function(f){return '<li>['+esc(f.severity)+'] '+esc(f.message)+'</li>';}).join('')+'</ul>'):''}
+        </div>`;}
+      document.getElementById('deploy-result').innerHTML=`<div class="deploy-card"><div style="color:var(--success);font-weight:bold;margin-bottom:8px">✅ Application déployée — ${esc(d.app_name||d.name||'')}</div><div>🌐 <a href="${d.url}" target="_blank">${d.url}</a></div><div>❤️ <a href="${d.health_url}" target="_blank">${d.health_url}</a></div><div style="color:var(--muted)">📁 ${d.files_deployed} fichiers · port ${d.port} · itération ${d.iteration||1}</div>${_scan}</div>`;}
     else{btn.textContent='❌ Erreur';btn.disabled=false;document.getElementById('deploy-result').innerHTML=_dataErrBox(d);}
   }catch(e){btn.textContent='❌ Erreur';btn.disabled=false;document.getElementById('deploy-result').innerHTML=_deployErrBox(e);}
 }
@@ -882,7 +896,7 @@ async function runPipeline(overridePayload){
     }
     throw new Error('Delai depasse (7 min sans reponse du pipeline). Le traitement se poursuit peut-etre cote serveur — verifie l historique dans quelques instants, ou relance si le probleme persiste.');
   }catch(e){finishSteps(false);renderError('Erreur pipeline : '+e.message);}
-  finally{isRunning=false;btn.disabled=false;sp.classList.remove('active');bt.textContent='🚀 Générer';}
+  finally{isRunning=false;btn.disabled=false;sp.classList.remove('active');bt.textContent='🚀 Générer';var _pb=document.getElementById('progress-bar');if(_pb)_pb.classList.remove('active');}
 }
 loadApps();setInterval(loadApps,30000);
 </script>

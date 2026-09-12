@@ -239,10 +239,11 @@ async function deploy(req, res) {
     startApp(name, dir, port);
     const ready = await waitReady(port, 15000);
 
+    const iteration = ((state[name] && state[name].iteration) || 0) + 1;
     state[name] = {
       name: name, port: port, url: urlOf(port),
       status: ready ? 'running' : 'started (santé non confirmée)',
-      files_count: files.length,
+      files_count: files.length, iteration: iteration,
       created_at: (state[name] && state[name].created_at) || new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
@@ -250,9 +251,21 @@ async function deploy(req, res) {
     // Scan dynamique réel de l'app tout juste lancée (best-effort, non bloquant)
     let scan = null;
     if (ready) { try { scan = await runScan(name); state[name].last_scan = scan; saveState(); } catch (e) { scan = { error: String(e.message || e) }; } }
+    // Réponse alignée sur le contrat attendu par le panel (app_name, health_url, files_deployed, iteration)
     return res.json({
-      success: true, name: name, url: urlOf(port), deployment_url: urlOf(port), port: port, status: state[name].status,
-      scan: scan ? { dast_status: scan.dast && scan.dast.status, dast_score: scan.dast && scan.dast.score, findings: scan.dast ? scan.dast.findings.length : 0, latency_ms: scan.monitoring && scan.monitoring.latency_ms } : null
+      success: true,
+      name: name, app_name: name,
+      url: urlOf(port), deployment_url: urlOf(port), health_url: urlOf(port) + 'health',
+      port: port, files_deployed: files.length, iteration: iteration, status: state[name].status,
+      scan: scan ? {
+        dast_status: scan.dast && scan.dast.status,
+        dast_score: scan.dast && scan.dast.score,
+        findings: scan.dast ? scan.dast.findings.length : 0,
+        top_findings: scan.dast ? scan.dast.findings.slice(0, 5) : [],
+        latency_ms: scan.monitoring && scan.monitoring.latency_ms,
+        uptime_s: scan.monitoring && scan.monitoring.uptime_s,
+        monitoring: scan.monitoring && scan.monitoring.status
+      } : null
     });
   } catch (e) {
     console.error('[deploy]', e.message);
@@ -261,7 +274,18 @@ async function deploy(req, res) {
 }
 
 app.get('/health', function (req, res) { res.json({ status: 'OK', apps: Object.keys(state).length }); });
-app.get('/apps', function (req, res) { res.json(Object.keys(state).map(function (k) { return state[k]; })); });
+// Format aligné sur le panel : { apps: [ {name, status:'online'|'offline', iteration, url, port} ] }
+app.get('/apps', function (req, res) {
+  const apps = Object.keys(state).map(function (k) {
+    const a = state[k];
+    return {
+      name: a.name, status: procs[k] ? 'online' : 'offline', iteration: a.iteration || 1,
+      url: a.url, port: a.port, files_deployed: a.files_count || 0,
+      dast: a.last_scan && a.last_scan.dast ? { status: a.last_scan.dast.status, score: a.last_scan.dast.score } : null
+    };
+  });
+  res.json({ apps: apps });
+});
 app.get('/apps/:name', function (req, res) {
   const a = state[sanitize(req.params.name)];
   if (!a) return res.status(404).json({ error: 'introuvable' });

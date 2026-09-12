@@ -6,7 +6,7 @@ const rateLimit = require('express-rate-limit');
 const app  = express();
 const PORT = process.env.PORT || 3000;
 const APP_VERSION = '5.1.0';
-const UI_BUILD    = '6.20';   // aligné sur le badge « UI v6.20 » de public/index.html
+const UI_BUILD    = '6.21';   // aligné sur le badge « UI v6.21 » de public/index.html
 const START_TIME  = new Date().toISOString();   // horodatage du démarrage du process (preuve de restart)
 // URLs externalisées — surchargeables via variables d'environnement (fallback sur le VPS)
 const N8N_URL    = process.env.N8N_URL    || 'http://167.86.93.31:5688/webhook/pipeline';
