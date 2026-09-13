@@ -8,7 +8,9 @@ services:
     container_name: forge-extractor
     restart: unless-stopped
     ports:
-      - "3002:3002"
+      # Interne uniquement : lié à la passerelle Docker (172.17.0.1), PAS à 0.0.0.0.
+      # Joignable par n8n via host.docker.internal:3002, injoignable depuis Internet.
+      - "172.17.0.1:3002:3002"
     environment:
       - PORT=3002
     healthcheck:

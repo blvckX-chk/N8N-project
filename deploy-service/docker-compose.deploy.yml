@@ -9,14 +9,16 @@ services:
     container_name: forge-deploy
     restart: unless-stopped
     ports:
-      - "4001:4001"            # API de déploiement
-      - "4100-4140:4100-4140"  # apps hébergées
+      # API interne uniquement (le panel l'appelle via host.docker.internal:4001) — PAS 0.0.0.0
+      - "172.17.0.1:4001:4001"
+      # apps hébergées : URL publiques (le livrable) — plage réduite pour limiter la surface
+      - "4100-4110:4100-4110"
     environment:
       - PORT=4001
       - PUBLIC_HOST=167.86.93.31
       - APPS_DIR=/data/apps
       - PORT_MIN=4100
-      - PORT_MAX=4140
+      - PORT_MAX=4110
     volumes:
       - forge_deploy_apps:/data   # persiste les apps déployées + leur base
     healthcheck:

@@ -9,7 +9,9 @@ services:
     container_name: forge-memory
     restart: unless-stopped
     ports:
-      - "4002:4002"
+      # Interne uniquement : lié à la passerelle Docker (172.17.0.1), PAS à 0.0.0.0.
+      # Joignable par n8n via host.docker.internal:4002, injoignable depuis Internet.
+      - "172.17.0.1:4002:4002"
     environment:
       - PORT=4002
       - MEMORY_DB_PATH=/data/memory.db
