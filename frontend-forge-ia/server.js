@@ -1,12 +1,16 @@
 const express   = require('express');
 const nodeFetch = require('node-fetch');
 const path      = require('path');
+const crypto    = require('crypto');
 const helmet    = require('helmet');
 const rateLimit = require('express-rate-limit');
 const app  = express();
 const PORT = process.env.PORT || 3000;
 const APP_VERSION = '5.1.0';
-const UI_BUILD    = '6.22';   // aligné sur le badge « UI v6.21 » de public/index.html
+const UI_BUILD    = '6.23';   // aligné sur le badge « UI v6.23 » de public/index.html
+// Authentification du panel : identifiants via env (FORGE_USER / FORGE_PASS).
+const AUTH_USER = process.env.FORGE_USER || '';
+const AUTH_PASS = process.env.FORGE_PASS || '';
 const START_TIME  = new Date().toISOString();   // horodatage du démarrage du process (preuve de restart)
 // URLs externalisées — surchargeables via variables d'environnement (fallback sur le VPS)
 const N8N_URL    = process.env.N8N_URL    || 'http://167.86.93.31:5688/webhook/pipeline';
@@ -33,6 +37,32 @@ app.use(rateLimit({
 }));
 
 app.use(express.json({ limit: '10mb' }));
+
+// ── Authentification du panel (Basic Auth) ─────────────────────────────────
+// Le panel pilote la génération ET le déploiement de code : il ne doit pas être
+// ouvert au public. Si FORGE_USER/FORGE_PASS sont définis, tout accès exige ces
+// identifiants (comparaison à temps constant). Non définis -> dev local seulement.
+function _safeEq(a, b) {
+  const ba = Buffer.from(String(a)); const bb = Buffer.from(String(b));
+  if (ba.length !== bb.length) return false;
+  try { return crypto.timingSafeEqual(ba, bb); } catch (e) { return false; }
+}
+if (AUTH_USER && AUTH_PASS) {
+  app.use(function (req, res, next) {
+    const h = req.headers.authorization || '';
+    const m = h.match(/^Basic\s+(.+)$/i);
+    if (m) {
+      const dec = Buffer.from(m[1], 'base64').toString();
+      const i = dec.indexOf(':');
+      const u = dec.slice(0, i), p = dec.slice(i + 1);
+      if (_safeEq(u, AUTH_USER) && _safeEq(p, AUTH_PASS)) return next();
+    }
+    res.set('WWW-Authenticate', 'Basic realm="Forge IA", charset="UTF-8"');
+    return res.status(401).send('Authentification requise');
+  });
+} else {
+  console.warn('[sécurité] FORGE_USER/FORGE_PASS non définis — panel SANS authentification (dev uniquement).');
+}
 
 // Vérifier la version du serveur EN COURS D'EXÉCUTION (pas seulement le fichier
 // sur disque) : GET exempté du rate-limit. -> curl http://localhost:3100/api/version
