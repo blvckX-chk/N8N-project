@@ -83,6 +83,11 @@ Exposé via `GET /apps/:name/scan` et **affiché dans le panel** après déploie
 > l'art, le **test dynamique s'exécute contre l'instance déployée**. Le pipeline conserve
 > ses **pré-vérifications statiques** (SAST, Secrets, SCA, Tests L0).
 
+**Validation externe indépendante** : au déploiement, `npm audit` (base d'avis officielle
+du **registre npm**) audite les dépendances de l'app → comptes critiques/hautes/…
+Combiné au DAST runtime, il produit un **verdict de validation externe** (PASS/REVIEW/FAIL)
+affiché dans le panel. Crédibilise les sorties par des sources indépendantes de Forge.
+
 ---
 
 ## 6. Interface (panel) — *actif*
@@ -134,11 +139,34 @@ déploiement.
 
 ---
 
-## Points ouverts (perspectives)
+## Sécurité & durcissement (infrastructure)
 
-- **Validation externe** des sorties par des services officiels (crédibilité — voir
-  pistes d'évaluation).
+Application du **principe de moindre exposition** (revue de sécurité) :
+
+- **Isolation réseau** : les services qui n'ont pas besoin d'Internet (n8n, service de
+  déploiement, mémoire, extracteur) ne sont **plus publiés sur `0.0.0.0`** mais **liés à
+  la passerelle Docker (`172.17.0.1`)** → joignables entre conteneurs via
+  `host.docker.internal`, **injoignables depuis Internet**.
+- **Interface d'administration n8n** : n'est plus exposée publiquement ; accès réservé par
+  **tunnel SSH** (`ssh -L 5688:172.17.0.1:5688 …`).
+- **Suppression du tunnel public** ngrok qui ré-exposait n8n (et ses credentials) sur
+  Internet ; secrets concernés **régénérés** par précaution.
+- **Authentification du panel** : Basic Auth (comparaison à temps constant), identifiants
+  via variables d'environnement.
+- **Reste public — volontairement** : le panel (authentifié) et les **URLs des applications
+  déployées**, elles-mêmes durcies (JWT, helmet, rate-limit) et validées (DAST + npm audit).
+- **Exécution de code généré** : confinée au conteneur du service de déploiement (aucun
+  socket Docker monté, ports bornés, aucun appel shell).
+
+**Surface publique** : de ~6 services + 1 admin exposés → **1 UI authentifiée + les URLs
+d'apps**.
+
+## Perspectives
+
+- **TLS / reverse proxy** (HTTPS via Let's Encrypt/Caddy) devant le panel et les apps —
+  chiffrement + point d'entrée unique. *(priorité résiduelle n°1)*
+- **Isolation d'exécution renforcée** du service de déploiement (VM/instance dédiée,
+  quotas CPU/mémoire, utilisateur non-root pour les apps).
+- **Authentification propre de n8n** (defense-in-depth, en plus du tunnel).
 - **Détection de stack polyglotte** dans l'analyse ZIP (au-delà de Node).
 - **Documentation d'API** (OpenAPI/Swagger) en complément du README.
-- **Cloisonnement d'exécution** renforcé (idéalement instance dédiée) : le service de
-  déploiement exécute du code généré ; l'isolation réelle est le conteneur.
