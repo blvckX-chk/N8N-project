@@ -25,6 +25,7 @@ services:
       - TZ=Africa/Porto-Novo
       # Secrets lus par l'agent Knowledge/Memory ($env) :
       - MISTRAL_API_KEY=${MISTRAL_API_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
       - MEMORY_URL=http://forge-memory:4002
       - MEMORY_TOKEN=${MEMORY_TOKEN}
       # Derrière Caddy :
@@ -53,6 +54,15 @@ services:
     restart: unless-stopped
     environment:
       - PORT=3002
+    networks: [forge_net]
+
+  forge-semgrep:
+    build: ./services/semgrep-scanner
+    image: forge-semgrep:1.0.0
+    container_name: forge-semgrep
+    restart: unless-stopped
+    environment:
+      - PORT=8000
     networks: [forge_net]
 
   forge-deploy:

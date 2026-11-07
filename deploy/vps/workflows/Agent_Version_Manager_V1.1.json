@@ -1,0 +1,89 @@
+{
+  "name": "Agent Version Manager V1.1",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "version-manager",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        464,
+        -96
+      ],
+      "id": "ba7d257f-d651-469f-aab1-b383b494fab6",
+      "name": "Webhook",
+      "webhookId": "7744eeb5-2951-40e7-bc76-bc3a0f71f25b"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nlet data = raw;\nif (raw.body !== undefined) {\n  let rawBody = raw.body;\n  if (typeof rawBody === 'string') {\n    rawBody = rawBody.replace(/^=+/, '').trim();\n    try { data = JSON.parse(rawBody); } catch(e) { data = raw; }\n  } else if (typeof rawBody === 'object') { data = rawBody; }\n}\n\nconst task_id      = data.task_id      || 'unknown';\nconst improvePrompt = data.improve_prompt || data.userRequest || '';\nconst existingCode  = data.existing_server_js || '';\nconst existingRoutes = data.existing_routes || [];\nconst existingStores = data.existing_stores || {};\nconst existingVersion = data.existing_version || '1.0';\n\n// Sécurité : limiter la taille\nif (existingCode.length > 40000) {\n  return [{ json: { error: \"Code trop volumineux\", valid: false } }];\n}\nif (!improvePrompt) {\n  return [{ json: { error: \"Prompt d amélioration manquant\", valid: false } }];\n}\n\n// Analyser le prompt pour identifier le type de changements\nconst p = improvePrompt.toLowerCase();\n\nconst changes = {\n  // Backend\n  add_delete:       p.includes('supprimer') || p.includes('delete') || p.includes('suppression'),\n  add_put:          p.includes('modifier') || p.includes('editer') || p.includes('mettre à jour'),\n  add_validation:   p.includes('validation') || p.includes('valider') || p.includes('positif'),\n  add_status:       p.includes('statut') || p.includes('status') || p.includes('état'),\n  add_search:       p.includes('recherche') || p.includes('filtrer') || p.includes('filter'),\n  add_pagination:   p.includes('pagination') || p.includes('page') || p.includes('limit'),\n  // Frontend\n  show_delete_btn:  p.includes('supprimer') || p.includes('bouton suppr'),\n  show_title_fields: p.includes('affiche') || p.includes('afficher') || p.includes('titre'),\n  add_dropdown:     p.includes('liste déroulante') || p.includes('dropdown') || p.includes('sélection'),\n  add_form_fields:  p.includes('champ') || p.includes('formulaire') || p.includes('ajoute un champ'),\n};\n\n// Calculer la version cible\nconst [major, minor] = existingVersion.split('.').map(Number);\nconst isMajor = p.includes('base de données') || p.includes('authentification') || p.includes('auth');\nconst nextVersion = isMajor ? (major + 1) + '.0' : major + '.' + (minor + 1);\n\n// Générer les instructions structurées pour l'Architect\nconst backendInstructions = [];\nconst frontendInstructions = [];\n\nif (changes.add_delete) {\n  existingRoutes.filter(r => r.method === 'GET' && r.path !== '/health').forEach(r => {\n    const base = r.path;\n    backendInstructions.push('AJOUTER DELETE ' + base + '/:id — supprimer un élément par id');\n    frontendInstructions.push('AJOUTER bouton Supprimer sur chaque item de la liste ' + base.replace('/', ''));\n  });\n}\nif (changes.add_put) {\n  existingRoutes.filter(r => r.method === 'GET' && r.path !== '/health').forEach(r => {\n    backendInstructions.push('AJOUTER PUT ' + r.path + '/:id — modifier un élément');\n  });\n}\nif (changes.add_validation) {\n  backendInstructions.push('AJOUTER validation : tous les champs de type number doivent être > 0');\n  backendInstructions.push('AJOUTER validation GPS : latitude entre -90 et 90, longitude entre -180 et 180');\n}\n// Détecter demandes de validation enum\nvar wantsEnum = p.includes('enum') || p.includes('valeurs acceptées') || p.includes('liste de valeurs') || p.includes('statut valide') || p.includes('priorité valide');\nif (wantsEnum) {\n  backendInstructions.push('AJOUTER validation : vérifier que les champs statut et priorite ont des valeurs parmi les valeurs acceptées définies dans la spec');\n}\nif (changes.add_status) {\n  Object.keys(existingStores).forEach(res => {\n    backendInstructions.push('AJOUTER champ status au store ' + res + ' (valeurs: en_attente, acceptee, refusee, livree)');\n  });\n}\nif (changes.add_search) {\n  existingRoutes.filter(r => r.method === 'GET' && r.path !== '/health').forEach(r => {\n    backendInstructions.push('AJOUTER query params ?search= sur GET ' + r.path);\n  });\n}\nif (changes.show_title_fields) {\n  frontendInstructions.push('AFFICHER les 2 premiers champs descriptifs dans le titre de chaque item (ex: ville_de_depart → ville_d_arrivee)');\n}\nif (changes.add_dropdown) {\n  // Détecter dynamiquement les champs FK depuis les stores existants\n  var fkFields = [];\n  Object.values(existingStores).forEach(function(store) {\n    (store.required_fields || []).forEach(function(f) {\n      if (f.endsWith('_id') && f !== 'id') {\n        var refStore = f.replace(/_id$/, 's');\n        fkFields.push({ field: f, route: '/' + refStore });\n      }\n    });\n  });\n  if (fkFields.length > 0) {\n    fkFields.forEach(function(fk) {\n      frontendInstructions.push('AJOUTER liste déroulante pour le champ ' + fk.field + ' qui charge GET ' + fk.route + ' dynamiquement');\n    });\n  } else {\n    frontendInstructions.push('AJOUTER liste déroulante sur les champs _id qui chargent la ressource liée dynamiquement');\n  }\n}\n\n// Si aucun changement détecté — utiliser le prompt brut\nif (backendInstructions.length === 0 && frontendInstructions.length === 0) {\n  backendInstructions.push('APPLIQUER : ' + improvePrompt);\n  frontendInstructions.push('APPLIQUER : ' + improvePrompt);\n}\n\nreturn [{\n  json: {\n    task_id,\n    improve_prompt:        improvePrompt,\n    existing_version:      existingVersion,\n    next_version:          nextVersion,\n    existing_routes:       existingRoutes,\n    existing_stores:       existingStores,\n    existing_server_js:    existingCode,\n    backend_instructions:  backendInstructions,\n    frontend_instructions: frontendInstructions,\n    changes_detected:      changes,\n    changelog:             'v' + existingVersion + ' → v' + nextVersion + ' : ' + improvePrompt.substring(0, 100)\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        -96
+      ],
+      "id": "b6c5e7b6-1171-4eeb-9faa-5de67699017e",
+      "name": "Analyze Improvement"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        864,
+        -96
+      ],
+      "id": "6a7787f1-4804-47d2-b952-981054fe6c33",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Analyze Improvement",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Improvement": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "c4d4c25a-a8af-474a-9bc8-bba82081fa4c",
+  "meta": {
+    "instanceId": "c77e41168b0abc4c9e72e3dfa70fb293d0acb289b40b847421933eadc146e082"
+  },
+  "id": "hFioW45FQFOIW7SV",
+  "tags": []
+}

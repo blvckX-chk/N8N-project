@@ -1,0 +1,453 @@
+{
+  "name": "Agent Runtime Feedback",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "agent-runtime-feedback",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -976,
+        48
+      ],
+      "id": "33ead2b0-c07a-4d82-9eba-aee21196acc5",
+      "name": "Webhook",
+      "webhookId": "c3b282b4-e301-48f9-aebd-18aa4e04649d"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "FAIL",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "307472ee-d97e-4680-b05f-53ba6e708419"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "fail"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "eee8a4e5-c7fd-4874-b347-d0932634d29f",
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "NEEDSIMPROVEMENT",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "rework"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "f64bf99b-dfbe-489a-ab49-f4402e42e3bd",
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "PASS",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "monitor"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        0,
+        0
+      ],
+      "id": "5891474e-5c5d-4579-ac10-6ea109fd2622",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\n\nlet data = raw;\nif (raw.body !== undefined) {\n  let rawBody = raw.body;\n  if (typeof rawBody === 'string') {\n    rawBody = rawBody.replace(/^=+/, '').trim();\n    try { data = JSON.parse(rawBody); } catch(e) { data = raw; }\n  } else if (typeof rawBody === 'object') {\n    data = rawBody;\n  }\n}\n\nconst task_id     = data.task_id     || raw.task_id     || 'TASK-RUNTIME-' + Date.now();\nconst environment = data.environment || raw.environment || 'staging';\nconst incident    = data.incident    || raw.incident    || {\n  type: 'none', severity: 'low',\n  service_url: 'https://app-' + environment + '.monprojet.com',\n  error_message: 'Aucun incident', duration_minutes: 0\n};\nconst monitoring_report = data.monitoring_report || raw.monitoring_report || {\n  status: 'HEALTHY', violations: []\n};\n\nreturn [{\n  json: {\n    task_id:           String(task_id),\n    environment:       String(environment),\n    incident:          incident,\n    monitoring_report: monitoring_report\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -816,
+        48
+      ],
+      "id": "3d3f738a-2de0-45a4-b595-a25d8669dc4d",
+      "name": "Validate Input"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "984e9ba0-49b2-43d2-ad84-e51a328d0504",
+              "leftValue": "={{ $json.error_code }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -608,
+        48
+      ],
+      "id": "5ba2f03f-9675-45e9-9dc1-13c65ec3f8c6",
+      "name": "If — Valid Check"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\nreturn [{\n  json: {\n    success: false,\n    agent: \"Agent Runtime Feedback\",\n    task_id: \"unknown\",\n    status: \"ERROR\",\n    error_code: input.error_code,\n    error_message: input.error_message,\n    approved_for_pipeline: false,\n    timestamp: input.timestamp\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -432,
+        -64
+      ],
+      "id": "1ba840be-1e83-4ecc-8bbd-9a5d9e072cf5",
+      "name": "Format Error"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -224,
+        -64
+      ],
+      "id": "6fdf219e-27f8-420a-8dc6-18fa8cf73a86",
+      "name": "Respond to Webhook1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\nconst incident_type = input.incident_type || 'unknown';\nconst severity = input.incident_severity || 'high';\nconst duration = input.duration_minutes || 0;\nconst environment = input.environment || 'staging';\n\nconst decision_matrix = {\n  unavailable: {\n    critical: duration > 10 ? 'ROLLBACK' : 'ESCALATE',\n    high: 'ESCALATE',\n    medium: 'MONITOR'\n  },\n  crash: { critical: 'ROLLBACK', high: 'ROLLBACK', medium: 'REWORK' },\n  timeout: {\n    critical: duration > 15 ? 'ROLLBACK' : 'REWORK',\n    high: 'REWORK',\n    medium: 'MONITOR'\n  },\n  memory_leak: { critical: 'REWORK', high: 'REWORK', medium: 'MONITOR' },\n  error_rate: { critical: 'ROLLBACK', high: 'REWORK', medium: 'MONITOR' },\n  unknown: { critical: 'ESCALATE', high: 'ESCALATE', medium: 'MONITOR' }\n};\n\nconst probable_causes = {\n  unavailable: 'Service non démarré ou crash au démarrage',\n  crash: 'Exception non gérée ou dépendance manquante',\n  timeout: 'Requête DB lente ou ressources insuffisantes',\n  memory_leak: 'Objet non libéré ou connexion DB non fermée',\n  error_rate: 'Régression dans le dernier déploiement',\n  unknown: 'Cause non déterminée — investigation requise'\n};\n\nconst rework_targets = {\n  ROLLBACK: 'Agent DevOps/Deploy',\n  REWORK: 'Agent BACKEND',\n  ESCALATE: 'Agent Go/No-Go',\n  MONITOR: 'Agent Monitoring'\n};\n\nconst incident_key = decision_matrix[incident_type] ? incident_type : 'unknown';\nconst severity_key = ['critical','high','medium'].includes(severity) ? severity : 'high';\nconst action = decision_matrix[incident_key][severity_key];\nconst cause = probable_causes[incident_key];\nconst target = rework_targets[action];\nconst risk_score = severity === 'critical' ? 90 : severity === 'high' ? 65 : 35;\n\nreturn [{\n  json: {\n    task_id: input.task_id,\n    environment,\n    action,\n    incident_type,\n    severity,\n    duration_minutes: duration,\n    error_message: input.error_message,\n    probable_cause: cause,\n    target_agent: target,\n    risk_score,\n    recommendations: action === 'ROLLBACK'\n      ? ['Rollback immédiat vers la version stable', 'Analyser les logs du dernier déploiement']\n      : action === 'REWORK'\n        ? [`Corriger : ${cause}`, 'Reproduire en environnement de test']\n        : action === 'ESCALATE'\n          ? ['Escalade vers équipe senior', 'Investigation manuelle requise']\n          : ['Continuer la surveillance', 'Vérifier dans 15 minutes']\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        144
+      ],
+      "id": "395a7d3d-05d7-4565-92b5-e00dbaff0ec8",
+      "name": "Incident Logic"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\nconst statusMap = {\n  ROLLBACK: 'FAIL',\n  REWORK: 'NEEDSIMPROVEMENT',\n  ESCALATE: 'FAIL',\n  MONITOR: 'PASS'\n};\n\nconst status = statusMap[input.action] || 'FAIL';\nconst scoreMap = { PASS: 100, NEEDSIMPROVEMENT: 50, FAIL: 0 };\n\nreturn [{\n  json: {\n    agent: \"Agent Runtime Feedback\",\n    task_id: input.task_id,\n    status,\n    global_score: scoreMap[status],\n    approved_for_pipeline: status === 'PASS',\n    language: \"javascript\",\n    critical_issues: ['ROLLBACK','ESCALATE'].includes(input.action)\n      ? [{ severity: \"high\", description: `${input.action} requis — ${input.probable_cause}` }]\n      : [],\n    warnings: input.action === 'REWORK'\n      ? [{ severity: \"medium\", description: input.probable_cause }]\n      : [],\n    recommendations: input.recommendations || [],\n    summary: `Action : ${input.action} — ${input.probable_cause}`,\n    dimensions: {\n      security: { score: input.risk_score > 70 ? 0 : 100 },\n      quality: { score: scoreMap[status] }\n    },\n    action: input.action,\n    target_agent: input.target_agent,\n    risk_score: input.risk_score,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -192,
+        144
+      ],
+      "id": "f4355e46-b996-4c09-b789-9e2e9dd41e9e",
+      "name": "Format Standard Output"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        368,
+        -192
+      ],
+      "id": "202beab7-686d-400d-9f3c-73ad7dcee6b3",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        496,
+        -16
+      ],
+      "id": "4837f467-c636-4f63-85a5-27f6acf4dcb9",
+      "name": "Respond to Webhook2"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        416,
+        144
+      ],
+      "id": "1b02880d-680d-4ccf-837c-1214ae09e389",
+      "name": "Respond to Webhook3"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nreturn [{\n  json: {\n    success: false,\n    agent: \"Agent Runtime Feedback\",\n    task_id: input.task_id,\n    status: \"FAIL\",\n    global_score: 0,\n    approved_for_pipeline: false,\n    action: input.action,\n    target_agent: input.target_agent,\n    risk_score: input.risk_score,\n    critical_issues: input.critical_issues || [],\n    warnings: [],\n    recommendations: input.recommendations || [],\n    summary: input.summary,\n    dimensions: input.dimensions,\n    timestamp: input.timestamp\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        176,
+        -144
+      ],
+      "id": "a7f701e2-28d4-45c8-9d0e-6fbb45c07f1f",
+      "name": "Format Response FAIL"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nreturn [{\n  json: {\n    success: null,\n    agent: \"Agent Runtime Feedback\",\n    task_id: input.task_id,\n    status: \"NEEDSIMPROVEMENT\",\n    global_score: 50,\n    approved_for_pipeline: false,\n    action: input.action,\n    target_agent: input.target_agent,\n    risk_score: input.risk_score,\n    critical_issues: [],\n    warnings: input.warnings || [],\n    recommendations: input.recommendations || [],\n    summary: input.summary,\n    dimensions: input.dimensions,\n    timestamp: input.timestamp\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        304,
+        -16
+      ],
+      "id": "cdfbad8b-29c0-40e9-b0cc-a03b5a2b44ea",
+      "name": "Format Response NI"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nreturn [{\n  json: {\n    success: true,\n    agent: \"Agent Runtime Feedback\",\n    task_id: input.task_id,\n    status: \"PASS\",\n    global_score: 100,\n    approved_for_pipeline: true,\n    action: input.action,\n    target_agent: input.target_agent,\n    risk_score: input.risk_score,\n    critical_issues: [],\n    warnings: [],\n    recommendations: input.recommendations || [],\n    summary: input.summary,\n    dimensions: input.dimensions,\n    timestamp: input.timestamp\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        144
+      ],
+      "id": "8667ea88-2e44-4ae9-91de-b340325eb2b5",
+      "name": "Format Response PASS"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Format Response FAIL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Response NI",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Response PASS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "If — Valid Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If — Valid Check": {
+      "main": [
+        [
+          {
+            "node": "Format Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Incident Logic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Error": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Incident Logic": {
+      "main": [
+        [
+          {
+            "node": "Format Standard Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Standard Output": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response FAIL": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response NI": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response PASS": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "e05fedd9-1b40-405d-83dd-5200daf5cde7",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c77e41168b0abc4c9e72e3dfa70fb293d0acb289b40b847421933eadc146e082"
+  },
+  "id": "JyCdSSjZYYAuEUjC",
+  "tags": []
+}

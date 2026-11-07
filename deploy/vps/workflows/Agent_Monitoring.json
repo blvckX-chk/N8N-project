@@ -1,0 +1,467 @@
+{
+  "name": "Agent Monitoring",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "agent-monitoring",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1472,
+        240
+      ],
+      "id": "2f3a3a8d-c46b-428c-8a7b-efc683e99cf9",
+      "name": "Webhook",
+      "webhookId": "dd537a9d-3e5d-40c1-99cf-6e3c03ced728"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\n\n// Parser le body — supporte tous les formats\nlet data = raw;\nif (raw.body !== undefined) {\n  let rawBody = raw.body;\n  if (typeof rawBody === 'string') {\n    rawBody = rawBody.replace(/^=+/, '').trim();\n    try { data = JSON.parse(rawBody); } catch(e) { data = raw; }\n  } else if (typeof rawBody === 'object') {\n    data = rawBody;\n  }\n}\n\n// Fallback — chercher task_id dans raw si pas dans data\nconst task_id     = data.task_id     || raw.task_id     || 'TASK-MONITORING-' + Date.now();\nconst environment = data.environment || raw.environment || 'staging';\nconst service_url = data.service_url || raw.service_url || 'https://app-' + environment + '.monprojet.com';\n\nreturn [{\n  json: {\n    task_id:     String(task_id),\n    environment: String(environment),\n    service_url: String(service_url),\n    simulate:    String(data.simulate || 'healthy'),\n    thresholds: {\n      response_time_ms:   Number(data.thresholds?.response_time_ms   || 2000),\n      error_rate_percent: Number(data.thresholds?.error_rate_percent || 5),\n      uptime_percent:     Number(data.thresholds?.uptime_percent     || 99)\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1264,
+        240
+      ],
+      "id": "371634e2-35f4-48fc-a110-950cd33be7b2",
+      "name": "Validate Input"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "PASS",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "652a56e1-1437-464a-9f68-a233ee5edaed"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "healthy"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "d66780fd-2c05-4988-940c-bb740cc06bd1",
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "NEEDSIMPROVEMENT",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "degraded"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "0f496063-39d1-439f-bd41-6b59c72e7cc7",
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "FAIL",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "critical"
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -496,
+        240
+      ],
+      "id": "d28572e7-2f02-4b58-8b68-f40454852d75",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -144,
+        48
+      ],
+      "id": "aab4ce04-3404-4e2a-822c-7de3ea866e8a",
+      "name": "healthy"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -112,
+        208
+      ],
+      "id": "032332b9-2ed1-4081-a28c-91c1774c1491",
+      "name": "degraded"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -80,
+        368
+      ],
+      "id": "2732b318-86b5-450f-9208-67bf68a00e3a",
+      "name": "critical"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "c1ae3bff-2a39-44b6-9e23-e1a6de2bd755",
+              "leftValue": "={{ $json.error_code }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1104,
+        240
+      ],
+      "id": "0d2cbebc-7857-4e7f-9749-fce433a1fb8e",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\nreturn [{\n  json: {\n    success: false,\n    agent: \"Agent Monitoring\",\n    task_id: \"unknown\",\n    status: \"ERROR\",\n    error_code: input.error_code,\n    error_message: input.error_message,\n    approved_for_pipeline: false,\n    timestamp: input.timestamp\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -896,
+        144
+      ],
+      "id": "a73b105a-a839-45c3-b7d2-7a8ed7efddbf",
+      "name": "Format Error"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\nconst url = (input.service_url || '').toLowerCase();\nconst simulate = (input.simulate || '').toLowerCase();\nconst thresholds = input.thresholds || {\n  response_time_ms: 2000,\n  error_rate_percent: 5,\n  uptime_percent: 99\n};\n\nconst is_down = simulate === 'critical'\n  || url.includes('down') || url.includes('fail') || url.includes('error');\n\nconst is_slow = simulate === 'degraded'\n  || url.includes('slow') || url.includes('perf') || url.includes('lag');\n\nconst response_time_ms = is_down ? 9999 : is_slow ? 3500 : 350;\nconst metrics = {\n  response_time_ms,\n  error_rate_percent: is_down ? 100 : 1.2,\n  uptime_percent: is_down ? 0 : 99.8\n};\n\nconst violations = [];\nif (metrics.response_time_ms > thresholds.response_time_ms)\n  violations.push(`Response time ${metrics.response_time_ms}ms > seuil ${thresholds.response_time_ms}ms`);\nif (metrics.error_rate_percent > thresholds.error_rate_percent)\n  violations.push(`Error rate ${metrics.error_rate_percent}% > seuil ${thresholds.error_rate_percent}%`);\nif (metrics.uptime_percent < thresholds.uptime_percent)\n  violations.push(`Uptime ${metrics.uptime_percent}% < seuil ${thresholds.uptime_percent}%`);\n\nlet monitoring_status;\nif (is_down || violations.length >= 2) monitoring_status = 'CRITICAL';\nelse if (is_slow || violations.length === 1) monitoring_status = 'DEGRADED';\nelse monitoring_status = 'HEALTHY';\n\nreturn [{\n  json: {\n    task_id: input.task_id,\n    environment: input.environment,\n    service_url: input.service_url,\n    monitoring_status,\n    metrics,\n    violations,\n    recommendations: monitoring_status === 'CRITICAL'\n      ? ['Intervention immédiate requise', 'Vérifier les logs', 'Considérer un rollback']\n      : monitoring_status === 'DEGRADED'\n        ? ['Surveiller évolution', 'Analyser logs de performance']\n        : []\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -896,
+        336
+      ],
+      "id": "3babe481-ffbd-4784-81d0-4eab532234f6",
+      "name": "Monitoring Logic"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\nconst statusMap = {\n  HEALTHY: 'PASS',\n  DEGRADED: 'NEEDSIMPROVEMENT',\n  CRITICAL: 'FAIL'\n};\n\nconst status = statusMap[input.monitoring_status] || 'FAIL';\nconst scoreMap = { PASS: 100, NEEDSIMPROVEMENT: 65, FAIL: 0 };\n\nreturn [{\n  json: {\n    agent: \"Agent Monitoring\",\n    task_id: input.task_id,\n    status,\n    global_score: scoreMap[status],\n    approved_for_pipeline: status === 'PASS',\n    language: \"javascript\",\n    critical_issues: status === 'FAIL'\n      ? input.violations.map(v => ({ severity: \"high\", description: v }))\n      : [],\n    warnings: status === 'NEEDSIMPROVEMENT'\n      ? input.violations.map(v => ({ severity: \"medium\", description: v }))\n      : [],\n    recommendations: input.recommendations || [],\n    summary: `Service ${input.monitoring_status} — ${input.violations.length} violation(s)`,\n    dimensions: {\n      security: { score: 100 },\n      quality: { score: scoreMap[status] }\n    },\n    monitoring_status: input.monitoring_status,\n    metrics: input.metrics,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -688,
+        336
+      ],
+      "id": "085719a8-ff65-4459-8dec-7aa966e0f1b2",
+      "name": "Format Standard Output"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nreturn [{\n  json: {\n    success: true,\n    agent: \"Agent Monitoring\",\n    task_id: input.task_id,\n    status: \"PASS\",\n    global_score: input.global_score,\n    approved_for_pipeline: true,\n    monitoring_status: input.monitoring_status,\n    metrics: input.metrics,\n    critical_issues: [],\n    warnings: [],\n    recommendations: input.recommendations || [],\n    summary: input.summary,\n    dimensions: input.dimensions,\n    timestamp: input.timestamp\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -304,
+        32
+      ],
+      "id": "8942ff1f-3c41-41b3-92ed-77ca8b2888cf",
+      "name": "Format Response"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nreturn [{\n  json: {\n    success: null,\n    agent: \"Agent Monitoring\",\n    task_id: input.task_id,\n    status: \"NEEDSIMPROVEMENT\",\n    global_score: input.global_score,\n    approved_for_pipeline: false,\n    monitoring_status: input.monitoring_status,\n    metrics: input.metrics,\n    critical_issues: [],\n    warnings: input.warnings || [],\n    recommendations: input.recommendations || [],\n    summary: input.summary,\n    dimensions: input.dimensions,\n    timestamp: input.timestamp\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -288,
+        208
+      ],
+      "id": "61008261-ee7a-40a6-a395-eee4660a4697",
+      "name": "Format Response1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nreturn [{\n  json: {\n    success: false,\n    agent: \"Agent Monitoring\",\n    task_id: input.task_id,\n    status: \"FAIL\",\n    global_score: 0,\n    approved_for_pipeline: false,\n    monitoring_status: input.monitoring_status,\n    metrics: input.metrics,\n    critical_issues: input.critical_issues || [],\n    warnings: [],\n    recommendations: input.recommendations || [],\n    summary: input.summary,\n    dimensions: input.dimensions,\n    timestamp: input.timestamp\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -288,
+        352
+      ],
+      "id": "2d2b4cfb-4858-49a2-865d-8bcf8c53387f",
+      "name": "Format Response2"
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -688,
+        144
+      ],
+      "id": "23973795-953d-4359-afac-e619f9917b0c",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Response1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Response2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "critical": {
+      "main": [
+        []
+      ]
+    },
+    "degraded": {
+      "main": [
+        []
+      ]
+    },
+    "healthy": {
+      "main": [
+        []
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Format Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Monitoring Logic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Monitoring Logic": {
+      "main": [
+        [
+          {
+            "node": "Format Standard Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Standard Output": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "healthy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response1": {
+      "main": [
+        [
+          {
+            "node": "degraded",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response2": {
+      "main": [
+        [
+          {
+            "node": "critical",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Error": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "fdf4f151-8b54-4df7-a818-0f0231a64f23",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c77e41168b0abc4c9e72e3dfa70fb293d0acb289b40b847421933eadc146e082"
+  },
+  "id": "wid9IcD0rpx3WJxk",
+  "tags": []
+}

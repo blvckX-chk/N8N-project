@@ -1,0 +1,463 @@
+{
+  "name": "Agent DevOps/Deploy",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "agent-devops",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1280,
+        160
+      ],
+      "id": "6ec00c06-cb63-4037-9479-c3695c13614a",
+      "name": "Webhook",
+      "webhookId": "058fd96d-7549-4bc3-930f-75f322f66801"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "PASS",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "82cb157f-ef54-46b3-a402-2a83b04777dd"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "success"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "716a83b8-8f54-469c-a855-00b83ffde536",
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "NEEDSIMPROVEMENT",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "pending"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "90bb300f-6ce0-4cb8-a8f0-7e31faf74e53",
+                    "leftValue": "={{ $json.status }}",
+                    "rightValue": "FAIL",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "failed"
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -272,
+        160
+      ],
+      "id": "014b0aef-5236-424b-9a70-85b12e2543a4",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        144,
+        16
+      ],
+      "id": "5f9bf724-0bf4-46d4-a584-64aa7ce2cdce",
+      "name": "success"
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        176,
+        192
+      ],
+      "id": "68901dcd-225c-4571-813d-1b0e2331e260",
+      "name": "pending"
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseCode": 422
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        32,
+        368
+      ],
+      "id": "6d7331c7-68d7-4972-be18-76774570a872",
+      "name": "failed"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\n\n// Parser le body correctement — supporte string avec = parasite\nlet data = raw;\nif (raw.body !== undefined) {\n  let rawBody = raw.body;\n  if (typeof rawBody === 'string') {\n    rawBody = rawBody.replace(/^=+/, '').trim();\n    try { data = JSON.parse(rawBody); } catch(e) { data = raw; }\n  } else if (typeof rawBody === 'object') {\n    data = rawBody;\n  }\n}\n\nif (!data.task_id) {\n  return [{\n    json: {\n      valid: \"NO\",\n      error_code: \"VALIDATION_ERROR\",\n      error_message: \"task_id manquant\",\n      timestamp: new Date().toISOString()\n    }\n  }];\n}\n\nif (!data.environment) {\n  return [{\n    json: {\n      valid: \"NO\",\n      error_code: \"VALIDATION_ERROR\",\n      error_message: \"environment manquant\",\n      timestamp: new Date().toISOString()\n    }\n  }];\n}\n\nif (!data.gonogo_decision) {\n  return [{\n    json: {\n      valid: \"NO\",\n      error_code: \"VALIDATION_ERROR\",\n      error_message: \"gonogo_decision manquant\",\n      timestamp: new Date().toISOString()\n    }\n  }];\n}\n\nif (data.gonogo_decision !== 'CONTINUE') {\n  return [{\n    json: {\n      valid: \"NO\",\n      error_code: \"BLOCKED\",\n      error_message: `Déploiement bloqué — décision Go/No-Go : ${data.gonogo_decision}`,\n      timestamp: new Date().toISOString()\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    valid: \"YES\",\n    task_id: data.task_id,\n    project_context: data.project_context || '',\n    environment: data.environment,\n    language: data.code?.language || 'javascript',\n    framework: data.code?.framework || 'express',\n    files: data.code?.files || [],\n    gonogo_decision: data.gonogo_decision\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1120,
+        160
+      ],
+      "id": "afaaa666-31a2-4e09-a51d-c75da736d9de",
+      "name": "Validate Input"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "e87bc891-e614-4e2c-8109-ed65d4b15a20",
+              "leftValue": "={{ $json.error_code }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -944,
+        160
+      ],
+      "id": "3745c1f2-f24e-4018-93c9-21adde916353",
+      "name": "If — Valid Check"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\nreturn [{\n  json: {\n    success: false,\n    agent: \"Agent DevOps/Deploy\",\n    task_id: input.task_id || \"unknown\",\n    status: \"ERROR\",\n    error_code: input.error_code,\n    error_message: input.error_message,\n    approved_for_pipeline: false,\n    timestamp: input.timestamp || new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -736,
+        64
+      ],
+      "id": "0948050d-d6be-4d09-a25f-276e684ff6ef",
+      "name": "Format Error"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst environment = input.environment || 'staging';\nconst language = input.language || 'javascript';\nconst framework = (input.framework || 'express').toLowerCase();\n\n// ── CONFIGS ──────────────────────────────────────────────────\nconst configs = {\n  express: {\n    staging: {\n      platform: 'contabo',\n      build_command: 'npm install',\n      start_command: 'node server.js',\n      env_vars: ['NODE_ENV=staging', 'PORT=3000'],\n      health_check: '/health'\n    },\n    production: {\n      platform: 'contabo',\n      build_command: 'npm install --production',\n      start_command: 'node server.js',\n      env_vars: ['NODE_ENV=production', 'PORT=3000'],\n      health_check: '/health'\n    }\n  },\n  fastapi: {\n    staging: {\n      platform: 'contabo',\n      build_command: 'pip install -r requirements.txt',\n      start_command: 'uvicorn main:app --host 0.0.0.0 --port 8000',\n      env_vars: ['ENV=staging'],\n      health_check: '/health'\n    },\n    production: {\n      platform: 'contabo',\n      build_command: 'pip install -r requirements.txt',\n      start_command: 'uvicorn main:app --host 0.0.0.0 --port 8000',\n      env_vars: ['ENV=production'],\n      health_check: '/health'\n    }\n  }\n};\n\nconst config = configs[framework]?.[environment] || configs.express.staging;\n\n// ── PIPELINE CI/CD ────────────────────────────────────────────\nconst pipelines = {\n  express: `name: CI/CD Pipeline\\non:\\n  push:\\n    branches: [main]\\njobs:\\n  deploy:\\n    runs-on: ubuntu-latest\\n    steps:\\n      - uses: actions/checkout@v3\\n      - uses: actions/setup-node@v3\\n        with:\\n          node-version: '18'\\n      - run: npm install\\n      - run: npm test\\n      - name: Deploy to ${environment}\\n        run: echo \"Deploy to ${environment}\"`,\n  fastapi: `name: CI/CD Pipeline\\non:\\n  push:\\n    branches: [main]\\njobs:\\n  deploy:\\n    runs-on: ubuntu-latest\\n    steps:\\n      - uses: actions/checkout@v3\\n      - uses: actions/setup-python@v4\\n        with:\\n          python-version: '3.11'\\n      - run: pip install -r requirements.txt\\n      - run: pytest\\n      - name: Deploy to ${environment}\\n        run: echo \"Deploy to ${environment}\"`\n};\n\nconst pipeline_content = pipelines[framework] || pipelines.express;\n\n// ── STATUT DÉPLOIEMENT ────────────────────────────────────────\nconst deploy_status = environment === 'production'\n  ? 'PENDING_APPROVAL'\n  : 'SUCCESS';\n\nconst warnings = environment === 'production'\n  ? ['Déploiement production nécessite approbation manuelle']\n  : [];\n\nreturn [{\n  json: {\n    task_id: input.task_id,\n    agent: \"Agent DevOps/Deploy\",\n    deploy_status,\n    environment,\n    language,\n    framework,\n    config,\n    pipeline: {\n      file: '.github/workflows/deploy.yml',\n      content: pipeline_content\n    },\n    warnings,\n    next_agent: deploy_status === 'SUCCESS' ? 'Agent Monitoring' : 'MANUAL_APPROVAL',\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -736,
+        256
+      ],
+      "id": "36a8cd4f-b94d-43b3-9b65-32d4b9b4a803",
+      "name": "DevOps Deploy Logic"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst isSuccess = input.deploy_status === 'SUCCESS';\nconst isPending = input.deploy_status === 'PENDING_APPROVAL';\n\nlet status;\nif (isSuccess) status = \"PASS\";\nelse if (isPending) status = \"NEEDSIMPROVEMENT\";\nelse status = \"FAIL\";\n\nreturn [{\n  json: {\n    success: isSuccess,\n    agent: \"Agent DevOps/Deploy\",\n    task_id: input.task_id || \"unknown\",\n    status,\n    global_score: isSuccess ? 100 : isPending ? 75 : 0,\n    approved_for_pipeline: isSuccess,\n    language: input.language || \"javascript\",\n    critical_issues: status === \"FAIL\"\n      ? [{ severity: \"high\", description: \"Déploiement échoué\" }]\n      : [],\n    warnings: input.warnings || [],\n    recommendations: isSuccess\n      ? [\"Déploiement staging réussi — pipeline CI/CD généré\"]\n      : isPending\n        ? [\"Déploiement production en attente d'approbation manuelle\"]\n        : [\"Corriger les erreurs de déploiement\"],\n    summary: isSuccess\n      ? `Déploiement ${input.environment} réussi`\n      : `Déploiement ${input.environment} — ${input.deploy_status}`,\n    dimensions: {\n      security: { score: 100 },\n      quality: { score: isSuccess ? 100 : 75 }\n    },\n    timestamp: input.timestamp || new Date().toISOString(),\n    deployment: input.config || {},\n    pipeline_file: input.pipeline?.file || '',\n    next_agent: input.next_agent || ''\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -544,
+        288
+      ],
+      "id": "4bcc65e1-f2f7-4512-9355-99bfd72cb223",
+      "name": "Format Standard Output"
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -528,
+        64
+      ],
+      "id": "de2d83c2-9599-43cb-ba0c-b880ae12156c",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\nreturn [{\n  json: {\n    success: true,\n    agent: \"Agent DevOps/Deploy\",\n    task_id: input.task_id,\n    status: \"PASS\",\n    global_score: input.global_score,\n    approved_for_pipeline: true,\n    language: input.language,\n    critical_issues: [],\n    warnings: input.warnings || [],\n    recommendations: input.recommendations || [],\n    summary: input.summary || \"\",\n    dimensions: input.dimensions,\n    deployment: input.deployment || {},\n    pipeline_file: input.pipeline_file || \"\",\n    next_agent: input.next_agent || \"\",\n    timestamp: input.timestamp\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -48,
+        32
+      ],
+      "id": "6a6f22e7-ed74-4b6e-b9aa-24bfa9f9c8f1",
+      "name": "Format Response"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\nreturn [{\n  json: {\n    success: null,\n    agent: \"Agent DevOps/Deploy\",\n    task_id: input.task_id,\n    status: \"NEEDSIMPROVEMENT\",\n    global_score: input.global_score,\n    approved_for_pipeline: false,\n    language: input.language,\n    critical_issues: [],\n    warnings: input.warnings || [],\n    recommendations: input.recommendations || [],\n    summary: input.summary || \"\",\n    dimensions: input.dimensions,\n    deployment: input.deployment || {},\n    pipeline_file: input.pipeline_file || \"\",\n    next_agent: input.next_agent || \"\",\n    timestamp: input.timestamp\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        192
+      ],
+      "id": "7929d448-f1ac-4bb9-8380-dcb536679be0",
+      "name": "Format Response1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\nreturn [{\n  json: {\n    success: false,\n    agent: \"Agent DevOps/Deploy\",\n    task_id: input.task_id,\n    status: \"FAIL\",\n    global_score: 0,\n    approved_for_pipeline: false,\n    language: input.language,\n    critical_issues: [{ severity: \"high\", description: \"Déploiement échoué\" }],\n    warnings: [],\n    recommendations: [\"Corriger les erreurs de déploiement\"],\n    summary: \"Échec du déploiement\",\n    dimensions: { security: { score: 0 }, quality: { score: 0 } },\n    timestamp: input.timestamp || new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -112,
+        368
+      ],
+      "id": "7bc21fb6-9b8f-4451-9a0c-76494325e891",
+      "name": "Format Response2"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Response1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Response2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "success": {
+      "main": [
+        []
+      ]
+    },
+    "pending": {
+      "main": [
+        []
+      ]
+    },
+    "failed": {
+      "main": [
+        []
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "If — Valid Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If — Valid Check": {
+      "main": [
+        [
+          {
+            "node": "Format Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "DevOps Deploy Logic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DevOps Deploy Logic": {
+      "main": [
+        [
+          {
+            "node": "Format Standard Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Error": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Standard Output": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response1": {
+      "main": [
+        [
+          {
+            "node": "pending",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response2": {
+      "main": [
+        [
+          {
+            "node": "failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "fa2df18b-94c9-44c7-a18b-48f972405700",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c77e41168b0abc4c9e72e3dfa70fb293d0acb289b40b847421933eadc146e082"
+  },
+  "id": "P4chulRkHrYaFC0O",
+  "tags": []
+}
