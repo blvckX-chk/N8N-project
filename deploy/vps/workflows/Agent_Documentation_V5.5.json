@@ -141,7 +141,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "url": "https://tchavi.com/api/v1/chat/completions",
         "authentication": "none",
         "sendBody": true,
         "specifyBody": "json",
@@ -152,7 +152,7 @@
           "parameters": [
             {
               "name": "Authorization",
-              "value": "=Bearer {{ $env.GROQ_API_KEY }}"
+              "value": "=Bearer {{ $env.TCHAVI_API_KEY }}"
             }
           ]
         }
@@ -217,7 +217,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "url": "https://tchavi.com/api/v1/chat/completions",
         "authentication": "none",
         "sendBody": true,
         "specifyBody": "json",
@@ -228,7 +228,7 @@
           "parameters": [
             {
               "name": "Authorization",
-              "value": "=Bearer {{ $env.GROQ_API_KEY }}"
+              "value": "=Bearer {{ $env.TCHAVI_API_KEY }}"
             }
           ]
         }
@@ -471,5 +471,6 @@
     "templateCredsSetupCompleted": true,
     "instanceId": "c77e41168b0abc4c9e72e3dfa70fb293d0acb289b40b847421933eadc146e082"
   },
-  "tags": []
+  "tags": [],
+  "id": "ace667bdc09d8ccc"
 }

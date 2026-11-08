@@ -938,7 +938,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const node_fetch = require('node-fetch');\nconst webhook = $('Webhook').first().json;\nconst body    = (webhook.body && typeof webhook.body === 'object') ? webhook.body : webhook;\n\nconst payload = {\n  model: 'meta-llama/llama-4-scout-17b-16e-instruct',\n  messages: [{\n    role: 'user',\n    content: [\n      {\n        type: 'image_url',\n        image_url: {\n          url: 'data:' + (body.image_mime || 'image/png') + ';base64,' + body.image_base64\n        }\n      },\n      {\n        type: 'text',\n        text: 'Extrais et retranscris intégralement tout le texte visible dans cette image. Retourne uniquement le texte brut, sans commentaire.'\n      }\n    ]\n  }],\n  max_tokens: 2000\n};\n\nconst response = await node_fetch('https://api.groq.com/openai/v1/chat/completions', {\n  method:  'POST',\n  headers: {\n    'Content-Type':  'application/json',\n    'Authorization': 'Bearer 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'\n  },\n  body: JSON.stringify(payload)\n});\n\nif (!response.ok) {\n  const err = await response.text();\n  throw new Error(`Groq ${response.status} - ${err}`);\n}\n\nconst data = await response.json();\nreturn [{ json: data }];"
+        "jsCode": "const node_fetch = require('node-fetch');\nconst webhook = $('Webhook').first().json;\nconst body    = (webhook.body && typeof webhook.body === 'object') ? webhook.body : webhook;\n\nconst payload = {\n  model: 'gpt-4o-mini',\n  messages: [{\n    role: 'user',\n    content: [\n      {\n        type: 'image_url',\n        image_url: {\n          url: 'data:' + (body.image_mime || 'image/png') + ';base64,' + body.image_base64\n        }\n      },\n      {\n        type: 'text',\n        text: 'Extrais et retranscris intégralement tout le texte visible dans cette image. Retourne uniquement le texte brut, sans commentaire.'\n      }\n    ]\n  }],\n  max_tokens: 2000\n};\n\nconst response = await node_fetch('https://tchavi.com/api/v1/chat/completions', {\n  method:  'POST',\n  headers: {\n    'Content-Type':  'application/json',\n    'Authorization': 'Bearer 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'\n  },\n  body: JSON.stringify(payload)\n});\n\nif (!response.ok) {\n  const err = await response.text();\n  throw new Error(`Groq ${response.status} - ${err}`);\n}\n\nconst data = await response.json();\nreturn [{ json: data }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -2431,5 +2431,5 @@
     "instanceId": "c77e41168b0abc4c9e72e3dfa70fb293d0acb289b40b847421933eadc146e082"
   },
   "tags": [],
-  "id": "QyYQ6XDizqJJN9pD"
+  "id": "f42b13037849514e"
 }

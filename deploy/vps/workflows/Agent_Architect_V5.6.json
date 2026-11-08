@@ -63,7 +63,7 @@
     },
     {
       "parameters": {
-        "jsCode": "return [{\n  json: {\n    model: \"codestral-latest\",\n    messages: [\n      { role: \"system\", content: \"Tu es un architecte logiciel expert. Retourne UNIQUEMENT un JSON valide.\" },\n      { role: \"user\",   content: $json.prompt }\n    ],\n    temperature: 0,\n    max_tokens: 5000,\n    response_format: { type: \"json_object\" }\n  }\n}];"
+        "jsCode": "return [{\n  json: {\n    model: \"gpt-4o-mini\",\n    messages: [\n      { role: \"system\", content: \"Tu es un architecte logiciel expert. Retourne UNIQUEMENT un JSON valide.\" },\n      { role: \"user\",   content: $json.prompt }\n    ],\n    temperature: 0,\n    max_tokens: 5000,\n    response_format: { type: \"json_object\" }\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -103,7 +103,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.mistral.ai/v1/chat/completions",
+        "url": "https://tchavi.com/api/v1/chat/completions",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -113,7 +113,7 @@
             },
             {
               "name": "Authorization",
-              "value": "=Bearer {{ $env.MISTRAL_API_KEY }}"
+              "value": "=Bearer {{ $env.TCHAVI_API_KEY }}"
             }
           ]
         },
@@ -206,7 +206,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.mistral.ai/v1/chat/completions",
+        "url": "https://tchavi.com/api/v1/chat/completions",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -216,7 +216,7 @@
             },
             {
               "name": "Authorization",
-              "value": "=Bearer {{ $env.MISTRAL_API_KEY }}"
+              "value": "=Bearer {{ $env.TCHAVI_API_KEY }}"
             }
           ]
         },
@@ -547,5 +547,6 @@
     "templateCredsSetupCompleted": true,
     "instanceId": "c77e41168b0abc4c9e72e3dfa70fb293d0acb289b40b847421933eadc146e082"
   },
-  "tags": []
+  "tags": [],
+  "id": "e856f23ba0a43093"
 }

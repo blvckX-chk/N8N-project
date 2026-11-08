@@ -17,7 +17,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.mistral.ai/v1/chat/completions",
+        "url": "https://tchavi.com/api/v1/chat/completions",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -27,7 +27,7 @@
             },
             {
               "name": "Authorization",
-              "value": "=Bearer {{ $env.MISTRAL_API_KEY }}"
+              "value": "=Bearer {{ $env.TCHAVI_API_KEY }}"
             }
           ]
         },
@@ -173,7 +173,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const inp = $input.first().json;\nconst mode = inp.mode || 'deterministic';\n\nif (mode === 'llm_improve') {\n  // Formater le payload pour Mistral/Codestral\n  return [{\n    json: {\n      _route: 'llm',\n      model: \"codestral-latest\",\n      messages: [\n        { role: \"system\", content: inp.systemPrompt },\n        { role: \"user\",   content: inp.userPrompt }\n      ],\n      temperature: 0,\n      max_tokens: 6000,\n      response_format: { type: \"json_object\" },\n      // Garder le contexte pour fallback\n      _html_skeleton: inp.html_skeleton,\n      _css_content:   inp.css_content,\n      _app_js_base:   inp._app_js_base,\n      _login_html:    inp._login_html,\n      _inp:           inp._inp\n    }\n  }];\n}\n\n// Mode déterministe — passer directement\nreturn [{ json: { ...inp, _route: 'deterministic' } }];"
+        "jsCode": "const inp = $input.first().json;\nconst mode = inp.mode || 'deterministic';\n\nif (mode === 'llm_improve') {\n  // Formater le payload pour Mistral/Codestral\n  return [{\n    json: {\n      _route: 'llm',\n      model: \"gpt-4o-mini\",\n      messages: [\n        { role: \"system\", content: inp.systemPrompt },\n        { role: \"user\",   content: inp.userPrompt }\n      ],\n      temperature: 0,\n      max_tokens: 6000,\n      response_format: { type: \"json_object\" },\n      // Garder le contexte pour fallback\n      _html_skeleton: inp.html_skeleton,\n      _css_content:   inp.css_content,\n      _app_js_base:   inp._app_js_base,\n      _login_html:    inp._login_html,\n      _inp:           inp._inp\n    }\n  }];\n}\n\n// Mode déterministe — passer directement\nreturn [{ json: { ...inp, _route: 'deterministic' } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -303,5 +303,6 @@
   "meta": {
     "instanceId": "c77e41168b0abc4c9e72e3dfa70fb293d0acb289b40b847421933eadc146e082"
   },
-  "tags": []
+  "tags": [],
+  "id": "439f0809a752c459"
 }

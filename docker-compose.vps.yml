@@ -26,6 +26,7 @@ services:
       # Secrets lus par l'agent Knowledge/Memory ($env) :
       - MISTRAL_API_KEY=${MISTRAL_API_KEY}
       - GROQ_API_KEY=${GROQ_API_KEY}
+      - TCHAVI_API_KEY=${TCHAVI_API_KEY}
       - MEMORY_URL=http://forge-memory:4002
       - MEMORY_TOKEN=${MEMORY_TOKEN}
       # Derrière Caddy :
