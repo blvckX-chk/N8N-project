@@ -24,7 +24,7 @@ app.use(helmet({ contentSecurityPolicy: false }));
 // Rate-limit : protège le proxy contre les abus, MAIS ne compte que les
 // actions coûteuses (POST/PUT/DELETE : génération, amélioration, déploiement).
 // Les GET sont exemptés : le polling interne du résultat (/api/result, 1 appel
-// toutes les 5 s pendant jusqu'à 7 min = ~84 requêtes) et les lectures
+// toutes les 5 s pendant jusqu'à 20 min = ~240 requêtes) et les lectures
 // (/api/apps, ZIP, statiques) épuisaient sinon le quota — une seule génération
 // suivie d'une amélioration dépassait 100 req/15 min → « Trop de requêtes ».
 app.use(rateLimit({
@@ -123,7 +123,7 @@ app.post('/api/pipeline', async (req, res) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req.body),
-      timeout: 360000
+      timeout: 1200000
     });
     const text = await r.text();
     if (!text || !text.trim()) {
@@ -139,7 +139,7 @@ app.post('/api/pipeline', async (req, res) => {
       return;
     }
     pendingResults[taskId] = { data, ts: Date.now() };
-    setTimeout(() => { delete pendingResults[taskId]; }, 600000);
+    setTimeout(() => { delete pendingResults[taskId]; }, 1800000);
   } catch(e) {
     store('Echec de l appel au pipeline n8n : ' + e.message, (e && e.code) ? ('code=' + e.code) : null, null);
   }

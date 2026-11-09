@@ -787,7 +787,7 @@ function diagnoseClient(msg){
   var R=[
     {m:/(veuillez|fournis|décris|decris|manquante|sélectionner|selectionner|entrer une description)/,cause:"Entrée incomplète dans le formulaire.",fix:"Complète le champ signalé (description, fichier de specs, ou les 3 champs du mode Améliorer) puis relance."},
     {m:/(failed to fetch|networkerror|load failed|err_connection)/,cause:"Le panneau n'a pas pu joindre son propre serveur /api.",fix:"Vérifie que le service ForgeIA tourne, puis recharge la page (Ctrl+Shift+R)."},
-    {m:/(delai depasse|délai|timeout)/,cause:"Aucune réponse du pipeline dans le temps imparti (7 min).",fix:"Le traitement continue peut-être côté n8n : ouvre l'Historique dans 1-2 min, ou regarde la dernière exécution dans n8n."}
+    {m:/(delai depasse|délai|timeout)/,cause:"Aucune réponse du pipeline dans le temps imparti (20 min).",fix:"Le traitement continue peut-être côté n8n : ouvre l'Historique dans 1-2 min, ou regarde la dernière exécution dans n8n."}
   ];
   var h=R.find(function(x){return x.m.test(s);});
   return h?{cause:h.cause,fix:h.fix}:null;
@@ -879,8 +879,8 @@ async function runPipeline(overridePayload){
     const init=await r.json();
     if(init.error)throw new Error(init.error);
     const taskId=init.task_id||payload.task_id;
-    // 2. Polling toutes les 5s jusqu'à résultat (max 7 minutes)
-    const MAX=84;
+    // 2. Polling toutes les 5s jusqu'à résultat (max 20 minutes)
+    const MAX=240;
     for(let i=0;i<MAX;i++){
       await new Promise(ok=>setTimeout(ok,5000));
       try{
@@ -896,7 +896,7 @@ async function runPipeline(overridePayload){
         }
       }catch(pe){if(pe.message&&pe.message!=='Failed to fetch')throw pe;}
     }
-    throw new Error('Delai depasse (7 min sans reponse du pipeline). Le traitement se poursuit peut-etre cote serveur — verifie l historique dans quelques instants, ou relance si le probleme persiste.');
+    throw new Error('Delai depasse (20 min sans reponse du pipeline). Le traitement se poursuit peut-etre cote serveur — verifie l historique dans quelques instants, ou relance si le probleme persiste.');
   }catch(e){finishSteps(false);renderError('Erreur pipeline : '+e.message);}
   finally{isRunning=false;btn.disabled=false;sp.classList.remove('active');bt.textContent='🚀 Générer';var _pb=document.getElementById('progress-bar');if(_pb)_pb.classList.remove('active');}
 }
