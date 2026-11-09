@@ -77,6 +77,10 @@ services:
       - APPS_DIR=/data/apps
       - PORT_MIN=4100
       - PORT_MAX=4110
+      # Proxy "app active" : les apps deployees sont exposees publiquement a
+      # https://${FORGE_APP_DOMAIN} via Caddy -> forge-deploy:4099 (app active).
+      - PREVIEW_PORT=4099
+      - PUBLIC_APP_URL=https://${FORGE_APP_DOMAIN}
     volumes:
       - forge_deploy_apps:/data
     networks: [forge_net]

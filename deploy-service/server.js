@@ -32,6 +32,9 @@ const APPS_DIR   = process.env.APPS_DIR || '/data/apps';
 const PORT_MIN   = parseInt(process.env.PORT_MIN || '4100', 10);
 const PORT_MAX   = parseInt(process.env.PORT_MAX || '4140', 10);
 const STATE_FILE = path.join(APPS_DIR, '_state.json');
+const PREVIEW_PORT = parseInt(process.env.PREVIEW_PORT || '4099', 10);
+const PUBLIC_APP_URL = (process.env.PUBLIC_APP_URL || '').replace(/\/+$/, '');
+let activePreview = null;   // nom de l'app exposee publiquement via le proxy preview
 
 app.use(express.json({ limit: process.env.MAX_BODY || '25mb' }));
 fs.mkdirSync(APPS_DIR, { recursive: true });
@@ -46,7 +49,7 @@ function sanitize(n) {
 }
 // Le Backend préfixe chaque fichier par "// FILE: <path>\n" — à retirer (invalide en JSON).
 function stripHeader(c) { return String(c == null ? '' : c).replace(/^﻿?\s*\/\/\s*FILE:[^\n]*\n/, ''); }
-function urlOf(port) { return 'http://' + PUBLIC_HOST + ':' + port + '/'; }
+function urlOf(port) { return PUBLIC_APP_URL ? (PUBLIC_APP_URL + '/') : ('http://' + PUBLIC_HOST + ':' + port + '/'); }
 
 function allocPort(name) {
   if (state[name] && state[name].port) return state[name].port;
@@ -290,6 +293,7 @@ async function deploy(req, res) {
       updated_at: new Date().toISOString()
     };
     saveState();
+    activePreview = name;   // l'app tout juste deployee devient l'app previsualisee publiquement
     // Scan dynamique réel de l'app tout juste lancée (best-effort, non bloquant)
     let scan = null;
     if (ready) { try { scan = await runScan(name); state[name].last_scan = scan; saveState(); } catch (e) { scan = { error: String(e.message || e) }; } }
@@ -371,6 +375,20 @@ app.get('/apps/:name/scan', async function (req, res) {
     res.json(rep);
   } catch (e) { res.status(500).json({ error: String(e.message || e) }); }
 });
+// ── App active previsualisee (exposee a la racine via le proxy preview) ──────
+app.get('/preview', function (req, res) {
+  res.json({
+    active: activePreview, public_url: PUBLIC_APP_URL || null,
+    port: (activePreview && state[activePreview]) ? state[activePreview].port : null
+  });
+});
+app.post('/preview', function (req, res) {
+  const name = sanitize(req.body && req.body.name);
+  if (!state[name]) return res.status(404).json({ error: 'App inconnue: ' + name });
+  activePreview = name;
+  res.json({ active: activePreview, public_url: PUBLIC_APP_URL || null, port: state[name].port });
+});
+
 app.post('/deploy', deploy);
 app.post('/improve', deploy);
 
@@ -384,5 +402,35 @@ app.listen(API_PORT, function () {
       catch (e) { state[name].status = 'échec relance'; }
     }
   });
+  if (!activePreview) { const names = Object.keys(state); if (names.length) activePreview = names[names.length - 1]; }
   saveState();
+});
+
+// ── Proxy "app active" : expose a la racine l'app selectionnee (cible de Caddy) ──
+// Les apps ecoutent sur 127.0.0.1:<port> dans ce conteneur. Ce proxy transmet
+// toute requete racine vers l'app active -> pas de reecriture de chemin, les
+// URLs absolues (/api, /style.css) de l'app fonctionnent telles quelles.
+const previewProxy = http.createServer(function (creq, cres) {
+  const name = activePreview;
+  const target = (name && state[name]) ? state[name].port : null;
+  if (!target) {
+    cres.writeHead(503, { 'Content-Type': 'text/html; charset=utf-8' });
+    return cres.end('<!doctype html><meta charset=utf-8><h1>Aucune application active</h1><p>Deployez une application depuis le panel, puis rechargez cette page.</p>');
+  }
+  const opts = {
+    host: '127.0.0.1', port: target, method: creq.method, path: creq.url,
+    headers: Object.assign({}, creq.headers, { host: '127.0.0.1:' + target })
+  };
+  const preq = http.request(opts, function (pres) {
+    cres.writeHead(pres.statusCode, pres.headers);
+    pres.pipe(cres);
+  });
+  preq.on('error', function (e) {
+    cres.writeHead(502, { 'Content-Type': 'text/html; charset=utf-8' });
+    cres.end('<!doctype html><meta charset=utf-8><h1>502</h1><p>Application active injoignable : ' + String(e.message || e) + '</p>');
+  });
+  creq.pipe(preq);
+});
+previewProxy.listen(PREVIEW_PORT, function () {
+  console.log('🌐 Proxy preview sur le port ' + PREVIEW_PORT + ' (app active -> racine)');
 });
