@@ -89,7 +89,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const inp = $input.first().json;\n\n// Mode amélioration avec LLM\nif (inp.mode === 'llm_improve') {\n  return [{\n    json: {\n      model: \"llama-3.3-70b-versatile\",\n      messages: [\n        { role: \"system\", content: inp.systemPrompt },\n        { role: \"user\",   content: inp.userPrompt }\n      ],\n      temperature: 0,\n      max_tokens: 6000,\n      response_format: { type: \"json_object\" }\n    }\n  }];\n}\n\n// Mode déterministe — pass-through\nreturn [{ json: inp }];"
+        "jsCode": "const inp = $input.first().json;\n\n// Mode amélioration avec LLM\nif (inp.mode === 'llm_improve') {\n  return [{\n    json: {\n      model: \"claude-sonnet-5-5\",\n      messages: [\n        { role: \"system\", content: inp.systemPrompt },\n        { role: \"user\",   content: inp.userPrompt }\n      ],\n      temperature: 0,\n      max_tokens: 6000,\n      response_format: { type: \"json_object\" }\n    }\n  }];\n}\n\n// Mode déterministe — pass-through\nreturn [{ json: inp }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,

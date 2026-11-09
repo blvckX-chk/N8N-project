@@ -127,7 +127,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const input = $input.first().json;\n\nreturn [{\n  json: {\n    model: \"llama-3.3-70b-versatile\",\n    messages: [\n      { role: \"system\", content: input.systemPrompt },\n      { role: \"user\", content: input.userPrompt }\n    ],\n    temperature: 0,\n    max_tokens: 8000,\n    response_format: { type: \"json_object\" }\n  }\n}];"
+        "jsCode": "const input = $input.first().json;\n\nreturn [{\n  json: {\n    model: \"llama-3.3-70b\",\n    messages: [\n      { role: \"system\", content: input.systemPrompt },\n      { role: \"user\", content: input.userPrompt }\n    ],\n    temperature: 0,\n    max_tokens: 8000,\n    response_format: { type: \"json_object\" }\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,

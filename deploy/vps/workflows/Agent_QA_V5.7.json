@@ -153,7 +153,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const input = $input.first().json;\nreturn [{\n  json: {\n    model: \"gpt-4o-mini\",\n    messages: [\n      { role: \"system\", content: input.systemPrompt },\n      { role: \"user\",   content: input.userPrompt }\n    ],\n    temperature: 0,\n    max_tokens: 3500,\n    response_format: { type: \"json_object\" }\n  }\n}];"
+        "jsCode": "const input = $input.first().json;\nreturn [{\n  json: {\n    model: \"claude-sonnet-5-5\",\n    messages: [\n      { role: \"system\", content: input.systemPrompt },\n      { role: \"user\",   content: input.userPrompt }\n    ],\n    temperature: 0,\n    max_tokens: 3500,\n    response_format: { type: \"json_object\" }\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
