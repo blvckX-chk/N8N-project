@@ -52,8 +52,21 @@ case "$TARGET" in
     fi
     ;;
 
+  fast)
+    echo "== Profil RAPIDE (demo live) : agents critiques -> gpt-4o-mini =="
+    # Reste sur Tchavi (URL + cle inchangees), mais Sonnet -> gpt-4o-mini
+    # pour une generation ~2-3x plus rapide. Pour revenir a la qualite :
+    # bash switch-llm.sh tchavi  (restaure Sonnet depuis git).
+    sed -i 's#claude-sonnet-5-5#gpt-4o-mini#g' "$DIR"/*.json
+    echo "   Architecte/Backend/Frontend/QA -> gpt-4o-mini (rapide)"
+    echo "   -> pour revenir a la qualite Sonnet : bash deploy/vps/switch-llm.sh tchavi"
+    ;;
+
   *)
-    echo "Usage: $0 tchavi|mistral"
+    echo "Usage: $0 tchavi|mistral|fast"
+    echo "  tchavi  : qualite (Claude Sonnet 5.5) — defaut"
+    echo "  fast    : rapide (gpt-4o-mini) — demo live courte"
+    echo "  mistral : secours (Mistral) si plus de credit Tchavi"
     exit 1
     ;;
 esac
