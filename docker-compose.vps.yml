@@ -31,6 +31,11 @@ services:
       - MEMORY_TOKEN=${MEMORY_TOKEN}
       # Derrière Caddy :
       - N8N_PROXY_HOPS=1
+      # Accès éditeur n8n via sous-domaine (Caddy + Cloudflare). FORGE_N8N_DOMAIN
+      # doit être renseigné dans .env.vps (ex. n8n.tondomaine.bj).
+      - N8N_HOST=${FORGE_N8N_DOMAIN:-}
+      - N8N_PROTOCOL=https
+      - N8N_EDITOR_BASE_URL=https://${FORGE_N8N_DOMAIN:-localhost}/
     volumes:
       - forge_n8n_data:/home/node/.n8n
     networks: [forge_net]
