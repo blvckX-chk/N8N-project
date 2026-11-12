@@ -63,7 +63,7 @@
     },
     {
       "parameters": {
-        "jsCode": "return [{\n  json: {\n    model: \"claude-sonnet-5-5\",\n    messages: [\n      { role: \"system\", content: \"Tu es un architecte logiciel expert. Retourne UNIQUEMENT un JSON valide.\" },\n      { role: \"user\",   content: $json.prompt }\n    ],\n    temperature: 0,\n    max_tokens: 5000,\n    response_format: { type: \"json_object\" }\n  }\n}];"
+        "jsCode": "return [{\n  json: {\n    model: \"claude-sonnet-5-5\",\n    messages: [\n      { role: \"system\", content: \"Tu es un architecte logiciel expert. Retourne UNIQUEMENT un JSON valide.\" },\n      { role: \"user\",   content: $json.prompt }\n    ],\n    temperature: 0,\n    max_tokens: 5000\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
