@@ -119,7 +119,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{$json}}",
+        "jsonBody": "={{ JSON.stringify($json) }}",
         "options": {
           "response": {
             "response": {
@@ -222,7 +222,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ $('Build Payload').first().json }}",
+        "jsonBody": "={{ JSON.stringify($('Build Payload').first().json) }}",
         "options": {},
         "authentication": "none"
       },

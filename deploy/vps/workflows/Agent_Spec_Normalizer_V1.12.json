@@ -63,7 +63,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ $('Build Mistral Payload').first().json }}",
+        "jsonBody": "={{ JSON.stringify($('Build Mistral Payload').first().json) }}",
         "options": {},
         "authentication": "none"
       },
@@ -132,7 +132,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ $('Build Mistral Payload').first().json }}",
+        "jsonBody": "={{ JSON.stringify($('Build Mistral Payload').first().json) }}",
         "options": {},
         "authentication": "none"
       },

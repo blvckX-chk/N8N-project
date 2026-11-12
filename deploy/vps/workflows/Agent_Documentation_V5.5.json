@@ -145,7 +145,7 @@
         "authentication": "none",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ $json }}",
+        "jsonBody": "={{ JSON.stringify($json) }}",
         "options": {},
         "sendHeaders": true,
         "headerParameters": {
@@ -221,7 +221,7 @@
         "authentication": "none",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ $('Build Payload').first().json }}",
+        "jsonBody": "={{ JSON.stringify($('Build Payload').first().json) }}",
         "options": {},
         "sendHeaders": true,
         "headerParameters": {

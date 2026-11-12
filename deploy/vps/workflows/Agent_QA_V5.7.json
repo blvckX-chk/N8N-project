@@ -239,7 +239,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ $json }}",
+        "jsonBody": "={{ JSON.stringify($json) }}",
         "options": {},
         "authentication": "none"
       },
@@ -465,7 +465,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ $('Build Payload QA').first().json }}",
+        "jsonBody": "={{ JSON.stringify($('Build Payload QA').first().json) }}",
         "options": {},
         "authentication": "none"
       },
