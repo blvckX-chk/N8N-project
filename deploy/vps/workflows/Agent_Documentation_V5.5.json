@@ -144,8 +144,9 @@
         "url": "https://tchavi.com/api/v1/chat/completions",
         "authentication": "none",
         "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json) }}",
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json) }}",
         "options": {},
         "sendHeaders": true,
         "headerParameters": {
@@ -220,8 +221,9 @@
         "url": "https://tchavi.com/api/v1/chat/completions",
         "authentication": "none",
         "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($('Build Payload').first().json) }}",
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($('Build Payload').first().json) }}",
         "options": {},
         "sendHeaders": true,
         "headerParameters": {

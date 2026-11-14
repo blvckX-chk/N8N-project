@@ -236,3 +236,20 @@ curl -s -o /dev/null -w "%{http_code}\n" https://app.<domaine>
   3. **Seulement ensuite** désactiver l'auth par mot de passe
      (`PasswordAuthentication no` dans `/etc/ssh/sshd_config`), puis
      `systemctl restart ssh`.
+
+---
+
+## 9. Changelog des agents (traçabilité des `_version`)
+
+Chaque sortie d'agent porte un champ `_version`. Il est **incrémenté à chaque
+changement fonctionnel** de l'agent, pour retracer quelle build a produit une sortie.
+
+| Agent | Version | Date | Changement |
+|---|---|---|---|
+| Spec_Normalizer | 1.13 | 2026-11 | Modèle → Claude Sonnet 5.5 ; `response_format` retiré ; body HTTP en mode RAW (corrige `JSON parameter needs to be valid JSON`) |
+| Architect / Frontend / QA / Documentation / Backend | — | 2026-11 | `response_format` retiré ; body LLM en mode RAW. `_version` à bumper lors de l'audit dédié de chaque agent. |
+
+### Rappels techniques (appels LLM Tchavi)
+- **Clé** : `TCHAVI_API_KEY` doit être la clé COMPLÈTE (~40 car.), pas un placeholder tronqué.
+- **Pas de `response_format`** (paramètre OpenAI-only, rejeté par Claude via la passerelle).
+- **Body en mode RAW** (`contentType: raw` + `rawContentType: application/json` + `body: ={{ JSON.stringify(payload) }}`) : cette version de n8n (1.123.77) rejette le mode « Using JSON » même avec une chaîne JSON valide.

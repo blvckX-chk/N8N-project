@@ -32,8 +32,9 @@
           ]
         },
         "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: $json.model, messages: $json.messages, temperature: $json.temperature, max_tokens: $json.max_tokens }) }}",
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ model: $json.model, messages: $json.messages, temperature: $json.temperature, max_tokens: $json.max_tokens }) }}",
         "options": {
           "timeout": 60000
         },
