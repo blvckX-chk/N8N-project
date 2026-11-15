@@ -1,5 +1,5 @@
 {
-  "name": "Agent Architect V5.8",
+  "name": "Agent Architect V5.9",
   "nodes": [
     {
       "parameters": {
@@ -120,7 +120,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify($json) }}",
+        "body": "={{ $json }}",
         "options": {
           "response": {
             "response": {
@@ -224,7 +224,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify($('Build Payload').first().json) }}",
+        "body": "={{ $('Build Payload').item.json }}",
         "options": {},
         "authentication": "none"
       },

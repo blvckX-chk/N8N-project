@@ -1,5 +1,5 @@
 {
-  "name": "Agent Documentation V5.6",
+  "name": "Agent Documentation V5.7",
   "nodes": [
     {
       "parameters": {
@@ -146,7 +146,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify($json) }}",
+        "body": "={{ $json }}",
         "options": {},
         "sendHeaders": true,
         "headerParameters": {
@@ -223,7 +223,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify($('Build Payload').first().json) }}",
+        "body": "={{ $('Build Payload').item.json }}",
         "options": {},
         "sendHeaders": true,
         "headerParameters": {

@@ -1,5 +1,5 @@
 {
-  "name": "Agent QA V5.10",
+  "name": "Agent QA V5.11",
   "nodes": [
     {
       "parameters": {
@@ -240,7 +240,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify($json) }}",
+        "body": "={{ $json }}",
         "options": {},
         "authentication": "none"
       },
@@ -467,7 +467,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify($('Build Payload QA').first().json) }}",
+        "body": "={{ $('Build Payload QA').item.json }}",
         "options": {},
         "authentication": "none"
       },

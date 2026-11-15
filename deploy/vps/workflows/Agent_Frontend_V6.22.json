@@ -1,5 +1,5 @@
 {
-  "name": "Agent Frontend V6.24",
+  "name": "Agent Frontend V6.25",
   "nodes": [
     {
       "parameters": {
@@ -34,7 +34,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ model: $json.model, messages: $json.messages, temperature: $json.temperature, max_tokens: $json.max_tokens }) }}",
+        "body": "={{ ({ model: $json.model, messages: $json.messages, temperature: $json.temperature, max_tokens: $json.max_tokens }) }}",
         "options": {
           "timeout": 60000
         },
