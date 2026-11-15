@@ -1,5 +1,5 @@
 {
-  "name": "Agent QA V5.9",
+  "name": "Agent QA V5.10",
   "nodes": [
     {
       "parameters": {
@@ -520,7 +520,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Fallback QA : Mistral indisponible — retourner WARN pour laisser le pipeline continuer\nconst upstream = $('Validate Input').first().json;\nreturn [{\n  json: {\n    task_id:   upstream.task_id || 'unknown',\n    language:  upstream.language || 'javascript',\n    issues: [],\n    coverage: 100,\n    verdict: 'PASS',\n    security_score: 100,\n    quality_score: 100,\n    recommendations: ['QA non exécutée — quota LLM atteint. Relancer pour une analyse complète.'],\n    summary: 'QA ignorée (rate limit Mistral) — pipeline autorisé à continuer.',\n    _llm_fallback: true\n  }\n}];"
+        "jsCode": "// Fallback QA : Mistral indisponible — retourner WARN pour laisser le pipeline continuer\nconst upstream = $('Validate Input').first().json;\nreturn [{\n  json: {\n    task_id:   upstream.task_id || 'unknown',\n    language:  upstream.language || 'javascript',\n    issues: [],\n    coverage: null,\n    verdict: 'WARN',\n    status: 'WARN',\n    security_score: null,\n    quality_score: null,\n    recommendations: ['QA non exécutée — quota LLM atteint. Relancer pour une analyse complète.'],\n    summary: 'QA NON exécutée (échec LLM) — verdict non concluant, à relancer.',\n    _llm_fallback: true\n  }\n}];"
       },
       "id": "64d0e8e2-7a32-4fae-9108-e8b8e546fffd",
       "name": "QA Fallback",
