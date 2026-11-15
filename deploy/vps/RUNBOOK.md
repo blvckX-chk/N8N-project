@@ -253,3 +253,11 @@ changement fonctionnel** de l'agent, pour retracer quelle build a produit une so
 - **Clé** : `TCHAVI_API_KEY` doit être la clé COMPLÈTE (~40 car.), pas un placeholder tronqué.
 - **Pas de `response_format`** (paramètre OpenAI-only, rejeté par Claude via la passerelle).
 - **Body en mode RAW** (`contentType: raw` + `rawContentType: application/json` + `body: ={{ JSON.stringify(payload) }}`) : cette version de n8n (1.123.77) rejette le mode « Using JSON » même avec une chaîne JSON valide.
+
+### Choix du modèle LLM (important)
+`claude-sonnet-5-5` est un modèle à **raisonnement** : via Tchavi il consomme
+~90% du budget en `reasoning_tokens` → sorties JSON tronquées, erreurs **500**
+sur gros prompts, coût élevé. **Utiliser `claude-sonnet-5` (sans le .5)** :
+qualité Claude, **non-raisonnant** (`reasoning_tokens: 0`, `finish_reason: stop`),
+JSON complet, ~3 crédits/appel. Alternative moins chère : `gpt-4o` (~1,5 crédit).
+Agents concernés : Spec_Normalizer, Architect, Backend, Frontend, QA.

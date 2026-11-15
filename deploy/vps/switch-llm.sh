@@ -30,7 +30,7 @@ case "$TARGET" in
     sed -i \
       -e "s#${TCHAVI_URL}#${MISTRAL_URL}#g" \
       -e 's#\$env\.TCHAVI_API_KEY#$env.MISTRAL_API_KEY#g' \
-      -e 's#claude-sonnet-5-5#mistral-large-latest#g' \
+      -e 's#claude-sonnet-5#mistral-large-latest#g' \
       -e 's#gpt-4o-mini#mistral-small-latest#g' \
       -e 's#llama-3\.3-70b#mistral-small-latest#g' \
       "$DIR"/*.json
@@ -40,7 +40,7 @@ case "$TARGET" in
     ;;
 
   tchavi)
-    echo "== Retour au moteur chat -> TCHAVI (principal, Claude Sonnet 5.5) =="
+    echo "== Retour au moteur chat -> TCHAVI (principal, Claude Sonnet 5) =="
     # Restauration sans perte depuis la version versionnee.
     if git -C "$DIR/../../.." rev-parse >/dev/null 2>&1; then
       git -C "$DIR/../../.." checkout -- deploy/vps/workflows/
@@ -57,14 +57,14 @@ case "$TARGET" in
     # Reste sur Tchavi (URL + cle inchangees), mais Sonnet -> gpt-4o-mini
     # pour une generation ~2-3x plus rapide. Pour revenir a la qualite :
     # bash switch-llm.sh tchavi  (restaure Sonnet depuis git).
-    sed -i 's#claude-sonnet-5-5#gpt-4o-mini#g' "$DIR"/*.json
+    sed -i 's#claude-sonnet-5#gpt-4o-mini#g' "$DIR"/*.json
     echo "   Architecte/Backend/Frontend/QA -> gpt-4o-mini (rapide)"
     echo "   -> pour revenir a la qualite Sonnet : bash deploy/vps/switch-llm.sh tchavi"
     ;;
 
   *)
     echo "Usage: $0 tchavi|mistral|fast"
-    echo "  tchavi  : qualite (Claude Sonnet 5.5) — defaut"
+    echo "  tchavi  : qualite (Claude Sonnet 5) — defaut"
     echo "  fast    : rapide (gpt-4o-mini) — demo live courte"
     echo "  mistral : secours (Mistral) si plus de credit Tchavi"
     exit 1
@@ -73,6 +73,6 @@ esac
 
 echo ""
 echo "== Modeles actuels par agent =="
-grep -rhoE "claude-sonnet-5-5|mistral-large-latest|gpt-4o-mini|mistral-small-latest|llama-3.3-70b|mistral-embed" "$DIR"/*.json | sort | uniq -c
+grep -rhoE "claude-sonnet-5|mistral-large-latest|gpt-4o-mini|mistral-small-latest|llama-3.3-70b|mistral-embed" "$DIR"/*.json | sort | uniq -c
 echo ""
 echo "Prochaine etape : bash deploy/vps/import-workflows.sh"
