@@ -1,5 +1,5 @@
 {
-  "name": "Orchestrateur V6.17",
+  "name": "Orchestrateur V6.18",
   "nodes": [
     {
       "parameters": {
@@ -25,7 +25,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "=={{ JSON.stringify({\n  task_id:     $('Validate Input').first().json.task_id,\n  userRequest: $('Validate Input').first().json.userRequest\n}) }}",
+        "body": "={{ $('Build Architect Payload').first().json }}",
         "options": {}
       },
       "id": "3be21094-483e-43ba-9849-44d5d651f8d1",
@@ -44,7 +44,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "==={{ JSON.stringify({\n  task_id:            $('Validate Input').first().json.task_id,\n  userRequest:        $('Build Backend Payload').first().json.userRequest,\n  language:           $('Validate Input').first().json.language,\n  framework:          $('Validate Input').first().json.framework,\n  improve_mode:       $('Build Backend Payload').first().json.improve_mode || false,\n  improve_prompt:     $('Build Backend Payload').first().json.improve_prompt || '',\n  architecture:       $('Build Backend Payload').first().json.architecture || {},\n  priority_endpoints: $('Build Backend Payload').first().json.priority_endpoints || [],\n  mvp_scope:          $('Build Backend Payload').first().json.mvp_scope || '',\n  data_model:         $('Build Backend Payload').first().json.data_model || {},\n  stores:             $('Build Backend Payload').first().json.stores || {},\n  existing_server_js: $('Build Backend Payload').first().json.existing_server_js || '',\n  existing_routes:    $('Build Backend Payload').first().json.existing_routes || [],\n  existing_stores:    $('Build Backend Payload').first().json.existing_stores || {},\n  existing_version:   $('Build Backend Payload').first().json.existing_version || '1.0',\n  backend_instructions: $('Build Backend Payload').first().json.backend_instructions || []\n}) }}\n",
+        "body": "={{ $('Build Backend Payload').first().json }}",
         "options": {}
       },
       "id": "c08d7b85-1457-44fc-b5ba-49264412d689",
@@ -63,7 +63,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "==={{ JSON.stringify({\n  task_id:            $('Validate Input').first().json.task_id,\n  userRequest:        $('Validate Input').first().json.userRequest,\n  improve_mode:       $('Build Frontend Payload').first().json.improve_mode || false,\n  architecture:       $('Build Frontend Payload').first().json.architecture || {},\n  priority_endpoints: $('Build Frontend Payload').first().json.priority_endpoints || [],\n  mvp_scope:          $('Build Frontend Payload').first().json.mvp_scope || '',\n  project_name:       $('Build Frontend Payload').first().json.project_name || '',\n  data_model:         $('Build Frontend Payload').first().json.data_model || {},\n  stores:             $('Build Frontend Payload').first().json.stores || {},\n  frontend_instructions: $('Build Frontend Payload').first().json.frontend_instructions || []\n}) }}",
+        "body": "={{ $('Build Frontend Payload').first().json }}",
         "options": {}
       },
       "id": "9ec2c5a2-de35-4c4b-b3c2-f2e0207d0d94",
@@ -320,7 +320,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "=={{ JSON.stringify({\n  task_id:  $('Validate Input').first().json.task_id,\n  language: $('Validate Input').first().json.language,\n  code:     $('Build QA Payload').first().json.code || ''\n}) }}",
+        "body": "={{ $('Build QA Payload').first().json }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -666,7 +666,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "=={{ JSON.stringify({\n  task_id:      $('Validate Input').first().json.task_id,\n  userRequest:  $('Validate Input').first().json.userRequest,\n  architecture: $('Build Doc Payload').first().json.architecture || $input.first().json.artifacts || {},\n  files:        $('Build Doc Payload').first().json.files || [],\n  deployment:   $('Build Doc Payload').first().json.deployment || {}\n}) }}",
+        "body": "={{ $('Build Doc Payload').first().json }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
