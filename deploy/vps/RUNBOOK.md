@@ -246,13 +246,25 @@ changement fonctionnel** de l'agent, pour retracer quelle build a produit une so
 
 | Agent | Version | Date | Changement |
 |---|---|---|---|
-| Spec_Normalizer | 1.13 | 2026-11 | Modèle → Claude Sonnet 5.5 ; `response_format` retiré ; body HTTP en mode RAW (corrige `JSON parameter needs to be valid JSON`) |
-| Architect / Frontend / QA / Documentation / Backend | — | 2026-11 | `response_format` retiré ; body LLM en mode RAW. `_version` à bumper lors de l'audit dédié de chaque agent. |
+| Spec_Normalizer | 1.19 | 2026-11-15 | Body LLM = objet `{{ $json }}` (fin du body vide/double-encodé) ; extraction générique d'entités « Nom : champ, champ » (fallback plus jamais aveugle au domaine) |
+| Architect | 5.10 | 2026-11-15 | Body `{{ $json }}` ; le validateur d'entrée préserve `structured_context`/`specs_context` (le domaine atteint enfin l'Architect) |
+| Backend | 6.30 | 2026-11-15 | Validate Specs préserve stores/data_model/rôles ; branche `llm_improve` morte neutralisée honnêtement ; `package.json name` = slug(project_name) |
+| Frontend | 6.25 | 2026-11-15 | Payload LLM inline passé en objet (plus de JSON.stringify) |
+| QA | 5.11 | 2026-11-15 | Body `{{ $json }}` ; fallback honnête WARN (plus de faux PASS/100) |
+| Documentation | 5.7 | 2026-11-15 | Body `{{ $json }}` (reste sur llama-3.3-70b) |
+| SCA | 5.3 | 2026-11-15 | Sévérité réelle par CVE via `/v1/vulns/{id}` (GHSA) ; critical/high bloquent (FAIL) |
+| Cost / Runtime | 1.1 | 2026-11-15 | Adaptateurs d'entrée (service{}/incident{}/thresholds imbriqués) — seuils et matrice d'incident opérationnels |
+| Orchestrateur | 6.19 | 2026-11-15 | Les appels d'agents envoient l'objet complet du nœud « Build X Payload » ; ré-injection des invariants en improve si app existante vide |
 
 ### Rappels techniques (appels LLM Tchavi)
 - **Clé** : `TCHAVI_API_KEY` doit être la clé COMPLÈTE (~40 car.), pas un placeholder tronqué.
 - **Pas de `response_format`** (paramètre OpenAI-only, rejeté par Claude via la passerelle).
-- **Body en mode RAW** (`contentType: raw` + `rawContentType: application/json` + `body: ={{ JSON.stringify(payload) }}`) : cette version de n8n (1.123.77) rejette le mode « Using JSON » même avec une chaîne JSON valide.
+- **Body en mode RAW = L'OBJET, jamais `JSON.stringify`** : n8n (1.123.77) sérialise
+  déjà la valeur du body. `body: ={{ $json }}` (ou l'objet préparé) → JSON correct ;
+  une chaîne pré-sérialisée → double-encodage ; `$('Node').first()` dans un champ
+  body → expression non résolue → **body de 0 octet** → 500 trompeur côté API.
+  Règles complètes : § 0 de `AUDIT-AGENTS.md` (R1-R7). Le mode « Using JSON »
+  reste rejeté même avec une chaîne JSON valide.
 
 ### Choix du modèle LLM (important)
 `claude-sonnet-5-5` est un modèle à **raisonnement** : via Tchavi il consomme
