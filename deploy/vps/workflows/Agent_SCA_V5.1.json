@@ -1,5 +1,5 @@
 {
-  "name": "Agent SCA V5.1",
+  "name": "Agent SCA V5.2",
   "nodes": [
     {
       "parameters": {
@@ -165,8 +165,9 @@
         "method": "POST",
         "url": "https://api.osv.dev/v1/querybatch",
         "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ { \"queries\": $json.queries } }}",
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ \"queries\": $json.queries }) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",

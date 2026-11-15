@@ -1,5 +1,5 @@
 {
-  "name": "Agent SAST V5.5",
+  "name": "Agent SAST V5.6",
   "nodes": [
     {
       "parameters": {
@@ -214,8 +214,9 @@
         "method": "POST",
         "url": "http://forge-semgrep:8000/scan",
         "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ { \"task_id\": ($('Validate Input').first().json.task_id || 'sast'), \"files\": ((Array.isArray($('Validate Input').first().json.files) && $('Validate Input').first().json.files.length) ? $('Validate Input').first().json.files : [{ \"path\": \"server.js\", \"content\": ($('Validate Input').first().json.code || '') }]) } }}",
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ \"task_id\": ($('Validate Input').first().json.task_id || 'sast'), \"files\": ((Array.isArray($('Validate Input').first().json.files) && $('Validate Input').first().json.files.length) ? $('Validate Input').first().json.files : [{ \"path\": \"server.js\", \"content\": ($('Validate Input').first().json.code || '') }]) }) }}",
         "options": {
           "timeout": 120000
         }
