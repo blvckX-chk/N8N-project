@@ -460,7 +460,7 @@
             },
             {
               "name": "Authorization",
-              "value": "=Bearer {{ $env.TCHAVI_API_KEY }}"
+              "value": "=Bearer {{ $env.TCHAVI_API_KEY_2 || $env.TCHAVI_API_KEY }}"
             }
           ]
         },
