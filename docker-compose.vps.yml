@@ -32,6 +32,7 @@ services:
       - FALLBACK_LLM_URL=${FALLBACK_LLM_URL:-}
       - FALLBACK_LLM_KEY=${FALLBACK_LLM_KEY:-}
       - FALLBACK_LLM_MODEL=${FALLBACK_LLM_MODEL:-}
+      - FALLBACK_LLM_MAX_TOKENS=${FALLBACK_LLM_MAX_TOKENS:-}
       - MEMORY_URL=http://forge-memory:4002
       - MEMORY_TOKEN=${MEMORY_TOKEN}
       # Derrière Caddy :
