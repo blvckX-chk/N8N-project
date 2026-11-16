@@ -1,5 +1,5 @@
 {
-  "name": "Agent Documentation V5.8",
+  "name": "Agent Documentation V5.9",
   "nodes": [
     {
       "parameters": {
@@ -223,7 +223,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ Object.assign({}, $('Build Payload').first().json, { model: $env.FALLBACK_LLM_MODEL || 'llama-3.3-70b-versatile' }) }}",
+        "body": "={{ $json }}",
         "options": {},
         "sendHeaders": true,
         "headerParameters": {
@@ -291,6 +291,19 @@
       "position": [
         1088,
         464
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Charge utile du failover (LLM gratuit, ex. Groq) — construite ici car $('…').first()\n// ne se résout pas dans le body d'un httpRequest (règle R2). Le nœud HTTP envoie ={{ $json }}.\nconst src = $('Build Payload').first().json;\nconst out = { model: $env.FALLBACK_LLM_MODEL || 'llama-3.3-70b-versatile', messages: src.messages || [] };\nif (typeof src.temperature === 'number') out.temperature = src.temperature;\nif (typeof src.top_p === 'number') out.top_p = src.top_p;\n// Les modèles gratuits plafonnent la sortie : on borne max_tokens pour éviter un 400\nout.max_tokens = Math.min(Number(src.max_tokens) || 4096, Number($env.FALLBACK_LLM_MAX_TOKENS) || 8000);\nreturn [{ json: out }];"
+      },
+      "id": "4e7b7fb5-c531-40ce-927b-7c0ea1faa2f0",
+      "name": "Fallback Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        472,
+        600
       ]
     }
   ],
@@ -380,7 +393,7 @@
         ],
         [
           {
-            "node": "HTTP Request 2",
+            "node": "Fallback Payload",
             "type": "main",
             "index": 0
           }
@@ -409,7 +422,7 @@
         ],
         [
           {
-            "node": "HTTP Request 2",
+            "node": "Fallback Payload",
             "type": "main",
             "index": 0
           }
@@ -457,6 +470,17 @@
         [
           {
             "node": "Format Standard Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fallback Payload": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request 2",
             "type": "main",
             "index": 0
           }

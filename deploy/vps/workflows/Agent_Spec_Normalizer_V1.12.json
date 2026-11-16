@@ -1,5 +1,5 @@
 {
-  "name": "Agent Spec Normalizer V1.20",
+  "name": "Agent Spec Normalizer V1.21",
   "nodes": [
     {
       "parameters": {
@@ -134,7 +134,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ Object.assign({}, $('Build Mistral Payload').first().json, { model: $env.FALLBACK_LLM_MODEL || 'llama-3.3-70b-versatile' }) }}",
+        "body": "={{ $json }}",
         "options": {},
         "authentication": "none"
       },
@@ -244,6 +244,19 @@
         304,
         400
       ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Charge utile du failover (LLM gratuit, ex. Groq) — construite ici car $('…').first()\n// ne se résout pas dans le body d'un httpRequest (règle R2). Le nœud HTTP envoie ={{ $json }}.\nconst src = $('Build Mistral Payload').first().json;\nconst out = { model: $env.FALLBACK_LLM_MODEL || 'llama-3.3-70b-versatile', messages: src.messages || [] };\nif (typeof src.temperature === 'number') out.temperature = src.temperature;\nif (typeof src.top_p === 'number') out.top_p = src.top_p;\n// Les modèles gratuits plafonnent la sortie : on borne max_tokens pour éviter un 400\nout.max_tokens = Math.min(Number(src.max_tokens) || 4096, Number($env.FALLBACK_LLM_MAX_TOKENS) || 8000);\nreturn [{ json: out }];"
+      },
+      "id": "c219e3bb-e25e-4a50-8c54-3ef20053d511",
+      "name": "Fallback Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -680,
+        504
+      ]
     }
   ],
   "pinData": {},
@@ -332,7 +345,7 @@
         ],
         [
           {
-            "node": "Mistral API Retry",
+            "node": "Fallback Payload",
             "type": "main",
             "index": 0
           }
@@ -350,7 +363,7 @@
         ],
         [
           {
-            "node": "Mistral API Retry",
+            "node": "Fallback Payload",
             "type": "main",
             "index": 0
           }
@@ -369,6 +382,17 @@
         [
           {
             "node": "Fallback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fallback Payload": {
+      "main": [
+        [
+          {
+            "node": "Mistral API Retry",
             "type": "main",
             "index": 0
           }

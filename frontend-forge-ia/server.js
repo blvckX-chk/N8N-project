@@ -8,7 +8,7 @@ const telemetry = require('./telemetry');
 const app  = express();
 const PORT = process.env.PORT || 3000;
 const APP_VERSION = '6.0.0';
-const UI_BUILD    = '7.0';    // refonte complète (système Instrument × Feuille de route)
+const UI_BUILD    = '7.1';    // v7 + verdict honnête (analyses en erreur), crédits fractionnaires
 // Authentification du panel : identifiants via env (FORGE_USER / FORGE_PASS).
 const AUTH_USER = process.env.FORGE_USER || '';
 const AUTH_PASS = process.env.FORGE_PASS || '';

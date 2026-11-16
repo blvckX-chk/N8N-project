@@ -254,6 +254,10 @@ changement fonctionnel** de l'agent, pour retracer quelle build a produit une so
 | Documentation | 5.7 | 2026-11-15 | Body `{{ $json }}` (reste sur llama-3.3-70b) |
 | SCA | 5.3 | 2026-11-15 | Sévérité réelle par CVE via `/v1/vulns/{id}` (GHSA) ; critical/high bloquent (FAIL) |
 | Cost / Runtime | 1.1 | 2026-11-15 | Adaptateurs d'entrée (service{}/incident{}/thresholds imbriqués) — seuils et matrice d'incident opérationnels |
+| Orchestrateur | 6.23 | 2026-11-16 | 13 nœuds Code « Body — X » construisent le corps de chaque appel d'agent (`$('…')` ne se résout pas dans un body HTTP) ; corps HTTP `={{ JSON.stringify($json) }}` ; réponse REWORK/STOP avec matrice, risque et code partiel |
+| Go/No-Go | 1.4 | 2026-11-16 | Analyse en ERROR ⇒ REWORK (score ignoré) ; SAST/SCA/Secrets FAIL ⇒ REWORK ; risque ≥ 50 si analyse échouée, ≥ 90 si STOP ; champs `reliable`, `failed_analyses` |
+| SAST | 5.8 | 2026-11-16 | Nœud « Semgrep Payload » : le scan Semgrep reçoit enfin les fichiers (objet `{{ $json }}`) |
+| Normalizer / Architect / QA / Documentation | 1.21 / 5.12 / 5.13 / 5.9 | 2026-11-16 | Nœud « Fallback Payload » avant le retry Groq (corps non vide, `max_tokens` borné par `FALLBACK_LLM_MAX_TOKENS`, 8000 par défaut) |
 | Orchestrateur | 6.19 | 2026-11-15 | Les appels d'agents envoient l'objet complet du nœud « Build X Payload » ; ré-injection des invariants en improve si app existante vide |
 
 ### Rappels techniques (appels LLM Tchavi)

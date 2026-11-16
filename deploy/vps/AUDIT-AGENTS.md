@@ -13,7 +13,7 @@ octets au serveur témoin). Elles sont **non négociables** pour tout nœud futu
 | # | Règle | Pourquoi |
 |---|---|---|
 | R1 | Body httpRequest = **l'objet**, jamais `JSON.stringify(...)` | n8n sérialise déjà la valeur ; une chaîne pré-sérialisée est ré-encodée (double-encodage), un objet donne le bon JSON. |
-| R2 | Dans un champ **body**, préférer `$json` (ou une référence testée) | `$('Node').first()` s'est montré non fiable dans le champ body du Normalizer (expression → undefined → body 0 octet → 500 ambigu côté API). |
+| R2 | Dans un champ **body** d'httpRequest : **uniquement `$json`**. Toute référence `$('Nœud')` se construit dans un **nœud Code « Body — X »** placé juste avant l'appel | `$('Node').first()` ne se résout pas dans un body (0 octet, prouvé par capture) ; dans un nœud Code il fonctionne. Appels d'agents : `={{ JSON.stringify($json) }}` en raw (format lu par tous les agents) ; appels LLM/services : `={{ $json }}` (objet). |
 | R3 | Un nœud « Validation / sanitize » doit **préserver** les champs pipeline | Deux validateurs (Architect, Backend) jetaient `structured_context` / `stores` : le domaine mourait en silence. Toujours lister explicitement les champs transmis. |
 | R4 | L'appel d'un agent envoie **l'objet complet du nœud « Build X Payload »** | Les bodies qui re-construisaient un payload minimal depuis `Validate Input` jetaient le travail du Build node (cas Architect : seul {task_id, userRequest} partait). |
 | R5 | Jamais de fallback qui **ment** (PASS/100 par défaut) | Un échec LLM doit produire WARN/ERROR + `errors[]`, et Go/No-Go doit le traiter comme non concluant. |
@@ -29,13 +29,19 @@ octets au serveur témoin). Elles sont **non négociables** pour tout nœud futu
 5. ~~Architect : validateur d'entrée jetait `structured_context`~~ ✓ (R3)
 6. ~~Backend : « Validate Specs » jetait les `stores` top-level~~ ✓ (R3)
 7. ~~Orchestrateur : appels agents avec payload minimal (Architect : sans `structured_context`)~~ ✓ (R4, V6.18)
+7b. ~~V6.18 utilisait `$('Build X Payload').first().json` **dans le body** : 13 appels d'agents partaient vides
+   (Backend sans stores → tables users/uploads/audit_log ; QA/SCA/Secrets en ERROR, SAST en FAIL)
+   et le Go/No-Go V1.3 validait quand même (scores 100 par défaut des rapports en erreur)~~ ✓
+   (Orchestrateur V6.23 : 13 nœuds « Body — X » ; retries Groq et appel Semgrep idem ; Go/No-Go V1.4 :
+   analyse en ERROR ⇒ REWORK, score ignoré, risque ≥ 50 ; panel 7.1 : jamais « Validé » si une analyse a échoué)
 8. **Piège restant côté usage** : regénérer le même projet ⇒ **mode improve** ⇒ les
    invariants déterministes sont sautés ⇒ une v1.0 vide se propage à ses v1.0.x.
    → Après un fix de pipeline, TOUJOURS régénérer en **frais** (nouveau nom de projet),
    puis seulement itérer en improve.
 
-Versions courantes : Orchestrateur **V6.18**, Normalizer **V1.18**, Architect **V5.10**,
-Backend **V6.29**, Frontend **V6.25**, QA **V5.11**, Documentation **V5.7**.
+Versions courantes : Orchestrateur **V6.23**, Normalizer **V1.21**, Architect **V5.12**,
+Backend **V6.31**, Frontend **V6.26**, QA **V5.13**, Documentation **V5.9**, SAST **V5.8**,
+Go/No-Go **V1.4**, panel **7.1**.
 
 ## 2. 🔴 P0 restants (bloquants pour des verdicts fiables)
 

@@ -80,6 +80,11 @@ a{color:inherit}
 .top-r{margin-left:auto;display:flex;align-items:center;gap:10px}
 .chip{display:flex;align-items:center;gap:8px;height:34px;padding:0 12px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);font:500 12.5px var(--mono);white-space:nowrap}
 .chip:hover{border-color:var(--faint)}
+/* Barres de défilement fines, accordées au thème */
+*{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px;border:2px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background:var(--faint);background-clip:padding-box}
 .led{width:8px;height:8px;border-radius:50%;background:var(--faint);flex:none}
 .led.ok{background:var(--ok)}.led.warning{background:var(--warn)}.led.critical{background:var(--err)}
 .meter{width:56px;height:5px;background:var(--line);border-radius:3px;overflow:hidden}
@@ -497,8 +502,8 @@ const PIPELINE_URL='/api/pipeline', DEPLOY_URL='/api/deploy', IMPROVE_URL='/api/
 const HISTORY_KEY='forge_ia_history';
 const $id=id=>document.getElementById(id);
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function fmtN(n){return n==null?'—':Number(n).toLocaleString('fr-FR');}
-function crTxt(n){return n==null?'? cr':(n>0?'−'+fmtN(n)+' cr':'0 cr');}
+function fmtN(n,d){if(n==null||!isFinite(Number(n)))return '—';const v=Number(n);return v.toLocaleString('fr-FR',{maximumFractionDigits:d!=null?d:(Math.abs(v)>=100?0:1)});}
+function crTxt(n){return n==null?'? cr':(n>=0.05?'−'+fmtN(n)+' cr':(n>0?'< 0,1 cr':'0 cr'));}
 function fmtDur(ms){if(ms==null||ms<0)return '';const s=ms/1000;if(s<10)return s.toFixed(1).replace('.',',')+' s';if(s<60)return Math.round(s)+' s';const m=Math.floor(s/60),r=Math.round(s%60);return m+' min '+String(r).padStart(2,'0');}
 function clock(ms){const s=Math.max(0,Math.floor(ms/1000));return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
 function ago(ts){if(!ts)return '—';const m=Math.round((Date.now()-ts)/60000);return m<1?'à l’instant':m<60?('il y a '+m+' min'):('il y a '+Math.round(m/60)+' h');}
@@ -766,7 +771,7 @@ async function runPipeline(overridePayload){
         if(pd.error){finish(false,pd.error);renderError(pd.error,{cause:pd.cause,fix:pd.fix,detail:pd.detail,status:pd.status,elapsed_ms:pd.elapsed_ms});return;}
         if(!pd.pending&&pd.data){
           const ok=pd.data.decision!=='STOP'&&pd.data.success!==false;
-          finish(ok,ok?null:('Décision '+(pd.data.decision||'STOP')));
+          finish(ok,ok?null:(pd.data.decision==='REWORK'?'À retravailler':('Décision '+(pd.data.decision||'STOP'))));
           renderResult(pd.data,((Date.now()-RUN.start)/1000).toFixed(1));
           if(pd.data.results&&pd.data.results.files&&pd.data.results.files.length)addToHistory(pd.data);
           return;
@@ -809,19 +814,23 @@ function renderResult(data,elapsed){
   const R=data.results||data;
   const dec=String(data.decision||'').toUpperCase();
   const ok=data.success!==false&&dec!=='STOP'&&dec!=='REWORK';
-  const word=dec==='STOP'?['Bloqué','err']:dec==='REWORK'?['À retravailler','warn']:ok?['Validé','ok']:['Échec','err'];
+  const FAILED_ST=['ERROR','FAILED','CRASH','TIMEOUT'];
+  const failedA=(data.failed_analyses&&data.failed_analyses.length)?data.failed_analyses:
+    (data.verdicts?VERDICT_KEYS.filter(k=>FAILED_ST.includes(String((data.verdicts[k[0]]||{}).status||'').toUpperCase())).map(k=>k[1]):[]);
+  const unreliable=data.reliable===false||failedA.length>0;
+  const word=dec==='STOP'?['Bloqué','err']:dec==='REWORK'?['À retravailler','warn']:(ok&&unreliable)?['Non vérifié','warn']:ok?['Validé','ok']:['Échec','err'];
   const pname=data.project_name||currentProjectName||(RUN&&RUN.title)||'Application';
   if(RUN&&!RUN.title){RUN.title=pname;$id('run-title').textContent=pname;}
   if(!RUN){$id('run-title').classList.remove('idle');$id('run-title').textContent=pname;$id('idle-copy').classList.add('hidden');}
-  const explain=dec==='STOP'?'Le Go/No-Go a bloqué le déploiement : corrige les points ci-dessous avant de relancer.':dec==='REWORK'?'Application générée, mais des points doivent être retravaillés avant un déploiement sûr.':'Application générée, vérifiée par les agents de sécurité et prête à être lancée.';
+  const explain=(unreliable&&dec!=='STOP')?('Le code est généré, mais '+failedA.length+' analyse'+(failedA.length>1?'s':'')+' n’'+(failedA.length>1?'ont':'a')+' pas pu s’exécuter ('+failedA.join(', ')+') : sa sécurité n’est pas démontrée. Relance la génération avant tout déploiement.'):dec==='STOP'?'Le Go/No-Go a bloqué le déploiement : corrige les points ci-dessous avant de relancer.':dec==='REWORK'?'Application générée, mais des points doivent être retravaillés avant un déploiement sûr.':'Application générée, vérifiée par les agents de sécurité et prête à être lancée.';
   let h='<div class="sec deliv"><div class="sec-h"><span class="n">04</span><h2>Livrable</h2><span class="aside-r">'+esc(currentZipName||'')+'</span></div>';
   h+='<div class="verdict"><div><div class="word '+word[1]+'">'+word[0]+'</div><p>'+esc(explain)+'</p></div><div class="facts">'+
-     '<div>Fichiers<b>'+files.length+'</b></div>'+(data.risk_score!=null?'<div>Risque<b>'+esc(data.risk_score)+'/100</b></div>':'')+(elapsed&&+elapsed>0?'<div>Durée<b>'+esc(fmtDur(elapsed*1000))+'</b></div>':'')+'</div></div>';
+     '<div>Fichiers<b>'+files.length+'</b></div>'+(data.risk_score!=null?'<div>Risque<b>'+((unreliable&&+data.risk_score<50)?'non fiable':((unreliable?'≥ ':'')+esc(data.risk_score)+'/100'))+'</b></div>':'')+(elapsed&&+elapsed>0?'<div>Durée<b>'+esc(fmtDur(elapsed*1000))+'</b></div>':'')+'</div></div>';
   if(data.verdicts){
-    h+='<div class="matrix">'+VERDICT_KEYS.map(k=>{const v=data.verdicts[k[0]]||{};return '<div><div class="k">'+k[1]+'</div>'+statusTag(v.status)+'<div class="sc">'+(v.score!=null?('score '+esc(v.score)+'/100'):'score non mesuré')+'</div></div>';}).join('')+'</div>';
+    h+='<div class="matrix">'+VERDICT_KEYS.map(k=>{const v=data.verdicts[k[0]]||{};return '<div><div class="k">'+k[1]+'</div>'+statusTag(v.status)+'<div class="sc">'+(FAILED_ST.includes(String(v.status||'').toUpperCase())?'analyse non exécutée':(String(v.status||'').toUpperCase()==='FAIL'&&(v.score==null||v.score>=100))?'problèmes à corriger':(v.score!=null?('score '+esc(v.score)+'/100'):'score non mesuré'))+'</div></div>';}).join('')+'</div>';
   }
   const reasons=(data.blocking_reasons||[]);
-  if(reasons.length)h+='<div class="block"><div class="block-h"><h3>Raisons du blocage</h3><span>'+reasons.length+'</span></div><ul class="list">'+reasons.map(r=>'<li><span class="mark-s" style="color:var(--err)">!</span><span>'+esc(r)+'</span></li>').join('')+'</ul></div>';
+  if(reasons.length)h+='<div class="block"><div class="block-h"><h3>'+(dec==='REWORK'?'Points à reprendre':'Raisons du blocage')+'</h3><span>'+reasons.length+'</span></div><ul class="list">'+reasons.map(r=>'<li><span class="mark-s" style="color:var(--err)">!</span><span>'+esc(r)+'</span></li>').join('')+'</ul></div>';
   const warns=(data.gonogo_warnings||[]).filter(w=>!reasons.includes(w));
   if(warns.length)h+='<div class="block"><div class="block-h"><h3>Points d’attention</h3><span>'+warns.length+'</span></div><ul class="list">'+warns.map(r=>'<li><span class="mark-s" style="color:var(--warn)">~</span><span>'+esc(r)+'</span></li>').join('')+'</ul></div>';
   if(R.improvements){const im=R.improvements;
@@ -970,7 +979,7 @@ function addToHistory(data){
   const h=getHistory();let pn=data.project_name||'';
   if(!pn){const rd=(data.results&&data.results.files||currentFiles||[]).find(f=>f.path==='README.md');if(rd){const m=(rd.content||'').match(/^#\s+(.+)/m);if(m)pn=m[1].trim().substring(0,40);}}
   const R=data.results||data;
-  h.unshift({id:data.task_id||('PROJ-'+Date.now()),date:new Date().toISOString(),summary:data.summary||'Projet généré',project_name:pn,zip_name:currentZipName||('ForgeIA-'+pn.replace(/[^a-zA-Z0-9]/g,'-')+'-'+getProjectVersion()),version:getProjectVersion(),improve_mode:currentTab==='improve',decision:data.decision||'',files_count:currentFiles.length,input_type:currentTab,language:$id('cfg-lang').value,framework:$id('cfg-fw').value,files:currentFiles,suggestions:R.suggestions||[],planned:R.planned_not_implemented||[],improvements:R.improvements||null,blocking_reasons:data.blocking_reasons||[],verdicts:data.verdicts||null,risk_score:data.risk_score==null?null:data.risk_score});
+  h.unshift({id:data.task_id||('PROJ-'+Date.now()),date:new Date().toISOString(),summary:data.summary||'Projet généré',project_name:pn,zip_name:currentZipName||('ForgeIA-'+pn.replace(/[^a-zA-Z0-9]/g,'-')+'-'+getProjectVersion()),version:getProjectVersion(),improve_mode:currentTab==='improve',decision:data.decision||'',files_count:currentFiles.length,input_type:currentTab,language:$id('cfg-lang').value,framework:$id('cfg-fw').value,files:currentFiles,suggestions:R.suggestions||[],planned:R.planned_not_implemented||[],improvements:R.improvements||null,blocking_reasons:data.blocking_reasons||[],verdicts:data.verdicts||null,risk_score:data.risk_score==null?null:data.risk_score,reliable:data.reliable,failed_analyses:data.failed_analyses||[]});
   while(h.length>50)h.pop();
   try{saveHistory(h);}catch(e){h.splice(10);saveHistory(h);}
   $id('hist-count').textContent=h.length||'';
@@ -997,7 +1006,7 @@ function restoreHistory(i){
   RUN=null;clearInterval(_tick);currentFiles=it.files||[];currentTaskId=it.id;currentZipName=it.zip_name||null;currentProjectName=it.project_name||null;
   go('gen');$id('run-meta').classList.add('hidden');$id('run-status').textContent='Version restaurée depuis l’historique — '+new Date(it.date).toLocaleString('fr-FR');$id('run-id').textContent=it.id;
   renderSheet();$id('sheet').innerHTML='';
-  renderResult({success:it.decision!=='STOP',task_id:it.id,project_name:it.project_name,zip_name:it.zip_name,summary:it.summary,decision:it.decision,blocking_reasons:it.blocking_reasons||[],verdicts:it.verdicts||null,risk_score:it.risk_score,results:{files:it.files||[],suggestions:it.suggestions||[],planned_not_implemented:it.planned||[],improvements:it.improvements||undefined}},0);
+  renderResult({success:it.decision!=='STOP',task_id:it.id,project_name:it.project_name,zip_name:it.zip_name,summary:it.summary,decision:it.decision,blocking_reasons:it.blocking_reasons||[],verdicts:it.verdicts||null,risk_score:it.risk_score,reliable:it.reliable,failed_analyses:it.failed_analyses||[],results:{files:it.files||[],suggestions:it.suggestions||[],planned_not_implemented:it.planned||[],improvements:it.improvements||undefined}},0);
 }
 async function dlHistoryZip(i){
   const it=getHistory()[i];if(!it||!it.files||!it.files.length)return;
@@ -1065,7 +1074,7 @@ function renderCreditsPop(){
   if(c.failover_used_24h)note+=(note?'<br>':'')+'Le secours gratuit a servi dans les dernières 24 h.';
   const gens=(c.generations||[]).map(g=>'<div>'+new Date(g.started_at).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'})+' · '+(g.ok?'ok':'échec')+' · '+crTxt(g.consumed)+' · '+fmtN(g.tokens)+' tok · '+esc((g.providers||[]).join('/'))+'</div>').join('')||'<div class="mute">Aucune génération suivie pour l’instant.</div>';
   $id('credits-pop').innerHTML='<h4>Crédits Tchavi</h4>'+
-    '<div class="kv"><span>Solde</span><b>'+fmtN(c.credits_remaining)+'</b></div>'+
+    '<div class="kv"><span>Solde</span><b>'+fmtN(c.credits_remaining,2)+'</b></div>'+
     '<div class="kv"><span>Source</span><b>'+(c.credits_source==='manual'?'saisie manuelle':c.credits_source==='llm'?'réponse LLM':'—')+' · '+ago(c.credits_updated_at)+'</b></div>'+
     '<div class="kv"><span>Moyenne par génération</span><b>'+(c.avg_credits_per_generation!=null?fmtN(c.avg_credits_per_generation)+' cr':'—')+'</b></div>'+
     '<div class="kv"><span>Générations restantes</span><b>'+(c.est_generations_left!=null?'≈ '+c.est_generations_left:'—')+'</b></div>'+

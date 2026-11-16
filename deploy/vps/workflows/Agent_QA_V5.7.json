@@ -1,5 +1,5 @@
 {
-  "name": "Agent QA V5.12",
+  "name": "Agent QA V5.13",
   "nodes": [
     {
       "parameters": {
@@ -467,7 +467,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ Object.assign({}, $('Build Payload QA').first().json, { model: $env.FALLBACK_LLM_MODEL || 'llama-3.3-70b-versatile' }) }}",
+        "body": "={{ $json }}",
         "options": {},
         "authentication": "none"
       },
@@ -530,6 +530,19 @@
       "position": [
         -29648,
         -896
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Charge utile du failover (LLM gratuit, ex. Groq) — construite ici car $('…').first()\n// ne se résout pas dans le body d'un httpRequest (règle R2). Le nœud HTTP envoie ={{ $json }}.\nconst src = $('Build Payload QA').first().json;\nconst out = { model: $env.FALLBACK_LLM_MODEL || 'llama-3.3-70b-versatile', messages: src.messages || [] };\nif (typeof src.temperature === 'number') out.temperature = src.temperature;\nif (typeof src.top_p === 'number') out.top_p = src.top_p;\n// Les modèles gratuits plafonnent la sortie : on borne max_tokens pour éviter un 400\nout.max_tokens = Math.min(Number(src.max_tokens) || 4096, Number($env.FALLBACK_LLM_MAX_TOKENS) || 8000);\nreturn [{ json: out }];"
+      },
+      "id": "f82d061a-1abb-4156-8103-cfb0477d8dbc",
+      "name": "Fallback Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -30344,
+        -936
       ]
     }
   ],
@@ -728,7 +741,7 @@
         ],
         [
           {
-            "node": "LLM Mistral QA Retry",
+            "node": "Fallback Payload",
             "type": "main",
             "index": 0
           }
@@ -775,7 +788,7 @@
         ],
         [
           {
-            "node": "LLM Mistral QA Retry",
+            "node": "Fallback Payload",
             "type": "main",
             "index": 0
           }
@@ -794,6 +807,17 @@
         [
           {
             "node": "QA Fallback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fallback Payload": {
+      "main": [
+        [
+          {
+            "node": "LLM Mistral QA Retry",
             "type": "main",
             "index": 0
           }

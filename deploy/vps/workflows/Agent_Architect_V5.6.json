@@ -1,5 +1,5 @@
 {
-  "name": "Agent Architect V5.11",
+  "name": "Agent Architect V5.12",
   "nodes": [
     {
       "parameters": {
@@ -224,7 +224,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ Object.assign({}, $('Build Payload').first().json, { model: $env.FALLBACK_LLM_MODEL || 'llama-3.3-70b-versatile' }) }}",
+        "body": "={{ $json }}",
         "options": {},
         "authentication": "none"
       },
@@ -335,6 +335,19 @@
         464,
         -1072
       ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Charge utile du failover (LLM gratuit, ex. Groq) — construite ici car $('…').first()\n// ne se résout pas dans le body d'un httpRequest (règle R2). Le nœud HTTP envoie ={{ $json }}.\nconst src = $('Build Payload').first().json;\nconst out = { model: $env.FALLBACK_LLM_MODEL || 'llama-3.3-70b-versatile', messages: src.messages || [] };\nif (typeof src.temperature === 'number') out.temperature = src.temperature;\nif (typeof src.top_p === 'number') out.top_p = src.top_p;\n// Les modèles gratuits plafonnent la sortie : on borne max_tokens pour éviter un 400\nout.max_tokens = Math.min(Number(src.max_tokens) || 4096, Number($env.FALLBACK_LLM_MAX_TOKENS) || 8000);\nreturn [{ json: out }];"
+      },
+      "id": "bace4d36-7b55-4549-853f-14a6e4ac7d2c",
+      "name": "Fallback Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1608,
+        -440
+      ]
     }
   ],
   "pinData": {},
@@ -438,7 +451,7 @@
         ],
         [
           {
-            "node": "LLM - Architect Retry",
+            "node": "Fallback Payload",
             "type": "main",
             "index": 0
           }
@@ -514,7 +527,7 @@
         ],
         [
           {
-            "node": "LLM - Architect Retry",
+            "node": "Fallback Payload",
             "type": "main",
             "index": 0
           }
@@ -533,6 +546,17 @@
         [
           {
             "node": "Architect Fallback Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fallback Payload": {
+      "main": [
+        [
+          {
+            "node": "LLM - Architect Retry",
             "type": "main",
             "index": 0
           }
