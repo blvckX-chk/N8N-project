@@ -4,10 +4,11 @@ const path      = require('path');
 const crypto    = require('crypto');
 const helmet    = require('helmet');
 const rateLimit = require('express-rate-limit');
+const telemetry = require('./telemetry');
 const app  = express();
 const PORT = process.env.PORT || 3000;
-const APP_VERSION = '5.1.0';
-const UI_BUILD    = '6.23';   // aligné sur le badge « UI v6.23 » de public/index.html
+const APP_VERSION = '5.2.0';
+const UI_BUILD    = '6.24';   // aligné sur le badge « UI v6.24 » de public/index.html
 // Authentification du panel : identifiants via env (FORGE_USER / FORGE_PASS).
 const AUTH_USER = process.env.FORGE_USER || '';
 const AUTH_PASS = process.env.FORGE_PASS || '';
@@ -68,6 +69,13 @@ if (AUTH_USER && AUTH_PASS) {
 // sur disque) : GET exempté du rate-limit. -> curl http://localhost:3100/api/version
 app.get('/api/version', (req, res) => res.json({ app_version: APP_VERSION, ui_build: UI_BUILD, started_at: START_TIME }));
 
+// ── Crédits Tchavi / consommation LLM (lecture + saisie manuelle du solde) ──
+app.get('/api/credits', (req, res) => res.json(telemetry.summary()));
+app.post('/api/credits/manual', (req, res) => {
+  if (!telemetry.setManual(req.body && req.body.credits)) return res.status(400).json({ error: 'Solde invalide (nombre >= 0 attendu)' });
+  res.json(telemetry.summary());
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Stockage en mémoire des résultats en attente
@@ -108,9 +116,11 @@ app.post('/api/pipeline', async (req, res) => {
   const taskId = req.body.task_id || ('TASK-' + Date.now());
   // Répondre immédiatement avec le task_id
   res.json({ pending: true, task_id: taskId });
+  telemetry.startGeneration(taskId);
   // Lancer la requête n8n en arrière-plan
   const _t0 = Date.now();
   const store = (error, detail, status) => {
+    telemetry.endGeneration(taskId, false);
     const d = diagnose(error + ' ' + (detail || ''));
     pendingResults[taskId] = {
       error, detail: detail || null, status: status || null,
@@ -139,6 +149,7 @@ app.post('/api/pipeline', async (req, res) => {
       return;
     }
     pendingResults[taskId] = { data, ts: Date.now() };
+    telemetry.endGeneration(taskId, !(data && (data.decision === 'STOP' || data.error)));
     setTimeout(() => { delete pendingResults[taskId]; }, 1800000);
   } catch(e) {
     store('Echec de l appel au pipeline n8n : ' + e.message, (e && e.code) ? ('code=' + e.code) : null, null);
@@ -390,3 +401,15 @@ app.get('/api/specific-launcher', (req, res) => {
 });
 
 app.listen(PORT, () => console.log('✅ Forge IA v' + APP_VERSION + ' on port ' + PORT));
+
+// ── Serveur INTERNE de télémétrie (agents n8n -> panel) ────────────────────
+// Port distinct, NON routé par Caddy et non publié : joignable uniquement depuis
+// le réseau Docker (forge_net). Aucune authentification nécessaire de ce fait.
+const TELEMETRY_PORT = Number(process.env.TELEMETRY_PORT || 3001);
+const tapp = express();
+tapp.use(express.json({ limit: '32kb' }));
+tapp.post('/telemetry', (req, res) => {
+  try { telemetry.record(req.body || {}); res.json({ ok: true }); }
+  catch (e) { res.status(400).json({ ok: false }); }
+});
+tapp.listen(TELEMETRY_PORT, () => console.log('📡 Télémétrie LLM (interne) sur le port ' + TELEMETRY_PORT));

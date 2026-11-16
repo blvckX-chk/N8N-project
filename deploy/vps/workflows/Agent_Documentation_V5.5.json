@@ -1,5 +1,5 @@
 {
-  "name": "Agent Documentation V5.7",
+  "name": "Agent Documentation V5.8",
   "nodes": [
     {
       "parameters": {
@@ -50,7 +50,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const groqResponse = $input.first().json;\nconst upstream = $('Inject Prompt').first().json;\n\nconst raw = groqResponse.choices?.[0]?.message?.content;\n\nif (!raw) {\n  return [{\n    json: {\n      task_id: upstream.task_id,\n      agent: \"documentation\", _version: '5.5',\n      files: [],\n      errors: [{ stage: \"groq\", message: \"Réponse Groq vide\" }]\n    }\n  }];\n}\n\nlet parsed = {};\ntry {\n  const cleaned = raw.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  parsed = JSON.parse(cleaned);\n} catch(e) {\n  return [{\n    json: {\n      task_id: upstream.task_id,\n      agent: \"documentation\", _version: '5.5',\n      files: [],\n      errors: [{ stage: \"parsing\", message: e.message }]\n    }\n  }];\n}\n\nconst files = Array.isArray(parsed.files)\n  ? parsed.files.filter(f => f.path && f.content !== undefined)\n  : [];\n\nreturn [{\n  json: {\n    task_id: upstream.task_id,\n    agent: \"documentation\", _version: '5.5',\n    files,\n    errors: parsed.errors || []\n  }\n}];"
+        "jsCode": "// ── Télémétrie LLM -> panel (crédits Tchavi, fournisseur, tokens) — ne bloque jamais ──\ntry {\n  const _tr = ($input.first() || {}).json || {};\n  if (_tr.choices) {\n    const _tu = _tr.usage || {};\n    const _tn = function (v) { return typeof v === 'number' ? v : (typeof v === 'string' && v.trim() !== '' && !isNaN(+v) ? +v : undefined); };\n    const _tc = [_tr.credits_remaining, _tu.credits_remaining, _tr.tchavi && _tr.tchavi.credits_remaining,\n                 _tr.billing && _tr.billing.credits_remaining, _tr.credits && _tr.credits.remaining].map(_tn).find(function (v) { return v !== undefined; });\n    await this.helpers.httpRequest({\n      method: 'POST', url: ($env.PANEL_TELEMETRY_URL || 'http://forge-panel:3001/telemetry'),\n      body: { agent: 'documentation', model: _tr.model || null,\n        provider: _tr.x_groq ? 'groq' : ((_tc !== undefined || /claude|gpt|^llama-3\\.3-70b$/i.test(_tr.model || '')) ? 'tchavi' : 'fallback'),\n        prompt_tokens: _tu.prompt_tokens || 0, completion_tokens: _tu.completion_tokens || 0, total_tokens: _tu.total_tokens || 0,\n        credits_remaining: (_tc === undefined ? null : _tc), ts: Date.now() },\n      json: true, timeout: 1500 });\n  }\n} catch (e) {}\n\nconst groqResponse = $input.first().json;\nconst upstream = $('Inject Prompt').first().json;\n\nconst raw = groqResponse.choices?.[0]?.message?.content;\n\nif (!raw) {\n  return [{\n    json: {\n      task_id: upstream.task_id,\n      agent: \"documentation\", _version: '5.5',\n      files: [],\n      errors: [{ stage: \"groq\", message: \"Réponse Groq vide\" }]\n    }\n  }];\n}\n\nlet parsed = {};\ntry {\n  const cleaned = raw.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  parsed = JSON.parse(cleaned);\n} catch(e) {\n  return [{\n    json: {\n      task_id: upstream.task_id,\n      agent: \"documentation\", _version: '5.5',\n      files: [],\n      errors: [{ stage: \"parsing\", message: e.message }]\n    }\n  }];\n}\n\nconst files = Array.isArray(parsed.files)\n  ? parsed.files.filter(f => f.path && f.content !== undefined)\n  : [];\n\nreturn [{\n  json: {\n    task_id: upstream.task_id,\n    agent: \"documentation\", _version: '5.5',\n    files,\n    errors: parsed.errors || []\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -218,19 +218,19 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://tchavi.com/api/v1/chat/completions",
+        "url": "={{ $env.FALLBACK_LLM_URL || 'https://api.groq.com/openai/v1/chat/completions' }}",
         "authentication": "none",
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ $('Build Payload').item.json }}",
+        "body": "={{ Object.assign({}, $('Build Payload').first().json, { model: $env.FALLBACK_LLM_MODEL || 'llama-3.3-70b-versatile' }) }}",
         "options": {},
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "Authorization",
-              "value": "=Bearer {{ $env.TCHAVI_API_KEY_2 || $env.TCHAVI_API_KEY }}"
+              "value": "=Bearer {{ $env.FALLBACK_LLM_KEY || $env.GROQ_API_KEY }}"
             }
           ]
         }
@@ -243,7 +243,8 @@
         672,
         480
       ],
-      "onError": "continueErrorOutput"
+      "onError": "continueErrorOutput",
+      "notes": "Failover gratuit (Groq par défaut). Variables : FALLBACK_LLM_URL, FALLBACK_LLM_KEY (sinon GROQ_API_KEY), FALLBACK_LLM_MODEL."
     },
     {
       "parameters": {

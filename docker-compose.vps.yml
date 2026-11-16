@@ -12,6 +12,7 @@ volumes:
   forge_n8n_data:
   forge_memory_data:
   forge_deploy_apps:
+  forge-panel-data:
 
 services:
   forge-n8n:
@@ -27,6 +28,10 @@ services:
       - MISTRAL_API_KEY=${MISTRAL_API_KEY}
       - GROQ_API_KEY=${GROQ_API_KEY}
       - TCHAVI_API_KEY=${TCHAVI_API_KEY}
+      # Failover LLM gratuit des nœuds Retry (Groq par défaut si vide) :
+      - FALLBACK_LLM_URL=${FALLBACK_LLM_URL:-}
+      - FALLBACK_LLM_KEY=${FALLBACK_LLM_KEY:-}
+      - FALLBACK_LLM_MODEL=${FALLBACK_LLM_MODEL:-}
       - MEMORY_URL=http://forge-memory:4002
       - MEMORY_TOKEN=${MEMORY_TOKEN}
       # Derrière Caddy :
@@ -101,4 +106,10 @@ services:
       - DEPLOY_URL=http://forge-deploy:4001
       - FORGE_USER=${FORGE_USER}
       - FORGE_PASS=${FORGE_PASS}
+      # Suivi des crédits Tchavi (seuils d'alerte du badge) :
+      - DATA_DIR=/app/data
+      - CREDITS_WARN=${CREDITS_WARN:-500}
+      - CREDITS_CRITICAL=${CREDITS_CRITICAL:-150}
+    volumes:
+      - forge-panel-data:/app/data
     networks: [forge_net]

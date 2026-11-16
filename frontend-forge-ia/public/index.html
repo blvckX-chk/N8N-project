@@ -27,6 +27,24 @@
     header .tagline{font-family:var(--mono);font-size:10px;color:var(--muted);margin-left:2px}
     .header-right{margin-left:auto;display:flex;gap:8px;align-items:center}
     .ui-ver{font-family:var(--mono);font-size:10px;color:var(--muted);border:1px solid var(--border);border-radius:6px;padding:3px 7px;letter-spacing:.3px}
+    .credits{position:relative}
+    .credits-badge{font-family:var(--mono);font-size:11px;font-weight:700;border-radius:9px;padding:7px 12px;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--muted);display:flex;align-items:center;gap:7px;transition:all .2s}
+    .credits-badge .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+    .credits-badge.ok{color:var(--success);border-color:rgba(16,185,129,.45)}.credits-badge.ok .dot{background:var(--success)}
+    .credits-badge.warning{color:var(--warning);border-color:rgba(245,158,11,.5)}.credits-badge.warning .dot{background:var(--warning)}
+    .credits-badge.critical{color:var(--danger);border-color:rgba(239,68,68,.55);animation:pulse-c 1.6s ease-in-out infinite}.credits-badge.critical .dot{background:var(--danger)}
+    @keyframes pulse-c{50%{box-shadow:0 0 0 4px rgba(239,68,68,.18)}}
+    .credits-pop{display:none;position:absolute;right:0;top:calc(100% + 8px);width:340px;max-width:calc(100vw - 32px);background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:14px;z-index:50;font-size:12px}
+    .credits-pop.open{display:block}
+    .credits-pop h4{font-size:13px;margin-bottom:8px}
+    .credits-pop .row{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid var(--border)}
+    .credits-pop .row span:first-child{color:var(--muted)}
+    .credits-pop .hint{margin-top:9px;padding:8px;border-radius:8px;background:var(--grad-soft);line-height:1.5}
+    .credits-pop .set{display:flex;gap:6px;margin-top:10px}
+    .credits-pop .set input{flex:1;padding:7px;border-radius:7px;border:1px solid var(--border);background:var(--bg-soft);color:var(--text);font-family:var(--mono);font-size:12px}
+    .credits-pop .set button{padding:7px 10px;border-radius:7px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:11px}
+    .credits-pop .gens{margin-top:8px;max-height:130px;overflow:auto;font-family:var(--mono);font-size:10.5px}
+    @media (max-width:600px){.credits-pop{position:fixed;left:16px;right:16px;top:76px;width:auto}.credits-badge .est{display:none}.credits-badge{padding:7px 10px}header .tagline{display:none}}
     .btn-history{padding:8px 15px;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:11px;border-radius:9px;cursor:pointer;transition:all .2s}
     .btn-history:hover,.btn-history.active{border-color:var(--accent2);color:var(--accent2);background:rgba(34,211,238,.08)}
 
@@ -176,7 +194,11 @@
     <div class="tagline">// pipeline multi-agents · specs → app</div>
   </div>
   <div class="header-right">
-    <span class="ui-ver" title="Version de l'interface SaaS déployée">UI v6.23</span>
+    <div class="credits">
+      <button class="credits-badge" id="credits-badge" onclick="toggleCredits(event)" title="Crédits Tchavi restants"><span class="dot"></span><span id="credits-txt">Crédits —</span></button>
+      <div class="credits-pop" id="credits-pop" onclick="event.stopPropagation()"></div>
+    </div>
+    <span class="ui-ver" title="Version de l'interface SaaS déployée">UI v6.24</span>
     <button class="btn-history" id="btn-hist" onclick="toggleHistory()">📋 Historique</button>
   </div>
 </header>
@@ -898,8 +920,47 @@ async function runPipeline(overridePayload){
     }
     throw new Error('Delai depasse (20 min sans reponse du pipeline). Le traitement se poursuit peut-etre cote serveur — verifie l historique dans quelques instants, ou relance si le probleme persiste.');
   }catch(e){finishSteps(false);renderError('Erreur pipeline : '+e.message);}
-  finally{isRunning=false;btn.disabled=false;sp.classList.remove('active');bt.textContent='🚀 Générer';var _pb=document.getElementById('progress-bar');if(_pb)_pb.classList.remove('active');}
+  finally{refreshCredits();isRunning=false;btn.disabled=false;sp.classList.remove('active');bt.textContent='🚀 Générer';var _pb=document.getElementById('progress-bar');if(_pb)_pb.classList.remove('active');}
 }
+// ── Crédits Tchavi : badge + détail (alimenté par la télémétrie des agents) ──
+let _credits=null;
+function _fmtN(n){return n==null?'—':Number(n).toLocaleString('fr-FR');}
+function _ago(ts){if(!ts)return '—';const m=Math.round((Date.now()-ts)/60000);return m<1?'à l’instant':m<60?('il y a '+m+' min'):('il y a '+Math.round(m/60)+' h');}
+async function refreshCredits(){
+  try{const r=await fetch('/api/credits');if(!r.ok)return;_credits=await r.json();}catch(e){return;}
+  const c=_credits,b=document.getElementById('credits-badge'),t=document.getElementById('credits-txt');
+  b.className='credits-badge '+(c.level||'unknown');
+  t.innerHTML=c.credits_remaining==null?'Crédits ?':('Crédits '+_fmtN(c.credits_remaining)+(c.est_generations_left!=null?('<span class="est"> · ≈'+Number(c.est_generations_left)+' gén.</span>'):''));
+  b.title='Crédits Tchavi restants — mis à jour '+_ago(c.credits_updated_at);
+  if(document.getElementById('credits-pop').classList.contains('open'))renderCreditsPop();
+}
+function renderCreditsPop(){
+  const c=_credits||{},p=document.getElementById('credits-pop');
+  const lg=c.last_generation;
+  let hint='';
+  if(c.level==='critical')hint='⚠️ Solde critique. Le failover gratuit (Groq) prendra le relais si Tchavi refuse, avec une qualité moindre. Recharge tes crédits ou passe en profil rapide : <code>switch-llm.sh fast</code>.';
+  else if(c.level==='warning')hint='Solde bas : privilégie les générations nécessaires, ou le profil rapide (<code>switch-llm.sh fast</code>, ~2× moins cher).';
+  else if(c.level==='unknown')hint='Solde inconnu : il s’affichera après le prochain appel LLM, ou saisis-le ci-dessous depuis ton tableau de bord Tchavi.';
+  if(c.failover_used_24h)hint+=(hint?'<br>':'')+'ℹ️ Le failover gratuit a été utilisé dans les dernières 24 h (crédits Tchavi épuisés ou indisponibilité).';
+  const gens=(c.generations||[]).map(g=>'<div>'+new Date(g.started_at).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'})+' · '+(g.ok?'✓':'✗')+' · '+(g.consumed!=null?('−'+_fmtN(g.consumed)+' cr'):'? cr')+' · '+_fmtN(g.tokens)+' tok · '+(g.providers||[]).join('/')+'</div>').join('')||'<div style="color:var(--muted)">Aucune génération suivie pour l’instant.</div>';
+  p.innerHTML='<h4>💳 Crédits Tchavi</h4>'+
+    '<div class="row"><span>Solde</span><strong>'+_fmtN(c.credits_remaining)+'</strong></div>'+
+    '<div class="row"><span>Source</span><span>'+(c.credits_source==='manual'?'saisie manuelle':c.credits_source==='llm'?'réponse LLM':'—')+' · '+_ago(c.credits_updated_at)+'</span></div>'+
+    '<div class="row"><span>Moyenne / génération</span><span>'+(c.avg_credits_per_generation!=null?(_fmtN(c.avg_credits_per_generation)+' cr'):'—')+'</span></div>'+
+    '<div class="row"><span>Générations restantes (est.)</span><span>'+(c.est_generations_left!=null?('≈ '+c.est_generations_left):'—')+'</span></div>'+
+    '<div class="row"><span>Dernière génération</span><span>'+(lg?((lg.consumed!=null?('−'+_fmtN(lg.consumed)+' cr · '):'')+_fmtN(lg.tokens)+' tokens'):'—')+'</span></div>'+
+    (hint?'<div class="hint">'+hint+'</div>':'')+
+    '<div class="gens">'+gens+'</div>'+
+    '<div class="set"><input id="credits-input" type="number" min="0" placeholder="Corriger le solde (ex. 3040)"><button onclick="setCreditsManual()">Enregistrer</button></div>';
+}
+function toggleCredits(ev){ev.stopPropagation();const p=document.getElementById('credits-pop');p.classList.toggle('open');if(p.classList.contains('open'))renderCreditsPop();}
+document.addEventListener('click',function(){document.getElementById('credits-pop').classList.remove('open');});
+async function setCreditsManual(){
+  const v=document.getElementById('credits-input').value;
+  if(v===''||isNaN(+v)||+v<0)return;
+  try{const r=await fetch('/api/credits/manual',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({credits:+v})});if(r.ok){_credits=await r.json();refreshCredits();}}catch(e){}
+}
+refreshCredits();setInterval(refreshCredits,30000);
 loadApps();setInterval(loadApps,30000);
 </script>
 </body>

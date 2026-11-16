@@ -7,11 +7,13 @@ COPY package.json package-lock.json* ./
 RUN npm install --omit=dev
 
 # Code applicatif
-COPY server.js ./
+COPY server.js telemetry.js ./
+RUN mkdir -p /app/data && chown -R node:node /app/data
 COPY public ./public
 
 ENV NODE_ENV=production
 ENV PORT=3000
 EXPOSE 3000
+# 3001 : télémétrie interne (agents n8n -> panel), jamais publiée ni routée par Caddy
 
 CMD ["node", "server.js"]
