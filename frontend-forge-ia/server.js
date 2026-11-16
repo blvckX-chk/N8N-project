@@ -7,8 +7,8 @@ const rateLimit = require('express-rate-limit');
 const telemetry = require('./telemetry');
 const app  = express();
 const PORT = process.env.PORT || 3000;
-const APP_VERSION = '5.2.0';
-const UI_BUILD    = '6.24';   // aligné sur le badge « UI v6.24 » de public/index.html
+const APP_VERSION = '6.0.0';
+const UI_BUILD    = '7.0';    // refonte complète (système Instrument × Feuille de route)
 // Authentification du panel : identifiants via env (FORGE_USER / FORGE_PASS).
 const AUTH_USER = process.env.FORGE_USER || '';
 const AUTH_PASS = process.env.FORGE_PASS || '';
@@ -71,6 +71,7 @@ app.get('/api/version', (req, res) => res.json({ app_version: APP_VERSION, ui_bu
 
 // ── Crédits Tchavi / consommation LLM (lecture + saisie manuelle du solde) ──
 app.get('/api/credits', (req, res) => res.json(telemetry.summary()));
+app.get('/api/progress/:taskId', (req, res) => res.json(telemetry.getProgress(String(req.params.taskId).slice(0, 80))));
 app.post('/api/credits/manual', (req, res) => {
   if (!telemetry.setManual(req.body && req.body.credits)) return res.status(400).json({ error: 'Solde invalide (nombre >= 0 attendu)' });
   res.json(telemetry.summary());
@@ -410,6 +411,10 @@ const tapp = express();
 tapp.use(express.json({ limit: '32kb' }));
 tapp.post('/telemetry', (req, res) => {
   try { telemetry.record(req.body || {}); res.json({ ok: true }); }
+  catch (e) { res.status(400).json({ ok: false }); }
+});
+tapp.post('/progress', (req, res) => {
+  try { const ev = telemetry.recordProgress(req.body || {}); res.status(ev ? 200 : 400).json({ ok: !!ev }); }
   catch (e) { res.status(400).json({ ok: false }); }
 });
 tapp.listen(TELEMETRY_PORT, () => console.log('📡 Télémétrie LLM (interne) sur le port ' + TELEMETRY_PORT));

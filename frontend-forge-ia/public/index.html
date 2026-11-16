@@ -1,967 +1,1099 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>Forge IA — Générateur d'applications</title>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
-  <style>
-    :root{
-      --bg:#0a0a12;--bg-soft:#0e0e1a;--surface:#14141f;--surface2:#191926;--border:#26263c;
-      --accent:#8b5cf6;--accent-d:#7c3aed;--accent2:#22d3ee;--accent3:#f472b6;
-      --grad:linear-gradient(135deg,#8b5cf6 0%,#6366f1 45%,#22d3ee 100%);
-      --grad-soft:linear-gradient(135deg,rgba(139,92,246,.14),rgba(34,211,238,.10));
-      --success:#10b981;--warning:#f59e0b;--danger:#ef4444;
-      --text:#e7e7f2;--muted:#8888a3;--mono:'Space Mono',monospace;--sans:'Sora',system-ui,sans-serif;
-      --shadow:0 10px 40px -12px rgba(0,0,0,.6);--glow:0 0 0 1px rgba(139,92,246,.35),0 8px 30px -8px rgba(139,92,246,.4);
-    }
-    *{box-sizing:border-box;margin:0;padding:0}
-    html{scroll-behavior:smooth}
-    body{background:radial-gradient(1200px 600px at 80% -10%,rgba(139,92,246,.10),transparent 60%),radial-gradient(900px 500px at -10% 10%,rgba(34,211,238,.07),transparent 55%),var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;display:flex;flex-direction:column}
-    ::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:#2a2a40;border-radius:6px}::-webkit-scrollbar-thumb:hover{background:#38385a}
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forge</title>
+<!--
+  SYSTÈME — « Instrument × Feuille de route » (industriel honnête × éditorial suisse)
+  Type    : Schibsted Grotesk 400/500/700/800 (12 · 13 · 15 · 18 · 24 · 34) — IBM Plex Mono 400/500 pour toute donnée
+  Couleur : 2 fonds par thème (papier / surface). Encre presque noire. UN accent fonctionnel « signal »
+            réservé à l'action et à l'étape en cours. États : ok · attention · échec (toujours doublés d'un mot).
+  Thèmes  : clair « papier » et sombre « atelier », choix Auto / Clair / Sombre mémorisé.
+  Grille  : rythme 8 px, filets 1 px, sections numérotées 01–04, numéraux surdimensionnés dans la feuille d'exécution.
+  Interdits : dégradés, lueurs, emojis, illustrations décoratives, cartes à liseré latéral.
+-->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%2315140F'/%3E%3Crect x='19' width='13' height='13' fill='%23E5541F'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Schibsted+Grotesk:wght@400;500;700;800&display=swap" rel="stylesheet">
+<script>
+  // Thème appliqué avant le rendu (pas de flash). Préférence par navigateur.
+  (function(){ try { var t = localStorage.getItem('forge_theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {} })();
+</script>
+<style>
+:root{
+  --bg:#F1EEE7; --surface:#F9F7F2; --raised:#FFFFFF;
+  --ink:#15140F; --ink-2:#3A3832; --mute:#6A665D; --faint:#A19C91;
+  --line:#D8D3C8; --rule:#15140F;
+  --signal:#E5541F; --signal-text:#B83D12; --signal-soft:rgba(229,84,31,.10);
+  --ok:#2B7A4B; --ok-soft:rgba(43,122,75,.11);
+  --warn:#9A6200; --warn-soft:rgba(178,116,0,.12);
+  --err:#B42318; --err-soft:rgba(180,35,24,.10);
+  --sans:'Schibsted Grotesk',sans-serif; --mono:'IBM Plex Mono',monospace;
+  --r:4px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#12110E; --surface:#1A1915; --raised:#22211C;
+    --ink:#EEEBE3; --ink-2:#CFCBC1; --mute:#9A958A; --faint:#5F5B53;
+    --line:#2F2D27; --rule:#4A473F;
+    --signal:#FF6A33; --signal-text:#FF8552; --signal-soft:rgba(255,106,51,.13);
+    --ok:#4CC38A; --ok-soft:rgba(76,195,138,.12);
+    --warn:#E8A33D; --warn-soft:rgba(232,163,61,.13);
+    --err:#FF6B5B; --err-soft:rgba(255,107,91,.12);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#12110E; --surface:#1A1915; --raised:#22211C;
+  --ink:#EEEBE3; --ink-2:#CFCBC1; --mute:#9A958A; --faint:#5F5B53;
+  --line:#2F2D27; --rule:#4A473F;
+  --signal:#FF6A33; --signal-text:#FF8552; --signal-soft:rgba(255,106,51,.13);
+  --ok:#4CC38A; --ok-soft:rgba(76,195,138,.12);
+  --warn:#E8A33D; --warn-soft:rgba(232,163,61,.13);
+  --err:#FF6B5B; --err-soft:rgba(255,107,91,.12);
+  color-scheme: dark;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg)}
+body{color:var(--ink);font:15px/1.5 var(--sans);min-height:100vh;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;background:none;border:0}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+.mono{font-family:var(--mono)}
+.mute{color:var(--mute)}
+.hidden{display:none!important}
 
-    header{border-bottom:1px solid var(--border);padding:14px 28px;display:flex;align-items:center;gap:14px;background:rgba(10,10,18,.7);backdrop-filter:blur(10px);position:sticky;top:0;z-index:20}
-    .logo{width:36px;height:36px;background:var(--grad);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 6px 18px -4px rgba(139,92,246,.6);animation:floaty 4s ease-in-out infinite}
-    @keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
-    header h1{font-size:18px;font-weight:800;letter-spacing:-.6px;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
-    header .tagline{font-family:var(--mono);font-size:10px;color:var(--muted);margin-left:2px}
-    .header-right{margin-left:auto;display:flex;gap:8px;align-items:center}
-    .ui-ver{font-family:var(--mono);font-size:10px;color:var(--muted);border:1px solid var(--border);border-radius:6px;padding:3px 7px;letter-spacing:.3px}
-    .credits{position:relative}
-    .credits-badge{font-family:var(--mono);font-size:11px;font-weight:700;border-radius:9px;padding:7px 12px;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--muted);display:flex;align-items:center;gap:7px;transition:all .2s}
-    .credits-badge .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
-    .credits-badge.ok{color:var(--success);border-color:rgba(16,185,129,.45)}.credits-badge.ok .dot{background:var(--success)}
-    .credits-badge.warning{color:var(--warning);border-color:rgba(245,158,11,.5)}.credits-badge.warning .dot{background:var(--warning)}
-    .credits-badge.critical{color:var(--danger);border-color:rgba(239,68,68,.55);animation:pulse-c 1.6s ease-in-out infinite}.credits-badge.critical .dot{background:var(--danger)}
-    @keyframes pulse-c{50%{box-shadow:0 0 0 4px rgba(239,68,68,.18)}}
-    .credits-pop{display:none;position:absolute;right:0;top:calc(100% + 8px);width:340px;max-width:calc(100vw - 32px);background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:14px;z-index:50;font-size:12px}
-    .credits-pop.open{display:block}
-    .credits-pop h4{font-size:13px;margin-bottom:8px}
-    .credits-pop .row{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid var(--border)}
-    .credits-pop .row span:first-child{color:var(--muted)}
-    .credits-pop .hint{margin-top:9px;padding:8px;border-radius:8px;background:var(--grad-soft);line-height:1.5}
-    .credits-pop .set{display:flex;gap:6px;margin-top:10px}
-    .credits-pop .set input{flex:1;padding:7px;border-radius:7px;border:1px solid var(--border);background:var(--bg-soft);color:var(--text);font-family:var(--mono);font-size:12px}
-    .credits-pop .set button{padding:7px 10px;border-radius:7px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:11px}
-    .credits-pop .gens{margin-top:8px;max-height:130px;overflow:auto;font-family:var(--mono);font-size:10.5px}
-    @media (max-width:600px){.credits-pop{position:fixed;left:16px;right:16px;top:76px;width:auto}.credits-badge .est{display:none}.credits-badge{padding:7px 10px}header .tagline{display:none}}
-    .btn-history{padding:8px 15px;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:11px;border-radius:9px;cursor:pointer;transition:all .2s}
-    .btn-history:hover,.btn-history.active{border-color:var(--accent2);color:var(--accent2);background:rgba(34,211,238,.08)}
+/* ── En-tête ─────────────────────────────────────────────────────────── */
+.top{position:sticky;top:0;z-index:30;height:64px;display:flex;align-items:center;gap:28px;padding:0 28px;background:var(--surface);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:12px;text-decoration:none}
+.mark{width:22px;height:22px;background:var(--ink);position:relative;flex:none}
+.mark::after{content:"";position:absolute;right:0;top:0;width:9px;height:9px;background:var(--signal)}
+.brand b{font-size:24px;font-weight:800;letter-spacing:-.04em}
+.nav{display:flex;gap:22px;height:100%}
+.nav button{height:100%;font-size:14px;font-weight:500;color:var(--mute);border-bottom:2px solid transparent;padding-top:2px}
+.nav button[aria-current="page"]{color:var(--ink);border-bottom-color:var(--signal)}
+.nav .count{font:500 11px var(--mono);color:var(--mute);margin-left:4px}
+.top-r{margin-left:auto;display:flex;align-items:center;gap:10px}
+.chip{display:flex;align-items:center;gap:8px;height:34px;padding:0 12px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);font:500 12.5px var(--mono);white-space:nowrap}
+.chip:hover{border-color:var(--faint)}
+.led{width:8px;height:8px;border-radius:50%;background:var(--faint);flex:none}
+.led.ok{background:var(--ok)}.led.warning{background:var(--warn)}.led.critical{background:var(--err)}
+.meter{width:56px;height:5px;background:var(--line);border-radius:3px;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--ink)}
+.ver{font:12px var(--mono);color:var(--faint)}
 
-    /* Bandeau d'accueil */
-    .welcome{margin:0;padding:18px 28px;border-bottom:1px solid var(--border);background:var(--grad-soft);display:flex;align-items:center;gap:22px;flex-wrap:wrap}
-    .welcome .w-txt{flex:1;min-width:260px}
-    .welcome h2{font-size:16px;font-weight:700;margin-bottom:4px}
-    .welcome p{font-size:12.5px;color:var(--muted);line-height:1.55;max-width:640px}
-    .welcome .steps3{display:flex;gap:10px;flex-wrap:wrap}
-    .chip{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:9px 13px;font-size:11px;font-family:var(--mono);color:var(--text)}
-    .chip .n{width:20px;height:20px;border-radius:6px;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff}
-    .chip .arrow{color:var(--muted)}
+/* ── Popover crédits ─────────────────────────────────────────────────── */
+.pop-wrap{position:relative}
+.pop{position:absolute;right:0;top:calc(100% + 8px);width:360px;max-width:calc(100vw - 32px);background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:0 18px 40px -16px rgba(0,0,0,.35);padding:16px;z-index:40;display:none}
+.pop.open{display:block}
+.pop h4{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-top:1px solid var(--line);font-size:13.5px}
+.kv span:first-child{color:var(--mute)}
+.kv b{font:500 13px var(--mono)}
+.note{margin-top:10px;padding:10px 12px;background:var(--bg);border-radius:var(--r);font-size:13px;line-height:1.5}
+.note code{font:12px var(--mono)}
+.gens{margin-top:10px;max-height:140px;overflow:auto;font:12px/1.8 var(--mono);color:var(--ink-2)}
+.inline{display:flex;gap:8px;margin-top:12px}
+.inline input{flex:1;min-width:0}
 
-    main{flex:1;display:grid;grid-template-columns:400px 1fr;min-height:calc(100vh - 65px)}
-    .left{padding:22px;border-right:1px solid var(--border);overflow-y:auto}
-    .right{padding:22px;overflow-y:auto}
-    .section-title{font-size:10px;font-family:var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
-    .section-title::before{content:"";width:14px;height:2px;background:var(--grad);border-radius:2px}
+/* ── Contrôles ───────────────────────────────────────────────────────── */
+.field{width:100%;background:var(--raised);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;font-size:14px}
+.field:focus{border-color:var(--ink);outline:none}
+textarea.field{font:13.5px/1.65 var(--mono);resize:vertical;min-height:220px}
+select.field{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--mute) 50%),linear-gradient(135deg,var(--mute) 50%,transparent 50%);background-position:calc(100% - 16px) 55%,calc(100% - 11px) 55%;background-size:5px 5px;background-repeat:no-repeat;padding-right:30px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:38px;padding:0 14px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);font-size:13.5px;font-weight:500;white-space:nowrap}
+.btn:hover{border-color:var(--ink)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.dark{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.dark:hover{opacity:.9}
+.btn.sm{height:32px;padding:0 11px;font-size:13px}
+.btn.danger:hover{border-color:var(--err);color:var(--err)}
+.btn svg{width:15px;height:15px;flex:none}
+.link{color:var(--mute);text-decoration:underline;text-underline-offset:3px;font-size:13px}
+.link:hover{color:var(--ink)}
 
-    .tabs{display:flex;gap:4px;margin-bottom:12px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:5px}
-    .tab{flex:1;padding:9px 4px;border:none;background:transparent;color:var(--muted);font-family:var(--mono);font-size:11px;cursor:pointer;border-radius:8px;transition:all .2s;text-align:center}
-    .tab.active{background:var(--grad);color:#fff;box-shadow:0 4px 14px -4px rgba(139,92,246,.6)}
-    .tab:hover:not(.active){background:var(--border);color:var(--text)}
-    .tab-hint{font-size:11px;color:var(--muted);font-style:italic;margin-bottom:12px;min-height:16px;padding-left:2px;transition:opacity .2s}
+/* ── Mise en page ────────────────────────────────────────────────────── */
+.view{display:none}
+.view.on{display:block}
+.gen{display:grid;grid-template-columns:420px minmax(0,1fr);min-height:calc(100vh - 64px)}
+.aside{background:var(--surface);border-right:1px solid var(--line);padding:28px 28px 28px;display:flex;flex-direction:column;gap:28px;position:sticky;top:64px;height:calc(100vh - 64px);overflow:auto;align-self:start}
+.stage{padding:28px 40px 56px;min-width:0}
 
-    .input-block{display:none;animation:fadeInUp .3s ease}.input-block.active{display:block}
-    @keyframes fadeInUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-    textarea,input[type=text],input[type=search],input[type=password],input[type=email],input:not([type]){width:100%;background:var(--surface);border:1px solid var(--border);border-radius:11px;color:var(--text);font-family:var(--mono);font-size:12px;padding:13px;resize:vertical;outline:none;transition:all .2s}
-    textarea::placeholder,input::placeholder{color:var(--muted);opacity:1}
-    textarea{height:130px}
-    #input-text{height:280px}
-    textarea:focus,input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(139,92,246,.14)}
+/* En-têtes de section numérotés (éditorial) */
+.sec{border-top:1px solid var(--rule);padding-top:10px}
+.sec-h{display:flex;align-items:baseline;gap:14px;margin-bottom:14px}
+.sec-h .n{font:500 12px var(--mono);color:var(--mute)}
+.sec-h h2{font-size:12.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase}
+.sec-h .aside-r{margin-left:auto;font:12px var(--mono);color:var(--mute)}
 
-    .config-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;margin-top:14px}
-    .config-item label{display:flex;align-items:center;gap:4px;font-size:9px;font-family:var(--mono);color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:1px}
-    select{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:var(--mono);font-size:11px;padding:8px;outline:none;cursor:pointer;transition:border-color .2s}
-    select:focus{border-color:var(--accent)}
-    select option:disabled{color:#55556e}
+/* Source */
+.tabs{display:flex;gap:18px;border-bottom:1px solid var(--line);margin-bottom:14px}
+.tabs button{padding:0 0 9px;font-size:14px;font-weight:500;color:var(--mute);border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--signal)}
+.hint{font-size:13px;color:var(--mute);margin-bottom:12px;text-wrap:pretty}
+.drop{position:relative;border:1px dashed var(--faint);border-radius:var(--r);background:var(--raised);padding:26px 16px;text-align:center}
+.drop:hover{border-color:var(--ink)}
+.drop input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.drop b{display:block;font-size:14.5px;font-weight:500}
+.drop span{font-size:12.5px;color:var(--mute)}
+.drop .fname{display:block;margin-top:8px;font:500 12.5px var(--mono);color:var(--ok)}
+.step-label{font-size:13px;font-weight:700;margin:14px 0 8px;display:flex;gap:8px;align-items:baseline}
+.step-label .n{font:500 12px var(--mono);color:var(--mute)}
+.or{font-size:12.5px;color:var(--mute);margin:10px 0}
+.row{display:flex;gap:8px;align-items:center}
+.row .field{flex:1;min-width:0}
+.small-out{font:12.5px var(--mono);color:var(--mute);margin-top:6px}
 
-    /* Tooltip maison */
-    .tip{position:relative;cursor:help}
-    .tip::after{content:attr(data-tip);position:absolute;bottom:135%;left:50%;transform:translateX(-50%) translateY(4px);background:#1c1c2b;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-family:var(--sans);font-size:10.5px;font-weight:400;white-space:normal;width:190px;line-height:1.45;text-align:left;opacity:0;pointer-events:none;transition:all .18s;z-index:30;box-shadow:var(--shadow);letter-spacing:0}
-    .tip:hover::after{opacity:1;transform:translateX(-50%) translateY(0)}
-    .info-dot{width:13px;height:13px;border-radius:50%;border:1px solid var(--muted);color:var(--muted);font-size:9px;display:inline-flex;align-items:center;justify-content:center;font-family:var(--sans)}
+/* Paramètres : tableau de spécifications (industriel) */
+.spec{border-top:1px solid var(--line)}
+.spec label{display:grid;grid-template-columns:1fr 170px;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.spec label span{color:var(--mute)}
+.spec label small{display:block;font-size:12px;color:var(--faint)}
+.spec .field{padding:7px 30px 7px 10px;font:500 13px var(--mono)}
 
-    .upload-zone{border:2px dashed var(--border);border-radius:12px;padding:28px;text-align:center;cursor:pointer;transition:all .2s;position:relative;background:var(--surface)}
-    .upload-zone:hover,.upload-zone.dragover{border-color:var(--accent);background:rgba(139,92,246,.06)}
-    .upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
-    .upload-zone .icon{font-size:28px;margin-bottom:8px}
-    .upload-zone p{font-size:12px;color:var(--muted);font-family:var(--mono)}
-    .upload-zone .file-name{color:var(--accent2);margin-top:6px;font-size:11px}
-    .field-label{font-size:10px;font-family:var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px}
+.cta{margin-top:auto;display:flex;align-items:center;justify-content:space-between;height:54px;padding:0 18px;background:var(--ink);color:var(--bg);border-radius:var(--r);font-size:16px;font-weight:700;width:100%}
+.cta:hover{opacity:.92}
+.cta:disabled{opacity:.55;cursor:wait}
+.cta kbd{font:12px var(--mono);opacity:.7}
+.cta .sig{display:inline-block;width:9px;height:9px;background:var(--signal);margin-right:10px}
 
-    .btn-launch{width:100%;margin-top:16px;padding:14px;background:var(--grad);background-size:200% 200%;color:#fff;border:none;border-radius:12px;font-family:var(--sans);font-size:15px;font-weight:700;cursor:pointer;transition:all .25s;display:flex;align-items:center;justify-content:center;gap:9px;animation:gradShift 6s ease infinite}
-    @keyframes gradShift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
-    .btn-launch:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 14px 34px -8px rgba(139,92,246,.55)}
-    .btn-launch:disabled{opacity:.55;cursor:not-allowed;transform:none;animation:none}
+/* ── Exécution ───────────────────────────────────────────────────────── */
+.run-head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:6px}
+.run-title{font-size:34px;font-weight:800;letter-spacing:-.035em;line-height:1.05;text-wrap:balance}
+.run-title.idle{color:var(--faint)}
+.run-meta{display:flex;gap:22px;font:12.5px var(--mono);color:var(--mute);white-space:nowrap}
+.run-meta b{display:block;font:500 15px var(--mono);color:var(--ink)}
+.run-status{font-size:14px;color:var(--mute);margin-bottom:22px;min-height:21px}
+.run-status:empty{display:none}
+.run-status b{color:var(--ink)}
 
-    .progress-bar{height:4px;background:var(--border);border-radius:3px;margin-top:14px;overflow:hidden;display:none}
-    .progress-bar.active{display:block}
-    .progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2),var(--accent3),var(--accent2));background-size:300% 100%;border-radius:3px;width:0%;transition:width .5s;animation:shimmer 2s linear infinite}
-    @keyframes shimmer{to{background-position:300% 0}}
-    .steps{display:flex;flex-direction:column;gap:6px}
-    .step{display:flex;align-items:center;gap:10px;padding:9px 13px;background:var(--surface);border:1px solid var(--border);border-radius:9px;font-size:11px;font-family:var(--mono);color:var(--muted);transition:all .3s}
-    .step.running{border-color:var(--accent);color:var(--text);background:rgba(139,92,246,.08)}
-    .step.done{border-color:var(--success);color:var(--success)}
-    .step-dot{width:7px;height:7px;border-radius:50%;background:var(--border);flex-shrink:0}
-    .step.running .step-dot{background:var(--accent);animation:pulse 1s infinite}
-    .step.done .step-dot{background:var(--success)}
-    @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.5);opacity:.7}}
-    .spinner{width:15px;height:15px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:none}
-    .spinner.active{display:block}
-    @keyframes spin{to{transform:rotate(360deg)}}
+/* Rail de stations (instrument) */
+.rail{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;position:relative;margin:4px 0 26px}
+.rail::before{content:"";position:absolute;left:calc(50% / var(--n,10));right:calc(50% / var(--n,10));top:9px;height:2px;background:var(--line)}
+.rail .fill{position:absolute;left:0;top:9px;height:2px;background:var(--ok);transition:width .5s}
+.st{position:relative;text-align:center;font-size:11.5px;color:var(--mute);padding:0 2px}
+.st i{display:block;width:20px;height:20px;border-radius:50%;margin:0 auto 8px;background:var(--bg);border:2px solid var(--faint);position:relative;z-index:1}
+.st.done i{background:var(--ok);border-color:var(--ok)}
+.st.run i{background:var(--signal);border-color:var(--signal);animation:pulse 1.6s ease-in-out infinite}
+.st.run{color:var(--ink);font-weight:700}
+.st.fail i{background:var(--err);border-color:var(--err)}
+.st.skip i{border-style:dashed}
+@keyframes pulse{50%{box-shadow:0 0 0 6px var(--signal-soft)}}
 
-    .apps-panel{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:14px;margin-top:8px}
-    .app-item{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:11px}
-    .app-item:last-child{border-bottom:none}
-    .app-status{padding:2px 8px;border-radius:10px;font-size:10px}
-    .app-status.online{background:rgba(16,185,129,.15);color:var(--success)}
-    .app-status.offline{background:rgba(239,68,68,.15);color:var(--danger)}
-    .iter-badge{background:rgba(139,92,246,.15);color:var(--accent);border:1px solid var(--accent);padding:2px 8px;border-radius:10px;font-size:10px;margin-left:6px}
+/* Feuille d'exécution (éditorial + données) */
+.sheet{border-top:1px solid var(--rule)}
+.srow{border-bottom:1px solid var(--line)}
+.srow-main{display:grid;grid-template-columns:64px minmax(0,1fr) 128px 92px 22px;align-items:center;gap:12px;min-height:56px;padding:8px 0;width:100%;text-align:left}
+.srow-main:hover .chev{color:var(--ink)}
+.srow .num{font:800 28px var(--sans);letter-spacing:-.05em;line-height:1;color:var(--faint)}
+.srow .lbl{font-size:15.5px;font-weight:500;min-width:0}
+.srow .lbl small{display:block;font-size:12.5px;font-weight:400;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.srow .dur{font:12.5px var(--mono);text-align:right;color:var(--ink-2)}
+.srow .dur.est{color:var(--faint)}
+.chev{font:14px var(--mono);color:var(--faint);text-align:center;transition:transform .15s}
+.srow.open .chev{transform:rotate(90deg)}
+.srow.done .num{color:var(--faint)}
+.srow.wait{color:var(--mute)}
+.srow.wait .lbl{color:var(--mute)}
+.srow.run{border-bottom-color:var(--signal)}
+.srow.run .num{color:var(--signal)}
+.srow.fail .num{color:var(--err)}
+.srow-detail{display:none;padding:0 0 16px 76px;font-size:13.5px;color:var(--ink-2)}
+.srow.open .srow-detail{display:block}
+.srow-detail dl{display:grid;grid-template-columns:150px minmax(0,1fr);gap:4px 16px}
+.srow-detail dt{color:var(--mute)}
+.srow-detail dd{font:12.5px/1.6 var(--mono);overflow-wrap:anywhere}
 
-    .result-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:440px;color:var(--muted);text-align:center;gap:16px}
-    .result-empty svg{width:150px;height:150px;opacity:.9}
-    .result-empty p{font-size:12.5px;font-family:var(--mono);max-width:300px;line-height:1.6}
-    .result-header{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
-    .badge{padding:5px 13px;border-radius:20px;font-size:11px;font-family:var(--mono);font-weight:700}
-    .badge.success{background:rgba(16,185,129,.15);color:var(--success);border:1px solid var(--success)}
-    .badge.error{background:rgba(239,68,68,.15);color:var(--danger);border:1px solid var(--danger)}
-    .badge.warning{background:rgba(245,158,11,.15);color:var(--warning);border:1px solid var(--warning)}
-    .result-meta{font-size:11px;font-family:var(--mono);color:var(--muted)}
-    .result-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:15px;margin-bottom:12px;animation:fadeInUp .35s ease}
-    .result-card strong{color:var(--accent2);font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:8px}
-    .file-tabs-scroll{display:flex;gap:4px;overflow-x:auto;padding-bottom:4px}
-    .file-tab{padding:6px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;font-family:var(--mono);font-size:10px;color:var(--muted);cursor:pointer;white-space:nowrap;transition:all .2s;flex-shrink:0}
-    .file-tab.active{background:var(--grad);color:#fff;border-color:transparent}
-    .file-tab:hover:not(.active){border-color:var(--accent);color:var(--text)}
-    .file-content{background:#0c0c15;border:1px solid var(--border);border-radius:9px;padding:14px;font-family:var(--mono);font-size:11px;line-height:1.7;color:#c9d1d9;overflow-x:auto;max-height:380px;overflow-y:auto;white-space:pre-wrap;word-break:break-all}
-    .btn-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
-    .btn-small{padding:8px 14px;border-radius:8px;font-family:var(--mono);font-size:11px;cursor:pointer;transition:all .2s;border:1px solid}
-    .btn-dl-file{background:transparent;border-color:var(--accent2);color:var(--accent2)}
-    .btn-dl-file:hover{background:var(--accent2);color:#06121a}
-    .btn-dl-zip{background:var(--accent);border-color:var(--accent);color:#fff}
-    .btn-dl-zip:hover{background:var(--accent-d)}
-    .btn-deploy{background:var(--success);border-color:var(--success);color:#fff}
-    .btn-deploy:hover:not(:disabled){background:#059669}
-    .btn-deploy:disabled{opacity:.5;cursor:not-allowed}
-    .btn-improve{background:#0891b2;border-color:#0891b2;color:#fff}
-    .btn-improve:hover:not(:disabled){background:#0e7490}
-    .btn-improve:disabled{opacity:.5;cursor:not-allowed}
-    .deploy-card{background:rgba(16,185,129,.08);border:1px solid var(--success);border-radius:11px;padding:14px;margin-top:10px;font-family:var(--mono);font-size:11px;line-height:1.9}
-    .deploy-card a{color:var(--accent2);text-decoration:none}
-    .error-box{background:rgba(239,68,68,.08);border:1px solid var(--danger);border-radius:11px;padding:14px;font-family:var(--mono);font-size:11px;color:var(--danger);margin-top:10px;line-height:1.6}
-    .raw-toggle{width:100%;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:10px;padding:8px;border-radius:9px;cursor:pointer;margin-top:10px;transition:all .2s}
-    .raw-toggle:hover{border-color:var(--accent);color:var(--text)}
-    pre.raw{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:14px;font-family:var(--mono);font-size:10px;color:var(--accent2);overflow-x:auto;margin-top:8px;max-height:250px;overflow-y:auto;display:none;white-space:pre-wrap}
-    pre.raw.visible{display:block}
+.tag{display:inline-flex;align-items:center;gap:6px;font:500 11.5px var(--mono);letter-spacing:.04em;text-transform:uppercase;padding:3px 8px;border-radius:3px;white-space:nowrap}
+.tag::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.t-ok{background:var(--ok-soft);color:var(--ok)}
+.t-run{background:var(--signal-soft);color:var(--signal-text)}
+.t-wait{background:transparent;color:var(--mute);padding-left:0}
+.t-wait::before{background:var(--faint)}
+.t-warn{background:var(--warn-soft);color:var(--warn)}
+.t-err{background:var(--err-soft);color:var(--err)}
+.t-skip{color:var(--faint);padding-left:0}
 
-    .history-item{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:14px;margin-bottom:10px;transition:all .2s}
-    .history-item:hover{border-color:var(--accent)}
-    .history-tree{margin-bottom:6px}
-    .history-tree-root{display:flex;align-items:center;gap:6px;padding:9px 13px;cursor:pointer;border-radius:9px;font-family:var(--mono);font-size:11px;color:var(--accent);background:rgba(139,92,246,.08);border:1px solid rgba(139,92,246,.2)}
-    .history-tree-root:hover{background:rgba(139,92,246,.15)}
-    .tree-arrow{font-size:10px;width:12px}.tree-icon{font-size:14px}
-    .tree-name{flex:1;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
-    .tree-count{background:var(--accent);color:#fff;border-radius:10px;padding:1px 6px;font-size:9px}
-    .history-tree-children{padding-left:16px;border-left:2px solid rgba(139,92,246,.2);margin-left:12px}
-    .history-version{display:flex;align-items:center;gap:6px;padding:7px 10px;cursor:pointer;border-radius:8px;font-size:11px;color:var(--text);margin-top:2px;transition:background .15s}
-    .history-version:hover{background:rgba(139,92,246,.08)}
-    .history-version.history-active{background:rgba(139,92,246,.15);border:1px solid rgba(139,92,246,.3)}
-    .version-icon{font-size:12px;width:16px}
-    .version-label{font-family:var(--mono);font-weight:700;color:var(--accent);min-width:36px}
-    .version-date{color:var(--muted);font-size:10px;flex:1}
-    .version-files{color:var(--muted);font-size:10px}
-    .version-actions{display:flex;gap:4px}
-    .version-actions button{background:none;border:none;cursor:pointer;padding:2px 4px;border-radius:4px;font-size:11px;color:var(--muted)}
-    .version-actions button:hover{background:rgba(239,68,68,.1);color:var(--danger)}
+.untracked{margin-top:14px;font-size:13px;color:var(--mute)}
+.bar-ind{height:3px;background:var(--line);overflow:hidden;margin:6px 0 22px;border-radius:2px}
+.bar-ind i{display:block;height:100%;width:30%;background:var(--signal);animation:ind 1.4s ease-in-out infinite}
+@keyframes ind{0%{transform:translateX(-100%)}100%{transform:translateX(340%)}}
 
-    @media(max-width:820px){main{grid-template-columns:1fr}.left{border-right:none;border-bottom:1px solid var(--border)}.welcome .steps3{display:none}}
-  </style>
+/* ── Livrable ────────────────────────────────────────────────────────── */
+.deliv{margin-top:44px}
+.verdict{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;align-items:end;padding:18px 0 20px;border-bottom:1px solid var(--line)}
+.verdict .word{font-size:44px;font-weight:800;letter-spacing:-.045em;line-height:.95}
+.verdict .word.ok{color:var(--ok)}.verdict .word.warn{color:var(--warn)}.verdict .word.err{color:var(--err)}
+.verdict p{margin-top:8px;font-size:14.5px;color:var(--ink-2);max-width:60ch;text-wrap:pretty}
+.facts{display:flex;gap:28px;font:12.5px var(--mono);color:var(--mute)}
+.facts b{display:block;font:500 18px var(--mono);color:var(--ink)}
+.matrix{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border:1px solid var(--line);border-radius:var(--r);margin:22px 0;background:var(--surface)}
+.matrix>div{padding:14px 16px;border-right:1px solid var(--line)}
+.matrix>div:last-child{border-right:0}
+.matrix .k{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);margin-bottom:8px}
+.matrix .sc{font:500 13px var(--mono);color:var(--mute);margin-top:8px}
+.list{margin:6px 0 0;padding:0;list-style:none}
+.list li{padding:8px 0;border-top:1px solid var(--line);font-size:14px;display:flex;gap:12px}
+.list li .mark-s{font:500 12px var(--mono);flex:none;padding-top:2px}
+.block{margin-top:30px}
+.block-h{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:10px}
+.block-h h3{font-size:18px;font-weight:700;letter-spacing:-.015em}
+.block-h span{font:12.5px var(--mono);color:var(--mute)}
+
+/* Navigateur de fichiers */
+.files{display:grid;grid-template-columns:260px minmax(0,1fr);border:1px solid var(--line);border-radius:var(--r);background:var(--surface);overflow:hidden;min-height:420px}
+.ftree{border-right:1px solid var(--line);overflow:auto;max-height:520px;padding:6px 0}
+.ftree .dir{font:500 11.5px var(--mono);color:var(--mute);padding:10px 14px 4px;text-transform:uppercase;letter-spacing:.06em}
+.ftree button{display:block;width:100%;text-align:left;padding:6px 14px;font:13px var(--mono);color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ftree button:hover{background:var(--bg)}
+.ftree button[aria-current="true"]{background:var(--ink);color:var(--bg)}
+.fview{display:flex;flex-direction:column;min-width:0}
+.fview-h{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;border-bottom:1px solid var(--line);font:500 12.5px var(--mono)}
+.fview pre{flex:1;margin:0;padding:14px 16px;overflow:auto;max-height:470px;font:12.5px/1.65 var(--mono);color:var(--ink-2);background:var(--raised);white-space:pre;tab-size:2}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.card{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);padding:16px 18px;margin-top:14px;font-size:14px}
+.card h4{font-size:14px;font-weight:700;margin-bottom:8px}
+.card .kv:first-of-type{border-top:0}
+.card a{font-family:var(--mono);font-size:13px;color:var(--signal-text)}
+.opts{list-style:none;padding:0;margin:0}
+.opts li{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 0;border-top:1px solid var(--line);font-size:14px}
+.opts li:first-child{border-top:0}
+.opts.card{padding:2px 16px}
+.opts .typ{font:500 11.5px var(--mono);color:var(--mute);text-transform:uppercase;letter-spacing:.05em;margin-right:10px}
+.raw{margin-top:28px}
+.raw pre{display:none;margin-top:10px;max-height:380px;overflow:auto;padding:14px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);font:12px/1.6 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere}
+.raw.open pre{display:block}
+
+/* Erreur — « premier signal » */
+.fail-card{margin-top:26px;border:1px solid var(--err);border-radius:var(--r);background:var(--err-soft);padding:18px 20px}
+.fail-card .word{font-size:30px;font-weight:800;letter-spacing:-.035em;color:var(--err)}
+.fail-card .msg{margin-top:6px;font:13px/1.6 var(--mono);color:var(--ink);overflow-wrap:anywhere}
+.fail-card dl{display:grid;grid-template-columns:130px minmax(0,1fr);gap:8px 16px;margin-top:14px;font-size:14px}
+.fail-card dt{color:var(--mute)}
+
+/* État vide */
+.idle-copy{max-width:62ch;font-size:15px;color:var(--ink-2);margin:2px 0 26px;text-wrap:pretty}
+
+/* ── Historique & Applications ──────────────────────────────────────── */
+.page{max-width:1120px;margin:0 auto;padding:36px 40px 64px}
+.page-h{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;padding-bottom:14px;border-bottom:2px solid var(--rule);margin-bottom:8px}
+.page-h h1{font-size:44px;font-weight:800;letter-spacing:-.045em;line-height:1}
+.page-h p{font-size:14px;color:var(--mute);max-width:52ch}
+.proj{border-bottom:1px solid var(--line)}
+.proj-h{display:grid;grid-template-columns:minmax(0,1fr) auto 22px;align-items:center;gap:16px;width:100%;text-align:left;padding:16px 0}
+.proj-h b{font-size:18px;font-weight:700;letter-spacing:-.015em}
+.proj-h span{font:12.5px var(--mono);color:var(--mute)}
+.proj.open .chev{transform:rotate(90deg)}
+.vers{display:none;padding:0 0 14px}
+.proj.open .vers{display:block}
+table.t{width:100%;border-collapse:collapse;font-size:14px}
+table.t th{text-align:left;font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);padding:8px 10px;border-bottom:1px solid var(--line)}
+table.t td{padding:10px;border-bottom:1px solid var(--line);vertical-align:middle}
+table.t td.m{font:13px var(--mono);color:var(--ink-2)}
+table.t tr.cur td{background:var(--surface)}
+table.t .act{display:flex;gap:6px;justify-content:flex-end}
+.empty{padding:48px 0;color:var(--mute);font-size:15px}
+
+/* ── Modale & toast ─────────────────────────────────────────────────── */
+.modal{position:fixed;inset:0;background:rgba(10,10,8,.55);display:none;align-items:center;justify-content:center;padding:20px;z-index:60}
+.modal.open{display:flex}
+.modal-box{width:100%;max-width:520px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.modal-box header{padding:16px 20px;border-bottom:1px solid var(--line);font-weight:700;font-size:16px}
+.modal-box .body{padding:16px 20px;font-size:14px}
+.modal-box pre{margin-top:10px;padding:12px;background:var(--raised);border:1px solid var(--line);border-radius:var(--r);font:12.5px/1.6 var(--mono);white-space:pre-wrap}
+.modal-box footer{display:flex;justify-content:flex-end;gap:8px;padding:12px 20px;border-top:1px solid var(--line)}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:11px 16px;border-radius:var(--r);font-size:14px;z-index:70;max-width:calc(100vw - 32px);display:none}
+.toast.on{display:block}
+
+/* ── Responsive ──────────────────────────────────────────────────────── */
+@media (max-width:1100px){
+  .gen{grid-template-columns:360px minmax(0,1fr)}
+  .stage{padding:24px 26px 48px}
+  .matrix{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .matrix>div:nth-child(3){border-right:0}
+  .matrix>div:nth-child(n+4){border-top:1px solid var(--line)}
+}
+@media (max-width:860px){
+  .top{gap:14px;padding:0 16px}
+  .brand b{font-size:21px}
+  .nav{gap:14px}
+  .nav button{font-size:13.5px}
+  .chip .long,.ver{display:none}
+  .gen{grid-template-columns:1fr}
+  .aside{border-right:0;border-bottom:1px solid var(--line);padding:22px 16px 26px;position:static;height:auto;overflow:visible}
+  .stage{padding:22px 16px 48px}
+  .rail{display:none}
+  .run-head{flex-direction:column;align-items:flex-start;gap:10px}
+  .run-title{font-size:27px}
+  .srow-main{grid-template-columns:46px minmax(0,1fr) auto 18px}
+  .srow-main .dur{display:none}
+  .srow .num{font-size:22px}
+  .srow-detail{padding-left:0}
+  .srow-detail dl{grid-template-columns:1fr}
+  .verdict{grid-template-columns:1fr}
+  .verdict .word{font-size:36px}
+  .facts{flex-wrap:wrap;gap:16px}
+  .matrix{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .matrix>div{border-right:0;border-top:1px solid var(--line)}
+  .matrix>div:nth-child(-n+2){border-top:0}
+  .matrix>div:nth-child(odd){border-right:1px solid var(--line)}
+  .files{grid-template-columns:1fr}
+  .ftree{border-right:0;border-bottom:1px solid var(--line);max-height:200px}
+  .page{padding:24px 16px 48px}
+  .page-h h1{font-size:34px}
+  .page-h{flex-direction:column;align-items:flex-start}
+  table.t .hide-s{display:none}
+  .pop{position:fixed;left:16px;right:16px;top:72px;width:auto}
+  .btn,.cta{min-height:44px}
+}
+@media (max-width:600px){
+  .top{height:auto;flex-wrap:wrap;row-gap:0;padding:10px 16px 0}
+  .brand{height:40px}
+  .nav{order:3;width:100%;height:44px;gap:0;border-top:1px solid var(--line);margin:8px -16px 0;padding:0 16px;justify-content:space-between}
+  .top-r .theme-l{display:none}
+  .pop{top:120px}
+  .gen{min-height:auto}
+}
+@media (prefers-reduced-motion: reduce){
+  *{animation:none!important;transition:none!important}
+}
+</style>
 </head>
 <body>
-<header>
-  <div class="logo">⚡</div>
-  <div>
-    <h1>Forge IA</h1>
-    <div class="tagline">// pipeline multi-agents · specs → app</div>
-  </div>
-  <div class="header-right">
-    <div class="credits">
-      <button class="credits-badge" id="credits-badge" onclick="toggleCredits(event)" title="Crédits Tchavi restants"><span class="dot"></span><span id="credits-txt">Crédits —</span></button>
-      <div class="credits-pop" id="credits-pop" onclick="event.stopPropagation()"></div>
+
+<header class="top">
+  <a class="brand" href="#" onclick="go('gen');return false" aria-label="Forge — accueil"><span class="mark" aria-hidden="true"></span><b>Forge</b></a>
+  <nav class="nav" aria-label="Sections">
+    <button data-view="gen" aria-current="page" onclick="go('gen')">Générer</button>
+    <button data-view="hist" onclick="go('hist')">Historique<span class="count" id="hist-count"></span></button>
+    <button data-view="apps" onclick="go('apps')">Applications<span class="count" id="apps-count"></span></button>
+  </nav>
+  <div class="top-r">
+    <div class="pop-wrap">
+      <button class="chip" id="credits-chip" onclick="toggleCredits(event)" aria-haspopup="dialog" aria-expanded="false">
+        <span class="led" id="credits-led"></span><span id="credits-txt">Crédits —</span><span class="meter long" aria-hidden="true"><i id="credits-meter" style="width:0"></i></span>
+      </button>
+      <div class="pop" id="credits-pop" role="dialog" aria-label="Crédits Tchavi" onclick="event.stopPropagation()"></div>
     </div>
-    <span class="ui-ver" title="Version de l'interface SaaS déployée">UI v6.24</span>
-    <button class="btn-history" id="btn-hist" onclick="toggleHistory()">📋 Historique</button>
+    <button class="chip" id="theme-btn" onclick="cycleTheme()" title="Thème de l'interface"><span class="theme-l" id="theme-txt">Auto</span><svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 1.5a6.5 6.5 0 0 1 0 13z" fill="currentColor"/></svg></button>
+    <span class="ver" id="ui-ver">v7.0</span>
   </div>
 </header>
 
-<section class="welcome">
-  <div class="w-txt">
-    <h2>Génère une application web complète à partir d'un document de specs</h2>
-    <p>Forge IA orchestre 22 agents (architecture, backend, frontend, sécurité, QA, déploiement) pour produire une application <strong>Node.js / Express / SQLite</strong> sécurisée (authentification, isolation des données) — prête à lancer. Choisis une source, décris ton besoin, puis <strong>Générer</strong>.</p>
-  </div>
-  <div class="steps3">
-    <div class="chip"><span class="n">1</span> Specs (texte / PDF / DOCX)</div>
-    <span class="arrow">→</span>
-    <div class="chip"><span class="n">2</span> Pipeline 22 agents</div>
-    <span class="arrow">→</span>
-    <div class="chip"><span class="n">3</span> App téléchargeable</div>
-  </div>
-</section>
+<!-- ═══ GÉNÉRER ═══════════════════════════════════════════════════════════ -->
+<main class="view on" id="view-gen">
+<div class="gen">
+  <aside class="aside">
+    <section class="sec">
+      <div class="sec-h"><span class="n">01</span><h2>Source</h2></div>
+      <div class="tabs" role="tablist">
+        <button role="tab" data-tab="text" aria-selected="true" onclick="switchTab('text')">Texte</button>
+        <button role="tab" data-tab="pdf" aria-selected="false" onclick="switchTab('pdf')">PDF</button>
+        <button role="tab" data-tab="docx" aria-selected="false" onclick="switchTab('docx')">DOCX</button>
+        <button role="tab" data-tab="improve" aria-selected="false" onclick="switchTab('improve')">Amélioration</button>
+      </div>
+      <p class="hint" id="tab-hint"></p>
 
-<main>
-  <div class="left">
-    <div class="section-title">Source d'entrée</div>
-    <div class="tabs">
-      <button class="tab active" onclick="switchTab('text')">✏️ Texte</button>
-      <button class="tab" onclick="switchTab('pdf')">📄 PDF</button>
-      <button class="tab" onclick="switchTab('docx')">📝 DOCX</button>
-      <button class="tab" onclick="switchTab('improve')">🔧 Améliorer</button>
-    </div>
-    <div class="tab-hint" id="tab-hint">Décris ton application en langage naturel — Forge IA en déduit les ressources et l'API.</div>
+      <div class="src" id="block-text">
+        <textarea class="field" id="input-text" aria-label="Spécification" placeholder="Décris l'application : entités, champs, rôles, règles métier.&#10;&#10;Exemple : Application de gestion de médiathèque. Documents : titre, auteur, année. Adhérents : nom, email. Prêts : adhérent, document, date de retour prévue. Règle : 3 prêts maximum par adhérent."></textarea>
+        <p class="small-out">Jusqu'à ~120 000 caractères — tout est envoyé.</p>
+      </div>
+      <div class="src hidden" id="block-pdf">
+        <div class="drop"><input type="file" id="file-pdf" accept=".pdf" onchange="handleFile('pdf',this)" aria-label="Fichier PDF"><b>Choisir un cahier des charges PDF</b><span>ou le déposer ici</span><span class="fname" id="name-pdf"></span></div>
+      </div>
+      <div class="src hidden" id="block-docx">
+        <div class="drop"><input type="file" id="file-docx" accept=".docx,.doc" onchange="handleFile('docx',this)" aria-label="Fichier Word"><b>Choisir un cahier des charges Word</b><span>ou le déposer ici</span><span class="fname" id="name-docx"></span></div>
+      </div>
+      <div class="src hidden" id="block-improve">
+        <div class="step-label"><span class="n">a</span>Spécification d'origine — PDF ou DOCX</div>
+        <div class="drop"><input type="file" id="file-spec-improve" accept=".pdf,.docx" onchange="handleSpecImprove(this)" aria-label="Spécification d'origine"><b>Choisir le document de specs</b><span>facultatif mais recommandé</span><span class="fname" id="name-spec-improve"></span></div>
+        <div class="step-label"><span class="n">b</span>Version à améliorer</div>
+        <div class="drop"><input type="file" id="file-zip-improve" accept=".zip" onchange="handleImproveZip(this)" aria-label="ZIP de l'application"><b>Choisir le ZIP généré par Forge</b><span>ou une application déjà déployée ci-dessous</span><span class="fname" id="name-improve"></span></div>
+        <p class="or">ou depuis le serveur</p>
+        <div class="row"><select class="field" id="deployed-app-select" aria-label="Application déployée"><option value="">Chargement…</option></select><button class="btn" onclick="useDeployedApp()">Charger</button></div>
+        <p class="small-out" id="deployed-app-status"></p>
+        <div class="step-label"><span class="n">c</span>Changements souhaités</div>
+        <textarea class="field" id="input-improve" style="min-height:110px" placeholder="Ex. : ajoute une liste déroulante pour categorie_id ; valide que latitude est entre -90 et 90 ; ajoute un statut aux interventions."></textarea>
+      </div>
+    </section>
 
-    <div class="input-block active" id="block-text"><textarea id="input-text" placeholder="Colle ici ta spec complète (aussi longue que nécessaire — le champ défile). Ex : Une application de gestion de signalements citoyens avec des catégories, une géolocalisation et un statut de traitement..."></textarea><p style="font-size:10px;opacity:.6;margin-top:4px">Spec longue acceptée (jusqu'à ~120 000 caractères). Le champ défile — tout est envoyé même si tu ne vois que le début.</p></div>
-    <div class="input-block" id="block-pdf"><div class="upload-zone"><input type="file" id="file-pdf" accept=".pdf" onchange="handleFile('pdf',this)"/><div class="icon">📄</div><p>Glisse un cahier de specs PDF ou clique</p><p class="file-name" id="name-pdf"></p></div></div>
-    <div class="input-block" id="block-docx"><div class="upload-zone"><input type="file" id="file-docx" accept=".docx,.doc" onchange="handleFile('docx',this)"/><div class="icon">📝</div><p>Glisse un cahier de specs Word ou clique</p><p class="file-name" id="name-docx"></p></div></div>
-    <div class="input-block" id="block-improve">
-      <div style="display:flex;flex-direction:column;gap:10px">
-        <div>
-          <div class="field-label">① Document de specs (PDF/DOCX) <span style="color:var(--danger)">*</span></div>
-          <div class="upload-zone" style="padding:16px">
-            <input type="file" id="file-spec-improve" accept=".pdf,.docx" onchange="handleSpecImprove(this)"/>
-            <div class="icon" style="font-size:20px">📄</div>
-            <p style="font-size:11px">Document de spécifications original</p>
-            <p class="file-name" id="name-spec-improve"></p>
-          </div>
+    <section class="sec">
+      <div class="sec-h"><span class="n">02</span><h2>Paramètres</h2></div>
+      <div class="spec">
+        <label><span>Environnement<small>production = cookies sécurisés, HTTPS</small></span>
+          <select class="field" id="cfg-env"><option value="staging">staging</option><option value="production">production</option></select></label>
+        <label><span>Langage<small>Python, TypeScript : prochainement</small></span>
+          <select class="field" id="cfg-lang"><option value="javascript">JavaScript</option><option value="typescript" disabled>TypeScript</option><option value="python" disabled>Python</option></select></label>
+        <label><span>Framework<small>FastAPI, NestJS : prochainement</small></span>
+          <select class="field" id="cfg-fw"><option value="express">Express</option><option value="nestjs" disabled>NestJS</option><option value="fastapi" disabled>FastAPI</option></select></label>
+      </div>
+    </section>
+
+    <button class="cta" id="btn-launch" onclick="runPipeline()"><span><span class="sig" aria-hidden="true"></span><span id="btn-text">Lancer la génération</span></span><kbd id="kbd-hint">Ctrl ↵</kbd></button>
+  </aside>
+
+  <section class="stage" aria-live="polite">
+    <div class="sec">
+      <div class="sec-h"><span class="n">03</span><h2>Exécution</h2><span class="aside-r" id="run-id"></span></div>
+      <div class="run-head">
+        <h1 class="run-title idle" id="run-title">Aucune génération en cours</h1>
+        <div class="run-meta hidden" id="run-meta">
+          <div>Écoulé<b id="m-elapsed">00:00</b></div>
+          <div>Étape<b id="m-step">—</b></div>
+          <div>Coût<b id="m-cost">—</b></div>
         </div>
-        <div>
-          <div class="field-label">② ZIP de la version à améliorer <span style="color:var(--danger)">*</span></div>
-          <div class="upload-zone" style="padding:16px">
-            <input type="file" id="file-zip-improve" accept=".zip" onchange="handleImproveZip(this)"/>
-            <div class="icon" style="font-size:20px">📦</div>
-            <p style="font-size:11px">Le ZIP d'une app déjà générée par Forge IA</p>
-            <p class="file-name" id="name-improve"></p>
-          </div>
-          <div style="text-align:center;font-size:11px;opacity:.7;margin:8px 0">— OU une app déjà déployée sur le VPS —</div>
-          <div style="display:flex;gap:8px;align-items:center">
-            <select id="deployed-app-select" style="flex:1;padding:9px;border-radius:8px;font-size:12px"><option value="">Chargement…</option></select>
-            <button type="button" class="btn" style="padding:9px 14px;font-size:12px" onclick="useDeployedApp()">Charger</button>
-          </div>
-          <p class="file-name" id="deployed-app-status" style="font-size:11px"></p>
-        </div>
-        <div>
-          <div class="field-label">③ Prompt d'amélioration <span style="color:var(--danger)">*</span></div>
-          <textarea id="input-improve" placeholder="Décris les changements souhaités...&#10;Ex : Ajoute une liste déroulante pour typologie_id. Valide que latitude est entre -90 et 90. Ajoute un statut sur les interventions." style="height:90px"></textarea>
-        </div>
       </div>
+      <p class="run-status" id="run-status"></p>
+      <p class="idle-copy" id="idle-copy">La spécification traverse ces étapes, chacune tenue par un agent spécialisé. Pendant la génération, la feuille ci-dessous suit le pipeline en temps réel : étape en cours, durée réelle, modèle utilisé et coût.</p>
+      <div class="rail hidden" id="rail"></div>
+      <div class="bar-ind hidden" id="bar-ind"><i></i></div>
+      <div class="sheet" id="sheet"></div>
+      <p class="untracked hidden" id="untracked">Suivi détaillé indisponible : l'orchestrateur n'envoie pas encore ses jalons (version antérieure à V6.22). Le résultat s'affichera dès qu'il sera prêt.</p>
     </div>
+    <div id="deliv"></div>
+  </section>
+</div>
+</main>
 
-    <div class="config-row">
-      <div class="config-item">
-        <label>Environnement <span class="tip" data-tip="production → cookies de session sécurisés (HTTPS obligatoire). staging → développement, cookies OK en HTTP local."><span class="info-dot">i</span></span></label>
-        <select id="cfg-env"><option value="staging">staging</option><option value="production">production</option></select>
-      </div>
-      <div class="config-item">
-        <label>Langage <span class="tip" data-tip="Forge IA génère du Node.js (JavaScript). Python et TypeScript sont sur la roadmap (générateurs multi-stack)."><span class="info-dot">i</span></span></label>
-        <select id="cfg-lang">
-          <option value="javascript">JavaScript</option>
-          <option value="python" disabled>Python (à venir)</option>
-          <option value="typescript" disabled>TypeScript (à venir)</option>
-        </select>
-      </div>
-      <div class="config-item">
-        <label>Framework <span class="tip" data-tip="Express est le framework actif. FastAPI et NestJS arriveront avec le support multi-stack."><span class="info-dot">i</span></span></label>
-        <select id="cfg-fw">
-          <option value="express">Express</option>
-          <option value="fastapi" disabled>FastAPI (à venir)</option>
-          <option value="nestjs" disabled>NestJS (à venir)</option>
-        </select>
-      </div>
-    </div>
-
-    <button class="btn-launch" id="btn-launch" onclick="runPipeline()"><div class="spinner" id="spinner"></div><span id="btn-text">🚀 Générer</span></button>
-    <div class="progress-bar" id="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
-
-    <div id="steps-container" style="display:none">
-      <div class="section-title" style="margin-top:16px">Agents en cours</div>
-      <div class="steps">
-        <div class="step" id="s1"><div class="step-dot"></div> 🔍 Détection &amp; validation</div>
-        <div class="step" id="s2"><div class="step-dot"></div> 📄 Extraction du contenu</div>
-        <div class="step" id="s3"><div class="step-dot"></div> 🏗️ Agent Architecte</div>
-        <div class="step" id="s4"><div class="step-dot"></div> 💻 Agent Backend</div>
-        <div class="step" id="s5"><div class="step-dot"></div> 🎨 Agent Frontend</div>
-        <div class="step" id="s6"><div class="step-dot"></div> 🔎 Code Review + QA + SAST</div>
-        <div class="step" id="s7"><div class="step-dot"></div> 🛡️ SCA + Secrets + DAST</div>
-        <div class="step" id="s8"><div class="step-dot"></div> ✅ Décision Go/No-Go</div>
-        <div class="step" id="s9"><div class="step-dot"></div> 🚀 Déploiement + Monitoring</div>
-        <div class="step" id="s10"><div class="step-dot"></div> 📚 Documentation + Knowledge</div>
-      </div>
-    </div>
-
-    <div id="apps-section" style="display:none">
-      <div class="section-title" style="margin-top:20px">Applications déployées</div>
-      <div class="apps-panel" id="apps-list"><div style="color:var(--muted);font-size:11px;font-family:var(--mono)">Chargement...</div></div>
-    </div>
-  </div>
-
-  <div class="right">
-    <div id="history-view" style="display:none">
-      <div class="section-title">Historique des projets</div>
-      <div id="history-list"></div>
-    </div>
-    <div id="result-view">
-      <div class="section-title">Résultat</div>
-      <div class="result-empty" id="result-empty">
-        <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0" stop-color="#8b5cf6"/><stop offset=".5" stop-color="#6366f1"/><stop offset="1" stop-color="#22d3ee"/>
-            </linearGradient>
-          </defs>
-          <rect x="34" y="30" width="70" height="90" rx="8" fill="#14141f" stroke="#26263c" stroke-width="2"/>
-          <line x1="46" y1="48" x2="92" y2="48" stroke="#3a3a55" stroke-width="3" stroke-linecap="round"/>
-          <line x1="46" y1="62" x2="82" y2="62" stroke="#3a3a55" stroke-width="3" stroke-linecap="round"/>
-          <line x1="46" y1="76" x2="88" y2="76" stroke="#2f2f48" stroke-width="3" stroke-linecap="round"/>
-          <line x1="46" y1="90" x2="74" y2="90" stroke="#2f2f48" stroke-width="3" stroke-linecap="round"/>
-          <path d="M112 75 L150 75" stroke="url(#g1)" stroke-width="3" stroke-linecap="round" stroke-dasharray="4 6">
-            <animate attributeName="stroke-dashoffset" from="20" to="0" dur="1.2s" repeatCount="indefinite"/>
-          </path>
-          <path d="M150 68 L160 75 L150 82" stroke="url(#g1)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-          <rect x="118" y="105" width="60" height="65" rx="10" fill="url(#g1)" opacity=".14" stroke="url(#g1)" stroke-width="2"/>
-          <path d="M150 118 l-14 22 h11 l-3 16 15 -24 h-11 z" fill="url(#g1)">
-            <animate attributeName="opacity" values="1;.5;1" dur="1.6s" repeatCount="indefinite"/>
-          </path>
-          <circle cx="150" cy="137" r="34" stroke="url(#g1)" stroke-width="1.5" opacity=".25" fill="none"/>
-        </svg>
-        <p>Choisis une source à gauche et lance la génération pour voir apparaître ton application ici.</p>
-      </div>
-      <div id="result-content" style="display:none"></div>
-    </div>
+<!-- ═══ HISTORIQUE ════════════════════════════════════════════════════════ -->
+<main class="view" id="view-hist">
+  <div class="page">
+    <div class="page-h"><h1>Historique</h1><p>Projets générés depuis ce navigateur, regroupés par application. Rouvre une version pour retrouver ses fichiers et ses propositions.</p></div>
+    <div id="history-list"></div>
   </div>
 </main>
 
-<script>
-const PIPELINE_URL='/api/pipeline',DEPLOY_URL='/api/deploy',IMPROVE_URL='/api/improve';
-const HISTORY_KEY='forge_ia_history';
-// Échappement HTML — protège contre l'injection via données venant du pipeline (noms de fichiers, résumés, erreurs)
-function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
-// Lit une reponse en tolerant le non-JSON (ex: page HTML d erreur) et remonte un detail exploitable
-async function apiFetchJson(url, opts){
-  const r = await fetch(url, opts);
-  const t = await r.text();
-  try { return { ok:r.ok, status:r.status, data: JSON.parse(t) }; }
-  catch(e){
-    const looksHtml = /^\s*</.test(t);
-    const err = new Error('Réponse non-JSON (HTTP '+r.status+')'+(looksHtml?' — le serveur a renvoyé du HTML, pas du JSON':''));
-    err.snippet = (t||'').slice(0,180).replace(/\s+/g,' ').trim();
-    err.status = r.status;
-    err.fix = 'Le service de déploiement (VPS:4001) est injoignable depuis le panneau, ou le panneau ne route pas /api/deploy (build obsolète). Vérifie DEPLOY_URL et que le panneau exécute bien server.js.';
-    throw err;
-  }
-}
-function _deployErrBox(e){
-  var h='<div class="error-box">❌ '+esc(e.message||'Erreur');
-  if(e.snippet) h+='<div style="margin-top:8px;color:var(--muted);font-size:10px">réponse reçue : '+esc(e.snippet)+'…</div>';
-  if(e.fix) h+='<div style="margin-top:8px;color:var(--success)">💡 '+esc(e.fix)+'</div>';
-  return h+'</div>';
-}
-function _dataErrBox(d){
-  var h='<div class="error-box">❌ '+esc(d.error||'Erreur');
-  if(d.detail) h+='<div style="margin-top:8px;color:var(--muted);font-size:10px">réponse : '+esc(String(d.detail).slice(0,180))+'…</div>';
-  if(d.cause) h+='<div style="margin-top:8px;color:var(--warning)">⚠️ '+esc(d.cause)+'</div>';
-  if(d.fix) h+='<div style="margin-top:8px;color:var(--success)">💡 '+esc(d.fix)+'</div>';
-  return h+'</div>';
-}
-let currentTab='text',fileData={},isRunning=false,currentFiles=[],currentTaskId='',deployedAppName=null,currentZipName=null;
+<!-- ═══ APPLICATIONS ══════════════════════════════════════════════════════ -->
+<main class="view" id="view-apps">
+  <div class="page">
+    <div class="page-h"><h1>Applications</h1><p>Applications déployées sur le serveur. Sélectionne-en une pour l'améliorer depuis le livrable courant.</p></div>
+    <div id="apps-list"></div>
+  </div>
+</main>
 
-const TAB_HINTS={
-  text:"Décris ton application en langage naturel — Forge IA en déduit les ressources et l'API.",
-  pdf:"Dépose un cahier des charges au format PDF (structuré : ressources, champs, règles).",
-  docx:"Dépose un cahier des charges au format Word (structuré : ressources, champs, règles).",
-  improve:"Fais évoluer une app déjà générée : redonne ses specs + son ZIP (ou choisis une app déployée) + décris le changement voulu."
+<div class="modal" id="imp-modal" role="dialog" aria-modal="true" aria-labelledby="imp-title">
+  <div class="modal-box">
+    <header id="imp-title">Amélioration</header>
+    <div class="body">
+      <div id="imp-detail" style="font-weight:700"></div>
+      <p class="mute" style="margin-top:6px;font-size:13.5px">Appliqué à l'application courante en mode différentiel : les fichiers existants sont conservés, seul l'incrément est ajouté puis re-vérifié (sécurité, Go/No-Go).</p>
+      <pre id="imp-prompt"></pre>
+    </div>
+    <footer><button class="btn" onclick="_impCancel()">Annuler</button><button class="btn dark" onclick="_impConfirm()">Confirmer et lancer</button></footer>
+  </div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+'use strict';
+// ════════════════════════════════════════════════════════════════════════
+//  Utilitaires
+// ════════════════════════════════════════════════════════════════════════
+const PIPELINE_URL='/api/pipeline', DEPLOY_URL='/api/deploy', IMPROVE_URL='/api/improve';
+const HISTORY_KEY='forge_ia_history';
+const $id=id=>document.getElementById(id);
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function fmtN(n){return n==null?'—':Number(n).toLocaleString('fr-FR');}
+function crTxt(n){return n==null?'? cr':(n>0?'−'+fmtN(n)+' cr':'0 cr');}
+function fmtDur(ms){if(ms==null||ms<0)return '';const s=ms/1000;if(s<10)return s.toFixed(1).replace('.',',')+' s';if(s<60)return Math.round(s)+' s';const m=Math.floor(s/60),r=Math.round(s%60);return m+' min '+String(r).padStart(2,'0');}
+function clock(ms){const s=Math.max(0,Math.floor(ms/1000));return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
+function ago(ts){if(!ts)return '—';const m=Math.round((Date.now()-ts)/60000);return m<1?'à l’instant':m<60?('il y a '+m+' min'):('il y a '+Math.round(m/60)+' h');}
+let _toastT=null;
+function toast(msg){const t=$id('toast');t.textContent=msg;t.classList.add('on');clearTimeout(_toastT);_toastT=setTimeout(()=>t.classList.remove('on'),4200);}
+function lsGet(k,d){try{const v=localStorage.getItem(k);return v==null?d:v;}catch(e){return d;}}
+function lsSet(k,v){try{localStorage.setItem(k,v);}catch(e){}}
+const ICON={
+  dl:'<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v8m0 0-3-3m3 3 3-3M3 13h10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  ext:'<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3H3v10h10v-3M9 3h4v4M13 3 7 9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
 };
-function switchTab(tab){currentTab=tab;['text','pdf','docx','improve'].forEach((t,i)=>{document.querySelectorAll('.tab')[i].classList.toggle('active',t===tab);document.getElementById('block-'+t).classList.toggle('active',t===tab)});var h=document.getElementById('tab-hint');if(h)h.textContent=TAB_HINTS[tab]||'';if(tab==='improve')loadDeployedApps();}
-var improveZipData=null;
-var improveSpecData=null;
-// ── Améliorer une app DÉPLOYÉE : récupère son ZIP sans téléchargement manuel ──
+
+// Lit une réponse en tolérant le non-JSON (page HTML d'erreur) et remonte un détail exploitable
+async function apiFetchJson(url,opts){
+  const r=await fetch(url,opts);const t=await r.text();
+  try{return {ok:r.ok,status:r.status,data:JSON.parse(t)};}
+  catch(e){const err=new Error('Réponse non-JSON (HTTP '+r.status+')'+(/^\s*</.test(t)?' — le serveur a renvoyé du HTML':''));err.snippet=(t||'').slice(0,180).replace(/\s+/g,' ').trim();err.status=r.status;err.fix='Le service de déploiement est injoignable depuis le panel, ou /api/deploy n’est pas routé. Vérifie DEPLOY_URL et que le panel exécute bien server.js.';throw err;}
+}
+function errCard(title,msg,cause,fix,detail){
+  return '<div class="fail-card"><div class="word">'+esc(title)+'</div><div class="msg">'+esc(msg)+'</div><dl>'+
+    (cause?'<dt>Cause probable</dt><dd>'+esc(cause)+'</dd>':'')+(fix?'<dt>Que faire</dt><dd>'+esc(fix)+'</dd>':'')+
+    (detail?'<dt>Réponse brute</dt><dd class="mono" style="font-size:12.5px">'+esc(String(detail).slice(0,240))+'</dd>':'')+'</dl></div>';
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  Thème & navigation
+// ════════════════════════════════════════════════════════════════════════
+function applyThemeLabel(){const t=lsGet('forge_theme','auto');$id('theme-txt').textContent={auto:'Auto',light:'Clair',dark:'Sombre'}[t]||'Auto';}
+function cycleTheme(){
+  const order=['auto','light','dark'];const cur=lsGet('forge_theme','auto');const nx=order[(order.indexOf(cur)+1)%3];
+  lsSet('forge_theme',nx);
+  if(nx==='auto')document.documentElement.removeAttribute('data-theme');else document.documentElement.setAttribute('data-theme',nx);
+  applyThemeLabel();
+}
+function go(v){
+  document.querySelectorAll('.view').forEach(el=>el.classList.toggle('on',el.id==='view-'+v));
+  document.querySelectorAll('.nav button').forEach(b=>{if(b.dataset.view===v)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
+  if(v==='hist')renderHistory();
+  if(v==='apps')loadApps();
+  window.scrollTo(0,0);
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  Sources
+// ════════════════════════════════════════════════════════════════════════
+let currentTab='text',fileData={},isRunning=false,currentFiles=[],currentTaskId='',deployedAppName=null,currentZipName=null,currentProjectName=null;
+let improveZipData=null,improveSpecData=null;
+const TAB_HINTS={
+  text:"Décris l'application en langage naturel : Forge en déduit les ressources, l'API et les écrans.",
+  pdf:"Un cahier des charges structuré (ressources, champs, règles) donne les meilleurs résultats.",
+  docx:"Un cahier des charges structuré (ressources, champs, règles) donne les meilleurs résultats.",
+  improve:"Fais évoluer une application déjà générée : sa spécification, son ZIP (ou l'app déployée) et le changement voulu."
+};
+function switchTab(tab){
+  currentTab=tab;
+  document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===tab)));
+  ['text','pdf','docx','improve'].forEach(t=>$id('block-'+t).classList.toggle('hidden',t!==tab));
+  $id('tab-hint').textContent=TAB_HINTS[tab]||'';
+  if(tab==='improve')loadDeployedApps();
+}
 async function loadDeployedApps(){
-  var sel=document.getElementById('deployed-app-select');if(!sel)return;
+  const sel=$id('deployed-app-select');
   try{
-    var r=await fetch('/api/apps');var d=await r.json();
-    var apps=Array.isArray(d)?d:(d.apps||d.data||[]);
-    var names=apps.map(function(a){return typeof a==='string'?a:(a&&(a.name||a.id||a.project||a.slug));}).filter(Boolean);
-    sel.innerHTML=names.length
-      ?('<option value="">— choisis une app déployée —</option>'+names.map(function(n){return '<option value="'+n+'">'+n+'</option>';}).join(''))
-      :'<option value="">Aucune app déployée</option>';
+    const r=await fetch('/api/apps');const d=await r.json();
+    const apps=Array.isArray(d)?d:(d.apps||d.data||[]);
+    const names=apps.map(a=>typeof a==='string'?a:(a&&(a.name||a.id||a.project||a.slug))).filter(Boolean);
+    sel.innerHTML=names.length?('<option value="">Choisir une application déployée</option>'+names.map(n=>'<option value="'+esc(n)+'">'+esc(n)+'</option>').join('')):'<option value="">Aucune application déployée</option>';
   }catch(e){sel.innerHTML='<option value="">Service de déploiement injoignable</option>';}
 }
 async function useDeployedApp(){
-  var sel=document.getElementById('deployed-app-select');
-  var st=document.getElementById('deployed-app-status');
-  var name=sel&&sel.value;
-  if(!name){st.textContent='Choisis d\'abord une app dans la liste.';return;}
-  st.textContent='⏳ Récupération des fichiers de « '+name+' »…';
+  const name=$id('deployed-app-select').value,st=$id('deployed-app-status');
+  if(!name){st.textContent='Choisis d’abord une application dans la liste.';return;}
+  st.textContent='Récupération des fichiers de « '+name+' »…';
   try{
-    var r=await fetch('/api/apps/'+encodeURIComponent(name)+'/zip-base64');
-    var d=await r.json();
-    if(!r.ok||!d.zip_base64){st.textContent='❌ '+(d.error||'Échec')+(d.fix?(' — '+d.fix):'');return;}
+    const r=await fetch('/api/apps/'+encodeURIComponent(name)+'/zip-base64');const d=await r.json();
+    if(!r.ok||!d.zip_base64){st.textContent='Échec : '+(d.error||'inconnu')+(d.fix?(' — '+d.fix):'');return;}
     improveZipData={base64:d.zip_base64,filename:d.filename||(name+'.zip')};
-    document.getElementById('name-improve').textContent='✓ '+improveZipData.filename+' ('+d.files_count+' fichiers, depuis le déploiement)';
-    st.textContent='✓ App « '+name+' » chargée — pas besoin de télécharger le ZIP.';
-  }catch(e){st.textContent='❌ '+e.message;}
+    $id('name-improve').textContent=improveZipData.filename+' — '+d.files_count+' fichiers';
+    st.textContent='Application « '+name+' » chargée depuis le serveur.';
+  }catch(e){st.textContent='Échec : '+e.message;}
 }
-function handleSpecImprove(input){
-  var file=input.files[0];if(!file)return;
-  var r=new FileReader();
-  r.onload=function(e){
-    improveSpecData={base64:e.target.result.split(',')[1],filename:file.name,mime:file.type};
-    document.getElementById('name-spec-improve').textContent='✓ '+file.name;
-  };
-  r.readAsDataURL(file);
-}
-function handleImproveZip(input){
-  var file=input.files[0];if(!file)return;
-  var r=new FileReader();
-  r.onload=function(e){
-    improveZipData={base64:e.target.result.split(',')[1],filename:file.name};
-    document.getElementById('name-improve').textContent='✓ '+file.name;
-  };
-  r.readAsDataURL(file);
-}
-function handleFile(type,input){const file=input.files[0];if(!file)return;const r=new FileReader();r.onload=e=>{fileData[type]={base64:e.target.result.split(',')[1],filename:file.name,mime:file.type};document.getElementById('name-'+type).textContent='✓ '+file.name;};r.readAsDataURL(file);}
-
+function readFile(file,cb){const r=new FileReader();r.onload=e=>cb(e.target.result.split(',')[1]);r.readAsDataURL(file);}
+function handleSpecImprove(input){const f=input.files[0];if(!f)return;readFile(f,b=>{improveSpecData={base64:b,filename:f.name,mime:f.type};$id('name-spec-improve').textContent=f.name;});}
+function handleImproveZip(input){const f=input.files[0];if(!f)return;readFile(f,b=>{improveZipData={base64:b,filename:f.name};$id('name-improve').textContent=f.name;});}
+function handleFile(type,input){const f=input.files[0];if(!f)return;readFile(f,b=>{fileData[type]={base64:b,filename:f.name,mime:f.type};$id('name-'+type).textContent=f.name;});}
+function baseParams(){return {task_id:'TASK-'+Date.now(),environment:$id('cfg-env').value,language:$id('cfg-lang').value,framework:$id('cfg-fw').value};}
 function buildPayload(){
-  const base={task_id:'TASK-'+Date.now(),environment:document.getElementById('cfg-env').value,language:document.getElementById('cfg-lang').value,framework:document.getElementById('cfg-fw').value};
+  const base=baseParams();
   switch(currentTab){
-    case 'text':const t=document.getElementById('input-text').value.trim();if(!t)throw new Error('Veuillez entrer une description');return{...base,userRequest:t};
-    case 'pdf':if(!fileData.pdf)throw new Error('Veuillez sélectionner un PDF');return{...base,pdf_base64:fileData.pdf.base64,pdf_filename:fileData.pdf.filename};
-    case 'docx':if(!fileData.docx)throw new Error('Veuillez sélectionner un DOCX');return{...base,docx_base64:fileData.docx.base64,docx_filename:fileData.docx.filename};
+    case 'text':{const t=$id('input-text').value.trim();if(!t)throw new Error('Décris l’application à générer (onglet Texte).');return {...base,userRequest:t};}
+    case 'pdf':if(!fileData.pdf)throw new Error('Sélectionne un fichier PDF.');return {...base,pdf_base64:fileData.pdf.base64,pdf_filename:fileData.pdf.filename};
+    case 'docx':if(!fileData.docx)throw new Error('Sélectionne un fichier DOCX.');return {...base,docx_base64:fileData.docx.base64,docx_filename:fileData.docx.filename};
     case 'improve':{
-      var ip=document.getElementById('input-improve').value.trim();
-      if(!ip)throw new Error('③ Décris les améliorations souhaitées');
-      if(!improveZipData)throw new Error('② Fournis le ZIP de la version à améliorer');
-      var p={...base,
-        userRequest:ip,
-        improve_prompt:ip,
-        improve_mode:true
-      };
-      if(improveSpecData){
-        if(improveSpecData.filename.endsWith('.pdf')){ p.pdf_base64=improveSpecData.base64;p.pdf_filename=improveSpecData.filename; }
-        else { p.docx_base64=improveSpecData.base64;p.docx_filename=improveSpecData.filename; }
-      }
-      p.existing_zip_base64=improveZipData.base64;
-      p.existing_zip_filename=improveZipData.filename;
+      const ip=$id('input-improve').value.trim();
+      if(!ip)throw new Error('Décris les changements souhaités (étape c).');
+      if(!improveZipData)throw new Error('Fournis le ZIP de la version à améliorer (étape b).');
+      const p={...base,userRequest:ip,improve_prompt:ip,improve_mode:true};
+      if(improveSpecData){if(improveSpecData.filename.toLowerCase().endsWith('.pdf')){p.pdf_base64=improveSpecData.base64;p.pdf_filename=improveSpecData.filename;}else{p.docx_base64=improveSpecData.base64;p.docx_filename=improveSpecData.filename;}}
+      p.existing_zip_base64=improveZipData.base64;p.existing_zip_filename=improveZipData.filename;
       return p;}
   }
 }
 
-const STEPS=[{id:'s1',delay:0,p:5},{id:'s2',delay:2000,p:10},{id:'s3',delay:6000,p:18},{id:'s4',delay:15000,p:32},{id:'s5',delay:40000,p:46},{id:'s6',delay:65000,p:60},{id:'s7',delay:80000,p:72},{id:'s8',delay:90000,p:82},{id:'s9',delay:98000,p:90},{id:'s10',delay:110000,p:97}];
-let timers=[];
-function startSteps(type){timers.forEach(clearTimeout);timers=[];document.getElementById('steps-container').style.display='flex';STEPS.forEach(s=>document.getElementById(s.id).className='step');document.getElementById('s2').style.display=['pdf','docx'].includes(type)?'flex':'none';STEPS.forEach((s,i)=>{timers.push(setTimeout(()=>{
-  // Étape estimée « en cours » : les précédentes restent en 'running' (pas 'done'),
-  // car on n'a PAS de confirmation réelle d'achèvement du pipeline n8n.
-  // Seul finishSteps(true) marque 'done' quand le vrai résultat arrive.
-  document.getElementById(s.id).className='step running';
-  // La barre progresse mais plafonne à 95% tant que le résultat réel n'est pas là.
-  document.getElementById('progress-fill').style.width=Math.min(s.p,95)+'%';
-},s.delay));});}
-function finishSteps(ok){timers.forEach(clearTimeout);STEPS.forEach(s=>document.getElementById(s.id).className=ok?'step done':'step');document.getElementById('progress-fill').style.width=ok?'100%':'0%';}
-
-// ── Historique ─────────────────────────────────────────────────────────────
-function getHistory(){try{return JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]');}catch(e){return[];}}
-function saveHistory(h){localStorage.setItem(HISTORY_KEY,JSON.stringify(h));}
-function addToHistory(data){
-  const h=getHistory();
-  // Extraire nom projet depuis README
-  let projectName = '';
-  const readmeFile = (data.results?.files || currentFiles || []).find(f => f.path === 'README.md');
-  if (readmeFile) {
-    const match = (readmeFile.content || '').match(/^#\s+(.+)/m);
-    if (match) projectName = match[1].trim().substring(0, 40);
-  }
-  // Métadonnées d'amélioration (émises sous data.results) — persistées pour que
-  // la restauration depuis l'historique retrouve les MÊMES options d'amélioration
-  // (propositions ✨, ressources prévues 📋, diff) que le résultat en direct.
-  const _R = data.results || data;
-  h.unshift({id:data.task_id||('PROJ-'+Date.now()),date:new Date().toISOString(),summary:data.summary||'Projet généré',project_name:projectName,zip_name:currentZipName||('ForgeIA-'+projectName.replace(/[^a-zA-Z0-9]/g,'-')+'-v'+(getProjectVersion()||'1.0')),version:getProjectVersion(),improve_mode:currentTab==='improve',decision:data.decision||'',files_count:currentFiles.length,input_type:currentTab,language:document.getElementById('cfg-lang').value,framework:document.getElementById('cfg-fw').value,files:currentFiles,suggestions:_R.suggestions||[],planned:_R.planned_not_implemented||[],improvements:_R.improvements||null,blocking_reasons:data.blocking_reasons||[]});
-  if(h.length>50)h.pop();
-  saveHistory(h);
+// ════════════════════════════════════════════════════════════════════════
+//  Suivi RÉEL du pipeline (jalons de l'orchestrateur, aucune minuterie simulée)
+// ════════════════════════════════════════════════════════════════════════
+const STAGE_INFO={
+  extraction:  {lbl:'Extraction du document', sub:'PDF, Word ou image vers texte', short:'Extraction'},
+  lint:        {lbl:'Validation de la spécification', sub:'Spec Linter', short:'Validation'},
+  normalizer:  {lbl:'Normalisation du domaine', sub:'Ressources, champs, règles', short:'Domaine'},
+  architect:   {lbl:'Architecture', sub:'Stores, endpoints, modèle de données', short:'Architecture'},
+  analysis:    {lbl:'Analyse de l’existant', sub:'ZIP Analyzer, Version Manager', short:'Analyse'},
+  backend:     {lbl:'Backend', sub:'API Express, SQLite, authentification', short:'Backend'},
+  frontend:    {lbl:'Frontend', sub:'Interface web installable', short:'Frontend'},
+  tests:       {lbl:'Tests L0', sub:'Contrôles de base', short:'Tests'},
+  verification:{lbl:'Revue, QA, SAST', sub:'Qualité et analyse statique', short:'Revue'},
+  security:    {lbl:'SCA, Secrets, DAST', sub:'Dépendances, secrets, analyse dynamique', short:'Sécurité'},
+  gonogo:      {lbl:'Décision Go / No-Go', sub:'Arbitrage puis déploiement', short:'Go/No-Go'},
+  monitoring:  {lbl:'Supervision et coûts', sub:'Monitoring, coûts, incidents', short:'Supervision'},
+  docs:        {lbl:'Documentation et mémoire', sub:'README, base de connaissances', short:'Docs'}
+};
+const AGENT_STAGE={normalizer:'normalizer',architect:'architect',qa:'verification',documentation:'docs',frontend:'frontend'};
+function expectedStages(payload){
+  const st=[];
+  if(payload.pdf_base64||payload.docx_base64)st.push('extraction');
+  st.push('lint','normalizer','architect');
+  if(payload.improve_mode)st.push('analysis');
+  st.push('backend','frontend','tests','verification','security','gonogo','monitoring','docs');
+  return st;
 }
-function toggleHistory(){
-  const hv=document.getElementById('history-view'),rv=document.getElementById('result-view'),btn=document.getElementById('btn-hist');
-  const vis=hv.style.display!=='none';
-  if(vis){hv.style.display='none';rv.style.display='block';btn.classList.remove('active');}
-  else{hv.style.display='block';rv.style.display='none';btn.classList.add('active');renderHistory();}
+let RUN=null,_tick=null;
+function newRun(payload){
+  RUN={task:payload.task_id,start:Date.now(),stages:expectedStages(payload),events:[],llm:[],typical:{},title:null,done:false,failed:null,lastEventAt:null,tracked:false,open:{}};
 }
-function renderHistory(){
-  var h=getHistory();
-  var list=document.getElementById('history-list');
-  if(!h.length){list.innerHTML='<div style="text-align:center;color:var(--muted);font-family:var(--mono);padding:20px;font-size:11px">Aucun historique</div>';return;}
-  var tree={};
-  h.forEach(function(item,origIdx){
-    var pname=item.project_name||item.id||'Inconnu';
-    if(!tree[pname])tree[pname]=[];
-    tree[pname].push({item:item,idx:origIdx});
+// Reconstruit l'état de chaque étape à partir des jalons reçus.
+function computeStages(){
+  const R=RUN, map={};
+  R.stages.forEach(s=>map[s]={state:'wait'});
+  const starts=R.events.filter(e=>e.kind==='start');
+  starts.forEach(e=>{if(!map[e.stage]){map[e.stage]={state:'wait'};R.stages.push(e.stage);}});
+  const order=Object.keys(STAGE_INFO);
+  R.stages.sort((a,b)=>order.indexOf(a)-order.indexOf(b));
+  starts.forEach((e,i)=>{
+    const m=map[e.stage];m.start=e.ts;m.state='run';
+    const nx=starts[i+1];
+    if(nx){m.state='done';m.end=nx.ts;if(nx.prev_summary)m.summary=nx.prev_summary;if(nx.prev_status)m.status=nx.prev_status;}
+    if(e.extra)m.extra=e.extra;
   });
-  var html='';
-  Object.keys(tree).forEach(function(pname){
-    var versions=tree[pname];
-    var isOpen=versions.some(function(v){return v.item.id===currentTaskId;});
-    html+='<div class="history-tree">';
-    html+='<div class="history-tree-root" data-action="toggle">';
-    html+='<span class="tree-arrow">'+(isOpen?'▾':'▸')+'</span>';
-    html+='<span class="tree-icon">⚡</span>';
-    html+='<span class="tree-name">'+esc(pname)+'</span>';
-    html+='<span class="tree-count">'+versions.length+'</span>';
-    html+='</div>';
-    html+='<div class="history-tree-children" style="display:'+(isOpen?'block':'none')+'">';
-    versions.forEach(function(entry,vi){
-      var item=entry.item;
-      var origIdx=entry.idx;
-      var isImprove=item.input_type==='improve'||item.improve_mode;
-      var icon=isImprove?'🔧':'⚡';
-      var vLabel=item.version||('v'+(versions.length-vi)+'.0');
-      var active=item.id===currentTaskId?' history-active':'';
-      html+='<div class="history-version'+active+'" data-action="restore" data-idx="'+origIdx+'">';
-      html+='<span class="version-icon">'+icon+'</span>';
-      html+='<span class="version-label">'+esc(vLabel)+'</span>';
-      html+='<span class="version-date">'+new Date(item.date).toLocaleDateString('fr')+'</span>';
-      html+='<span class="version-files">'+(item.files_count||0)+' fichiers</span>';
-      html+='<div class="version-actions">';
-      if(item.files&&item.files.length){
-        html+='<button data-action="zip" data-idx="'+origIdx+'" title="Télécharger ZIP">⬇</button>';
-      }
-      html+='<button data-action="del" data-idx="'+origIdx+'" title="Supprimer">✕</button>';
-      html+='</div></div>';
-    });
-    html+='</div></div>';
-  });
-  list.innerHTML=html;
-  list.onclick=function(e){
-    var t=e.target.closest('[data-action]');
-    if(!t)return;
-    var action=t.getAttribute('data-action');
-    var idx=parseInt(t.getAttribute('data-idx'));
-    if(action==='toggle'){
-      var ch=t.nextElementSibling;
-      var ar=t.querySelector('.tree-arrow');
-      if(ch.style.display==='none'){ch.style.display='block';ar.textContent='▾';}
-      else{ch.style.display='none';ar.textContent='▸';}
-    } else if(action==='restore'&&!isNaN(idx)){restoreHistory(idx);}
-    else if(action==='zip'&&!isNaN(idx)){e.stopPropagation();dlHistoryZip(idx);}
-    else if(action==='del'&&!isNaN(idx)){e.stopPropagation();delHistory(idx);}
-  };
-}
-function restoreHistory(i){const h=getHistory(),item=h[i];if(!item)return;currentFiles=item.files||[];currentTaskId=item.id;document.getElementById('history-view').style.display='none';document.getElementById('result-view').style.display='block';document.getElementById('btn-hist').classList.remove('active');
-  // Restaure aussi les métadonnées d'amélioration : renderResult repeuple alors
-  // window._suggestions / window._planned -> les boutons ✨ Appliquer, ➕ Ajouter
-  // et le champ d'ajout libre redeviennent disponibles sur la version restaurée.
-  renderResult({success:item.decision!=='STOP',task_id:item.id,summary:item.summary,decision:item.decision,blocking_reasons:item.blocking_reasons||[],results:{files:item.files||[],suggestions:item.suggestions||[],planned_not_implemented:item.planned||[],improvements:item.improvements||undefined}},0);}
-async function dlHistoryZip(i){
-  const h=getHistory(),item=h[i];
-  if(!item||!item.files||!item.files.length)return;
-  try{
-    const _rn=item.zip_name||(item.project_name||item.id||'projet')+'-'+(item.version||'v1.0');
-    const name=_rn.startsWith('ForgeIA-')?_rn:'ForgeIA-'+_rn;
-    const r=await fetch('/api/create-zip',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({files:item.files,filename:name})});
-    if(!r.ok)throw new Error('Erreur '+r.status);
-    const blob=await r.blob();
-    const a=document.createElement('a');
-    a.href=URL.createObjectURL(blob);
-    a.download=name+'.zip';
-    a.click();
-  }catch(e){alert('Erreur ZIP historique: '+e.message);}
-}
-function delHistory(i){if(!confirm('Supprimer ce projet ?'))return;const h=getHistory();h.splice(i,1);saveHistory(h);renderHistory();}
-
-// ── Visionneur ─────────────────────────────────────────────────────────────
-function showFile(idx){const f=currentFiles[idx];if(!f)return;document.querySelectorAll('.file-tab').forEach((t,i)=>t.classList.toggle('active',i===idx));let c=f.content||'';c=c.replace(/^\/\/ FILE:.*\n/,'').replace(/^<!-- FILE:.*-->\n/,'').replace(/^\/\* FILE:.*\*\/\n/,'');document.getElementById('file-viewer').textContent=c;document.getElementById('btn-dl-current').onclick=()=>dlFile(f);document.getElementById('current-fname').textContent=f.path;}
-function dlFile(f){let c=f.content||'';c=c.replace(/^\/\/ FILE:.*\n/,'').replace(/^<!-- FILE:.*-->\n/,'').replace(/^\/\* FILE:.*\*\/\n/,'');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type:'text/plain'}));a.download=f.path.split('/').pop();a.click();}
-function getProjectName() {
-  // 1. Nom extrait du README au moment de la génération
-  if (currentProjectName) return currentProjectName.replace(/[^a-zA-Z0-9-_]/g, '-');
-  // 2. Depuis le ZIP uploadé en mode amélioration
-  if (improveZipData && improveZipData.filename) {
-    const name = improveZipData.filename
-      .replace(/\.zip$/i, '')
-      .replace(/-v\d+[_.]\d+.*$/i, '')
-      .replace(/[^a-zA-Z0-9-_]/g, '-')
-      .substring(0, 30);
-    if (name.length > 3) return name;
+  const term=R.events.find(e=>e.kind!=='start');
+  if(term){
+    const last=starts[starts.length-1];
+    if(last){const m=map[last.stage];m.end=term.ts;if(term.prev_summary)m.summary=term.prev_summary;if(term.prev_status)m.status=term.prev_status;m.state=(term.kind==='end')?'done':'fail';if(term.kind==='stop')m.state='stop';}
+    if(term.kind==='fail'||term.kind==='stop'){const m=map[term.stage];if(m&&m.state!=='done'){m.state=term.kind==='stop'?'stop':'fail';}}
+    // étapes jamais atteintes après un arrêt
+    if(term.kind!=='end')R.stages.forEach(s=>{if(map[s].state==='wait')map[s].state='skip';});
+    else R.stages.forEach(s=>{if(map[s].state==='wait')map[s].state='skip';});
   }
-  // 3. Depuis le README généré
-  const readmeFile = currentFiles.find(f => f.path === 'README.md');
-  if (readmeFile) {
-    const match = (readmeFile.content || '').match(/^#\s+(.+)/m);
-    if (match) return match[1].trim().replace(/[^a-zA-Z0-9-_]/g, '-').substring(0, 30);
+  // titre du projet (émis avec le jalon « architect »)
+  const arch=R.events.find(e=>e.stage==='architect'&&e.extra&&e.extra.project_name);
+  if(arch)R.title=arch.extra.project_name;
+  // ressources détectées -> détail de l'étape « domaine »
+  if(arch&&arch.extra.resources&&map.normalizer){map.normalizer.resources=arch.extra.resources;}
+  // appels LLM rattachés à leur étape
+  R.llm.forEach(c=>{const s=AGENT_STAGE[c.agent];if(s&&map[s]){(map[s].calls=map[s].calls||[]).push(c);}});
+  return map;
+}
+function tagFor(state){
+  return {done:'<span class="tag t-ok">Terminé</span>',run:'<span class="tag t-run">En cours</span>',wait:'<span class="tag t-wait">En attente</span>',fail:'<span class="tag t-err">Échec</span>',stop:'<span class="tag t-err">Bloqué</span>',skip:'<span class="tag t-skip">Non exécuté</span>'}[state]||'';
+}
+function stageDetail(s,m){
+  const rows=[];
+  if(m.resources&&m.resources.length)rows.push(['Ressources détectées',m.resources.join(', ')]);
+  if(m.extra&&m.extra.stores&&m.extra.stores.length&&s==='backend')rows.push(['Stores reçus',m.extra.stores.join(', ')]);
+  if(m.extra&&m.extra.files!=null&&s==='frontend')rows.push(['Fichiers backend',m.extra.files]);
+  if(m.status)rows.push(['Statut de l’agent',m.status]);
+  if(m.summary)rows.push(['Synthèse',m.summary]);
+  (m.calls||[]).forEach((c,i)=>{rows.push(['Appel LLM'+((m.calls.length>1)?' '+(i+1):''),(c.model||'modèle ?')+' · '+(c.provider==='tchavi'?'Tchavi':c.provider==='groq'?'Groq (secours gratuit)':c.provider)+' · '+fmtN(c.total_tokens)+' tokens'+(c.credits_remaining!=null?(' · solde '+fmtN(c.credits_remaining)):'')]);});
+  if(m.start)rows.push(['Début',new Date(m.start).toLocaleTimeString('fr-FR')]);
+  if(!rows.length)rows.push(['Information',m.state==='wait'?'Pas encore démarrée.':m.state==='skip'?'Étape non atteinte.':'Aucun détail transmis par cet agent.']);
+  return '<dl>'+rows.map(r=>'<dt>'+esc(r[0])+'</dt><dd>'+esc(r[1])+'</dd>').join('')+'</dl>';
+}
+function renderSheet(){
+  const sheet=$id('sheet'),rail=$id('rail');
+  if(!RUN){ // état vide : le parcours attendu, à titre d'information
+    const st=expectedStages({});
+    sheet.innerHTML=st.map((s,i)=>'<div class="srow wait"><div class="srow-main" style="cursor:default"><span class="num">'+String(i+1).padStart(2,'0')+'</span><span class="lbl">'+esc(STAGE_INFO[s].lbl)+'<small>'+esc(STAGE_INFO[s].sub)+'</small></span><span></span><span class="dur est">'+esc(typicalTxt(s))+'</span><span></span></div></div>').join('');
+    rail.classList.add('hidden');return;
   }
-  // 4. Fallback task_id
-  return currentTaskId || 'forge-ia';
+  const map=computeStages(),now=Date.now();
+  let doneN=0,runIdx=-1,reach=-1;
+  sheet.innerHTML=RUN.stages.map((s,i)=>{
+    const m=map[s],inf=STAGE_INFO[s]||{lbl:s,sub:''};
+    if(m.state==='done'){doneN++;reach=i;}
+    if(m.state==='run'){runIdx=i;reach=i;}
+    let dur='',cls='dur';
+    if(m.state==='done'||m.state==='fail'||m.state==='stop'){dur=(m.start&&m.end)?fmtDur(m.end-m.start):'';}
+    else if(m.state==='run'){dur=m.start?fmtDur(now-m.start):'…';}
+    else if(m.state==='wait'){const t=typicalTxt(s);dur=t;cls='dur est';}
+    let sub=inf.sub;
+    if(s==='normalizer'&&m.resources&&m.resources.length)sub=m.resources.length+' ressources : '+m.resources.join(', ');
+    else if(m.summary&&(m.state==='done'||m.state==='fail'))sub=m.summary;
+    const open=RUN.open[s]?' open':'';
+    return '<div class="srow '+m.state+open+'" data-stage="'+s+'"><button class="srow-main" onclick="toggleRow(\''+s+'\')" aria-expanded="'+(open?'true':'false')+'"><span class="num">'+String(i+1).padStart(2,'0')+'</span><span class="lbl">'+esc(inf.lbl)+'<small>'+esc(sub)+'</small></span><span>'+tagFor(m.state)+'</span><span class="'+cls+'">'+esc(dur)+'</span><span class="chev" aria-hidden="true">›</span></button><div class="srow-detail">'+stageDetail(s,m)+'</div></div>';
+  }).join('');
+  // rail
+  const n=RUN.stages.length;
+  rail.style.gridTemplateColumns='repeat('+n+',1fr)';rail.style.setProperty('--n',n);
+  // stations centrées en (i+0,5)/n : le filet vert va du 1er centre à la dernière station atteinte
+  rail.innerHTML='<span class="fill" style="left:'+(50/n)+'%;width:'+(reach>0?(reach/n*100):0)+'%"></span>'+RUN.stages.map(s=>{const m=map[s];return '<div class="st '+(m.state==='done'?'done':m.state==='run'?'run':(m.state==='fail'||m.state==='stop')?'fail':m.state==='skip'?'skip':'')+'"><i></i>'+esc((STAGE_INFO[s]||{short:s}).short)+'</div>';}).join('');
+  rail.classList.toggle('hidden',!RUN.tracked);
+  // en-tête
+  if(RUN.title){$id('run-title').textContent=RUN.title;}
+  const runS=runIdx>=0?RUN.stages[runIdx]:null;
+  $id('m-step').textContent=runS?((runIdx+1)+' / '+n):(RUN.done?(doneN+' / '+n):'—');
+  const st=$id('run-status');
+  if(RUN.failed)st.innerHTML='<b>Arrêté</b> — '+esc(RUN.failed);
+  else if(RUN.done)st.innerHTML='<b>Terminé</b> en '+esc(fmtDur(now-RUN.start));
+  else if(runS)st.innerHTML='<b>'+esc(STAGE_INFO[runS].lbl)+'</b> — '+esc(STAGE_INFO[runS].sub);
+  else st.textContent=RUN.tracked?'En attente du prochain jalon…':'Pipeline lancé, en attente du premier jalon…';
+  document.title=(RUN.done?(RUN.failed?'Échec':'Terminé'):(runS?STAGE_INFO[runS].short:'En cours'))+' — Forge';
+}
+function typicalTxt(s){const t=RUN&&RUN.typical?RUN.typical[s]:(window._typical||{})[s];return t?('≈ '+fmtDur(t)):'';}
+function toggleRow(s){if(!RUN)return;RUN.open[s]=!RUN.open[s];renderSheet();}
+function updateCost(){
+  if(!RUN)return;
+  const c=RUN.llm.filter(x=>x.credits_remaining!=null);
+  const delta=(c.length&&RUN.creditsStart!=null)?(RUN.creditsStart-c[c.length-1].credits_remaining):0;
+  if(delta>0){$id('m-cost').textContent='−'+fmtN(delta)+' cr';}
+  else{const tok=RUN.llm.reduce((a,x)=>a+(x.total_tokens||0),0);$id('m-cost').textContent=tok?(fmtN(tok)+' tok'):'—';}
 }
 
-function getProjectVersion() {
-  // 1. Essayer depuis le README généré (ex: "Version : 1.1")
-  const readmeFile = currentFiles.find(f => f.path === 'README.md');
-  if (readmeFile) {
-    const vMatch = (readmeFile.content || '').match(/[Vv]ersion\s*:?\s*(\d+\.\d+)/);
-    if (vMatch) return 'v' + vMatch[1];
-  }
-  // 2. Essayer depuis le ZIP d'amélioration uploadé (ex: DiaspoKoli-v1.0.zip)
-  if (improveZipData && improveZipData.filename) {
-    const vMatch = improveZipData.filename.match(/[vV](\d+\.\d+)/);
-    if (vMatch) {
-      const [major, minor] = vMatch[1].split('.').map(Number);
-      return 'v' + major + '.' + (minor + 1);
-    }
-  }
-  // 3. Compter dans l'historique
-  const name = getProjectName();
-  const h = getHistory();
-  const sameProject = h.filter(item => item.id !== currentTaskId &&
-    (item.project_name || item.summary || '').toLowerCase().includes(name.toLowerCase().substring(0, 8)));
-  const versionNum = sameProject.length + 1;
-  return 'v' + versionNum + '.0';
-}
-
-async function dlSpecificLauncher(){
-  const rawName = currentZipName || ('ForgeIA-' + getProjectName() + '-' + getProjectVersion());
-  const zipName = (rawName.startsWith('ForgeIA-') ? rawName : 'ForgeIA-'+rawName).replace(/\.zip$/,'');
-  try {
-    const resp = await fetch('/api/specific-launcher?zipname=' + encodeURIComponent(zipName));
-    if (!resp.ok) throw new Error('Erreur ' + resp.status);
-    const blob = await resp.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = zipName + '-launcher.bat';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  } catch(e) {
-    alert('Erreur launcher : ' + e.message);
-  }
-}
-
-async function dlZip(){
-  if(!currentFiles.length){alert('Aucun fichier à télécharger');return;}
-  try{
-    const projectName=getProjectName();
-    const version=getProjectVersion();
-    const rawName = currentZipName || (projectName+'-'+version);
-    const filename = rawName.startsWith('ForgeIA-') ? rawName : 'ForgeIA-'+rawName;
-    const r=await fetch('/api/create-zip',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({files:currentFiles,filename})});
-    if(!r.ok)throw new Error('Erreur serveur '+r.status);
-    const blob=await r.blob();
-    const a=document.createElement('a');
-    a.href=URL.createObjectURL(blob);
-    a.download=filename+'.zip';
-    a.click();
-  }catch(e){
-    console.error('dlZip error:',e.message);
-    alert('Erreur ZIP: '+e.message);
-  }
-}
-
-// ── Deploy / Improve ───────────────────────────────────────────────────────
-async function deployApp(){
-  const btn=document.getElementById('btn-deploy');if(!btn||!currentFiles.length)return;
-  btn.disabled=true;btn.textContent='⏳ Déploiement...';
-  document.getElementById('deploy-result').innerHTML='<div class="deploy-card" style="color:var(--muted)">⏳ Déploiement en cours...</div>';
-  try{
-    function _slug(s){return String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'-').replace(/-+/g,'-').replace(/^-+|-+$/g,'').substring(0,30);}
-    let _appName=_slug((typeof getProjectName==='function'&&getProjectName())||'');
-    // Nom générique/mauvais -> on demande à l'utilisateur (pré-rempli)
-    if(!_appName||_appName==='app'||_appName==='forge-ia'||_appName==='api-api'||/^task/.test(_appName)||/^proj-\d/.test(_appName)){
-      _appName=_slug(prompt('Nom pour cette app déployée :', _appName||'mon-app')||_appName||'app')||'app';
-    }
-    const _res=await apiFetchJson(DEPLOY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task_id:currentTaskId,app_name:_appName,files:currentFiles})});
-    const d=_res.data;
-    if(d.success){btn.textContent='✅ Déployé !';btn.style.background='#059669';deployedAppName=d.app_name||d.name;const ib=document.getElementById('btn-improve');if(ib)ib.style.display='inline-block';loadApps();
-      let _scan='';
-      if(d.scan){var s=d.scan;var _c=s.dast_status==='PASS'?'var(--success)':(s.dast_status==='FAIL'?'var(--danger)':'var(--warning)');
-        _scan=`<div style="margin-top:10px;border-top:1px solid rgba(255,255,255,.08);padding-top:8px">
-          <div style="font-size:11px;color:var(--muted);margin-bottom:4px">🛡️ Scan dynamique (DAST) — sur l'app en ligne</div>
-          <div>Sécurité : <strong style="color:${_c}">${esc(s.dast_status||'?')}</strong> · score ${s.dast_score}/100 · ${s.findings} finding(s)</div>
-          <div style="color:var(--muted);font-size:11px">Monitoring : ${esc(s.monitoring||'?')} · latence ${s.latency_ms}ms · uptime ${s.uptime_s}s</div>
-          ${s.supply_chain?(function(){var sc=s.supply_chain,scc=sc.status==='PASS'?'var(--success)':(sc.status==='FAIL'?'var(--danger)':'var(--warning)'),v=sc.vulnerabilities||{};return '<div style="color:var(--muted);font-size:11px">📦 Validation externe (npm audit, registre officiel) : <strong style="color:'+scc+'">'+esc(sc.status)+'</strong>'+(sc.vulnerabilities?(' · '+ (v.critical||0)+' crit., '+(v.high||0)+' hautes, '+(v.total||0)+' au total'):'')+'</div>';})():''}
-          ${s.verdict?('<div style="margin-top:4px">Verdict validation : <strong style="color:'+(s.verdict==='PASS'?'var(--success)':(s.verdict==='FAIL'?'var(--danger)':'var(--warning)'))+'">'+esc(s.verdict)+'</strong></div>'):''}
-          ${(s.top_findings&&s.top_findings.length)?('<ul style="margin:6px 0 0;padding-left:16px;font-size:11px;color:var(--warning)">'+s.top_findings.map(function(f){return '<li>['+esc(f.severity)+'] '+esc(f.message)+'</li>';}).join('')+'</ul>'):''}
-        </div>`;}
-      document.getElementById('deploy-result').innerHTML=`<div class="deploy-card"><div style="color:var(--success);font-weight:bold;margin-bottom:8px">✅ Application déployée — ${esc(d.app_name||d.name||'')}</div><div>🌐 <a href="${d.url}" target="_blank">${d.url}</a></div><div>❤️ <a href="${d.health_url}" target="_blank">${d.health_url}</a></div><div style="color:var(--muted)">📁 ${d.files_deployed} fichiers · port ${d.port} · itération ${d.iteration||1}</div>${_scan}</div>`;}
-    else{btn.textContent='❌ Erreur';btn.disabled=false;document.getElementById('deploy-result').innerHTML=_dataErrBox(d);}
-  }catch(e){btn.textContent='❌ Erreur';btn.disabled=false;document.getElementById('deploy-result').innerHTML=_deployErrBox(e);}
-}
-async function improveApp(){
-  if(!deployedAppName){alert("Sélectionnez d'abord une app.");return;}
-  if(!currentFiles.length){alert("Générez d'abord du code.");return;}
-  const btn=document.getElementById('btn-improve');btn.disabled=true;btn.textContent='⏳ Amélioration...';
-  document.getElementById('deploy-result').innerHTML='<div class="deploy-card" style="color:var(--muted)">⏳ Amélioration...</div>';
-  try{
-    const _res=await apiFetchJson(IMPROVE_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({app_name:deployedAppName,task_id:currentTaskId,files:currentFiles})});
-    const d=_res.data;
-    if(d.success){btn.disabled=false;btn.textContent='🔧 Améliorer encore';btn.style.background='#0891b2';document.getElementById('deploy-result').innerHTML=`<div class="deploy-card"><div style="color:var(--accent2);font-weight:bold;margin-bottom:8px">✅ Amélioré — itération ${d.iteration}</div><div>🌐 <a href="${d.url}" target="_blank">${d.url}</a></div><div style="font-size:11px;color:var(--muted);margin-top:8px">Ré-améliorable sans limite. Pour <strong>voir le diff et des propositions</strong>, utilise l'onglet « 🔧 Améliorer » ou les boutons « ✨ Appliquer » du panneau de résultat.</div></div>`;loadApps();}
-    else{btn.textContent='❌ Erreur';btn.disabled=false;document.getElementById('deploy-result').innerHTML=_dataErrBox(d);}
-  }catch(e){btn.textContent='❌ Erreur';btn.disabled=false;document.getElementById('deploy-result').innerHTML=_deployErrBox(e);}
-}
-
-// ── Apps ───────────────────────────────────────────────────────────────────
-async function loadApps(){
-  try{
-    const r=await fetch('/api/apps');const d=await r.json();
-    const sec=document.getElementById('apps-section'),list=document.getElementById('apps-list');
-    if(!d.apps?.length){sec.style.display='none';return;}
-    sec.style.display='block';
-    list.innerHTML=d.apps.map(a=>`<div class="app-item"><div><span style="color:var(--text)">${a.name}</span><span class="iter-badge">v${a.iteration||1}</span></div><div style="display:flex;gap:6px;align-items:center"><span class="app-status ${a.status==='online'?'online':'offline'}">${a.status}</span>${a.url?`<a href="${a.url}" target="_blank" style="color:var(--accent2);font-size:10px">↗</a>`:''}<button onclick="selectApp('${a.name}')" style="background:var(--accent);border:none;color:white;padding:2px 8px;border-radius:6px;font-size:10px;cursor:pointer">Sélect.</button><button onclick="deleteApp('${a.name}')" style="background:var(--danger);border:none;color:white;padding:2px 8px;border-radius:6px;font-size:10px;cursor:pointer">✕</button></div></div>`).join('');
-  }catch(e){}
-}
-function selectApp(n){deployedAppName=n;const b=document.getElementById('btn-improve');if(b)b.style.display='inline-block';}
-async function deleteApp(n){if(!confirm('Supprimer '+n+' ?'))return;try{const r=await fetch('/api/apps/'+n,{method:'DELETE'});const d=await r.json();if(d.success){if(deployedAppName===n)deployedAppName=null;loadApps();}else alert('Erreur : '+(d.error||'?'));}catch(e){alert('Erreur : '+e.message);}}
-
-// ── Render ─────────────────────────────────────────────────────────────────
-function extractProjectNameFromFiles(files) {
-  if (!files || !files.length) return null;
-  const readme = files.find(f => f.path === 'README.md');
-  if (readme) {
-    const match = (readme.content || '').match(/^#\s+(.+)/m);
-    if (match) return match[1].trim().replace(/[^a-zA-Z0-9-_ ]/g, '').trim().substring(0, 40);
-  }
-  return null;
-}
-
-var currentProjectName = null;
-
-function renderResult(data,elapsed){
-  // Extraire le nom du projet dès réception des fichiers
-  const files=(data.results?.files)||[];
-  if (data.zip_name && data.zip_name.length > 2) {
-    currentZipName = data.zip_name.startsWith('ForgeIA-') ? data.zip_name : 'ForgeIA-' + data.zip_name.replace(/^MVP-/,'');
-    const _pn = currentZipName.replace(/^ForgeIA-/,'').replace(/-v[0-9_]+$/,'');
-    if (_pn.length > 1) currentProjectName = _pn;
-  } else {
-    const extractedName = extractProjectNameFromFiles(files);
-    if (extractedName) currentProjectName = extractedName;
-    currentZipName = 'ForgeIA-' + (currentProjectName||'app').replace(/[^a-zA-Z0-9]/g,'-') + '-v1.0';
-  }
-  document.getElementById('result-empty').style.display='none';
-  document.getElementById('result-content').style.display='block';
-  currentFiles=files;currentTaskId=data.task_id||'forge-ia-'+Date.now();
-  const dec=data.decision||'';
-  const bClass=data.success?'success':(dec==='REWORK'?'warning':'error');
-  const bLabel=data.success?'✓ SUCCÈS':(dec==='REWORK'?'↩ REWORK':'✗ STOP');
-  let blockHtml='';
-  if(data.blocking_reasons?.length)blockHtml=`<div class="result-card"><strong>Raisons de blocage</strong>${data.blocking_reasons.map(r=>`<div style="color:var(--danger);font-size:12px;margin:4px 0">▸ ${esc(r)}</div>`).join('')}</div>`;
-  // Les champs suggestions/improvements/planned sont émis par l'orchestrateur
-  // SOUS data.results (comme files). Fallback top-level pour compat/restore.
-  const R = data.results || data;
-  let improveHtml='';
-  if(R.improvements){
-    const im=R.improvements;
-    const addTxt=(im.added&&im.added.length)?im.added.map(x=>`<span style="color:#16a34a;font-weight:700">+ ${esc(x)}</span>`).join('  '):'aucune nouvelle ressource';
-    const keepTxt=(im.unchanged&&im.unchanged.length)?im.unchanged.map(esc).join(', '):'—';
-    const filesTxt=(im.files_added&&im.files_added.length)?`<div style="margin-top:6px;font-size:10px;color:var(--muted);font-family:var(--mono)">${im.files_added.map(esc).join('<br>')}</div>`:'';
-    improveHtml=`<div class="result-card"><strong>✨ Ce qui a été amélioré (mode différentiel)</strong><div style="font-size:12px;line-height:1.7"><div>Ajouté : ${addTxt}</div><div style="color:var(--muted)">Préservé : ${keepTxt}</div>${filesTxt}</div></div>`;
-  }
-  let filesHtml='';
-  if(files.length){
-    const tabs=files.map((f,i)=>`<button class="file-tab${i===0?' active':''}" onclick="showFile(${i})">${esc(f.path.split('/').pop())}</button>`).join('');
-    filesHtml=`<div class="result-card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><strong style="margin-bottom:0">Fichiers générés (${files.length})</strong><div><button class="btn-small btn-dl-zip" onclick="dlZip()" title="Télécharger l'application en .zip">⬇ ZIP</button><button class="btn-small btn-dl-zip" style="margin-left:4px;background:#6c47ff;" onclick="dlSpecificLauncher()" title="Script .bat qui installe et lance l'app sous Windows">⚡ Launcher</button></div></div><div class="file-tabs-scroll">${tabs}</div><div style="margin-top:10px;font-size:10px;font-family:var(--mono);color:var(--muted);margin-bottom:6px" id="current-fname">${esc(files[0].path)}</div><div class="file-content" id="file-viewer"></div><div class="btn-row"><button class="btn-small btn-dl-file" id="btn-dl-current">⬇ Ce fichier</button><button class="btn-small btn-deploy" id="btn-deploy" onclick="deployApp()">🚀 Déployer</button><button class="btn-small btn-improve" id="btn-improve" onclick="improveApp()" style="display:none">🔧 Améliorer</button></div><div id="deploy-result"></div></div>`;
-  }
-  window._planned = R.planned_not_implemented || [];
-  let backlogHtml='';
-  if(files.length){
-    const planned=window._planned;
-    backlogHtml=`<div class="result-card"><strong>📋 Prévu dans la spec — à implémenter${planned.length?` (${planned.length})`:''}</strong>`;
-    if(planned.length){
-      backlogHtml+=`<div style="display:flex;flex-direction:column;gap:6px;margin:6px 0 10px">`+planned.map((r,idx)=>{const nm=esc(r.store_name||r.name||'');const fc=Object.keys(r.fields||{}).length;return `<div style="display:flex;align-items:center;gap:8px;font-size:12px"><button class="btn-small" style="background:#16a34a" onclick="applyPlanned(${idx})">➕ Ajouter</button><span>${nm}${fc?` <span style=\"color:var(--muted)\">(${fc} champ${fc>1?'s':''})</span>`:''}</span></div>`;}).join('')+`</div>`;
-    } else {
-      backlogHtml+=`<div style="font-size:11px;color:var(--muted);margin:6px 0 8px">✓ Toutes les ressources prévues par la spec sont implémentées.</div>`;
-    }
-    backlogHtml+=`<div style="display:flex;gap:8px;align-items:center;border-top:1px solid var(--border);padding-top:10px"><input id="custom-add" placeholder="Ajouter une fonctionnalité NON prévue (ex: ressource avis avec note number)" style="flex:1;padding:8px;font-size:12px;border-radius:8px"><button class="btn-small" style="background:#6c47ff" onclick="applyCustom()">➕ Ajouter</button></div></div>`;
-  }
-  // Propositions d'amélioration déterministes (après V1 ET V2) — cliquer applique
-  // l'amélioration sur l'app courante (sans re-upload du ZIP).
-  window._suggestions = R.suggestions || [];
-  let suggestHtml='';
-  if(files.length && window._suggestions.length){
-    const _ic={champs:'🧩',relation:'🔗',statut:'🏷️'};
-    const _isImprove=!!R.improvements;
-    suggestHtml=`<div class="result-card"><strong>💡 ${_isImprove?'Ce qui peut encore être amélioré':'Propositions d\'amélioration'} (${window._suggestions.length})</strong><div style="font-size:11px;color:var(--muted);margin:2px 0 10px">Suggestions déterministes déduites du modèle généré — clique pour appliquer sur l'app courante.</div><div style="display:flex;flex-direction:column;gap:6px">`+
-      window._suggestions.map((s,idx)=>`<div style="display:flex;align-items:center;gap:8px;font-size:12px"><button class="btn-small" style="background:#6c47ff" onclick="askApply(window._suggestions[${idx}].prompt, '${_ic[s.type]||'💡'} Amélioration proposée', esc(window._suggestions[${idx}].label))">✨ Appliquer</button><span>${_ic[s.type]||'•'} ${esc(s.label)}</span></div>`).join('')+
-      `</div></div>`;
-  }
-  if(files.length) _recordVersion(data);
-  const histHtml = files.length ? _histHtml() : '';
-  document.getElementById('result-content').innerHTML=`<div class="result-header"><span class="badge ${bClass}">${bLabel}</span><span class="result-meta">${elapsed}s · ${esc(data.task_id||'—')}</span></div><div class="result-card"><strong>Résumé</strong><div style="font-size:12px;line-height:1.6">${esc(data.summary||'—')}</div></div>${improveHtml}${histHtml}${blockHtml}${filesHtml}${suggestHtml}${backlogHtml}<button class="raw-toggle" onclick="document.getElementById('raw-out').classList.toggle('visible')">{ } JSON brut</button><pre class="raw" id="raw-out">${esc(JSON.stringify(data,null,2))}</pre>`;
-  if(files.length)showFile(0);
-}
-// Diagnostic client : erreurs purement front (formulaire, reseau local, timeout)
-function diagnoseClient(msg){
-  var s=String(msg||'').toLowerCase();
-  var R=[
-    {m:/(veuillez|fournis|décris|decris|manquante|sélectionner|selectionner|entrer une description)/,cause:"Entrée incomplète dans le formulaire.",fix:"Complète le champ signalé (description, fichier de specs, ou les 3 champs du mode Améliorer) puis relance."},
-    {m:/(failed to fetch|networkerror|load failed|err_connection)/,cause:"Le panneau n'a pas pu joindre son propre serveur /api.",fix:"Vérifie que le service ForgeIA tourne, puis recharge la page (Ctrl+Shift+R)."},
-    {m:/(delai depasse|délai|timeout)/,cause:"Aucune réponse du pipeline dans le temps imparti (20 min).",fix:"Le traitement continue peut-être côté n8n : ouvre l'Historique dans 1-2 min, ou regarde la dernière exécution dans n8n."}
-  ];
-  var h=R.find(function(x){return x.m.test(s);});
-  return h?{cause:h.cause,fix:h.fix}:null;
-}
-function renderError(msg, extra){
-  extra = extra || diagnoseClient(msg) || {};
-  document.getElementById('result-empty').style.display='none';
-  document.getElementById('result-content').style.display='block';
-  var html='<div class="result-header"><span class="badge error">✗ ERREUR</span>'+(extra.status?'<span class="result-meta">HTTP '+esc(extra.status)+'</span>':'')+(extra.elapsed_ms?'<span class="result-meta">'+(extra.elapsed_ms/1000).toFixed(1)+'s</span>':'')+'</div>';
-  html+='<div class="error-box">'+esc(msg)+'</div>';
-  if(extra.cause){html+='<div class="result-card" style="border-color:var(--warning)"><strong style="color:var(--warning)">⚠️ Cause probable</strong><div style="font-size:12px;line-height:1.65">'+esc(extra.cause)+'</div></div>';}
-  if(extra.fix){html+='<div class="result-card" style="border-color:var(--success)"><strong style="color:var(--success)">💡 Solution suggérée</strong><div style="font-size:12px;line-height:1.65">'+esc(extra.fix)+'</div></div>';}
-  if(extra.detail){html+='<button class="raw-toggle" onclick="document.getElementById(\'err-detail\').classList.toggle(\'visible\')">{ } Détails techniques</button><pre class="raw" id="err-detail">'+esc(extra.detail)+'</pre>';}
-  document.getElementById('result-content').innerHTML=html;
-}
-
-// ── Mode amélioration intelligent : aperçu avant application + historique ────
-var _impPending=null;
-function askApply(prompt, title, detail){
-  prompt=(prompt||'').trim(); if(!prompt){ renderError('Décris la fonctionnalité à ajouter.'); return; }
-  _impPending=prompt;
-  var ov=document.getElementById('imp-overlay');
-  if(!ov){
-    ov=document.createElement('div'); ov.id='imp-overlay';
-    ov.style.cssText='position:fixed;inset:0;background:rgba(10,14,25,.55);display:none;align-items:center;justify-content:center;z-index:2000;padding:20px';
-    ov.innerHTML='<div style="background:#fff;color:#1f2937;border-radius:14px;max-width:460px;width:100%;box-shadow:0 24px 60px rgba(0,0,0,.35);overflow:hidden"><div style="padding:16px 20px;border-bottom:1px solid var(--border,#e5e7eb);font-weight:700" id="imp-title"></div><div style="padding:16px 20px"><div id="imp-detail" style="font-size:13px;font-weight:600;margin-bottom:8px"></div><div style="font-size:11px;color:var(--muted,#6b7280);margin-bottom:10px">Appliqué à l\'app courante en mode différentiel (sans re-upload). Les fichiers existants sont préservés ; seul l\'incrément est ajouté puis re-vérifié (sécurité, Go/No-Go).</div><pre id="imp-prompt" style="background:#f6f7fb;border:1px solid var(--border,#e5e7eb);border-radius:8px;padding:10px;font-size:11px;white-space:pre-wrap;margin:0"></pre></div><div style="display:flex;gap:8px;justify-content:flex-end;padding:12px 20px;border-top:1px solid var(--border,#e5e7eb)"><button class="btn-small imp-cancel" style="background:#6b7280">Annuler</button><button class="btn-small imp-ok" style="background:#16a34a">✓ Confirmer &amp; lancer</button></div></div>';
-    document.body.appendChild(ov);
-    ov.addEventListener('click',function(e){ if(e.target===ov||e.target.classList.contains('imp-cancel')){ _impCancel(); } else if(e.target.classList.contains('imp-ok')){ _impConfirm(); } });
-    document.addEventListener('keydown',function(e){ if(e.key==='Escape') _impCancel(); });
-  }
-  document.getElementById('imp-title').textContent=title||'Amélioration';
-  document.getElementById('imp-detail').innerHTML=detail||'';
-  document.getElementById('imp-prompt').textContent=prompt;
-  ov.style.display='flex';
-}
-function _impCancel(){ var ov=document.getElementById('imp-overlay'); if(ov) ov.style.display='none'; _impPending=null; }
-function _impConfirm(){ var p=_impPending; var ov=document.getElementById('imp-overlay'); if(ov) ov.style.display='none'; _impPending=null; if(p) addResource(null,p); }
-function applyPlanned(idx){ var r=(window._planned||[])[idx]; if(!r) return; var flds=Object.keys(r.fields||{}); var prompt='Ajoute la ressource '+(r.store_name||r.name)+(flds.length?(' avec les champs '+flds.map(function(f){return f+' ('+r.fields[f]+')';}).join(', ')):'')+'.'; askApply(prompt, '📋 Ressource prévue par la spec', esc(r.store_name||r.name)+(flds.length?(' — '+flds.length+' champ(s)'):'')); }
-function applyCustom(){ var el=document.getElementById('custom-add'); var v=el?el.value:''; askApply(v, '➕ Ajout libre', esc((v||'').trim()||'(vide)')); }
-function _recordVersion(data){
-  try{
-    var R=data.results||data;
-    var isImp=!!R.improvements;
-    if(!isImp){ var _arch=R.architecture||(data.deliverable&&data.deliverable.architecture)||{}; var stores=_arch.stores||{}; window._impHist=[{n:1, added:Object.keys(stores), summary:'Génération initiale'}]; }
-    else { window._impHist=window._impHist||[{n:1,added:[],summary:'Génération initiale'}]; window._impHist.push({n:window._impHist.length+1, added:(R.improvements.added||[]), summary:'Amélioration différentielle'}); }
-  }catch(e){}
-}
-function _histHtml(){
-  var h=window._impHist||[]; if(h.length<1) return '';
-  var rows=h.map(function(v){ var add=(v.added&&v.added.length)?v.added.map(esc).join(', '):'—'; return '<div style="display:flex;gap:10px;align-items:flex-start;font-size:12px;padding:7px 0;border-bottom:1px solid var(--border,#eee)"><span class="badge success" style="flex-shrink:0">V'+v.n+'</span><div><div style="font-weight:600">'+esc(v.summary)+'</div><div style="color:var(--muted,#6b7280)">Ajouté : '+add+'</div></div></div>'; }).join('');
-  var rem=(window._suggestions&&window._suggestions.length)?window._suggestions.length:0;
-  return '<div class="result-card"><strong>🕓 Historique des versions ('+h.length+')</strong>'+rows+(rem?('<div style="padding-top:8px;font-size:12px;color:var(--muted,#6b7280)">Reste '+rem+' proposition(s) à explorer ci-dessous.</div>'):'')+'</div>';
-}
-
-// ── Run ────────────────────────────────────────────────────────────────────
-async function addResource(resObj, freeText){
-  if(isRunning)return;
-  if(!currentFiles||!currentFiles.length){renderError("Génère (ou charge) d'abord une application avant d'ajouter une ressource.");return;}
-  let prompt;
-  if(resObj){ var flds=Object.keys(resObj.fields||{}); prompt='Ajoute la ressource '+(resObj.store_name||resObj.name)+(flds.length?(' avec les champs '+flds.map(function(f){return f+' ('+resObj.fields[f]+')';}).join(', ')):'')+'.'; }
-  else { prompt=(freeText||'').trim(); if(!prompt){renderError('Décris la fonctionnalité à ajouter.');return;} }
-  let zj;
-  try{ const zr=await fetch('/api/zip-base64',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({files:currentFiles})}); zj=await zr.json(); }
-  catch(e){ renderError('Préparation du ZIP impossible : '+e.message); return; }
-  if(!zj||!zj.zip_base64){ renderError('Préparation du ZIP impossible.'); return; }
-  const base={task_id:'TASK-'+Date.now(),environment:document.getElementById('cfg-env').value,language:document.getElementById('cfg-lang').value,framework:document.getElementById('cfg-fw').value};
-  const nm=(typeof getProjectName==='function'&&getProjectName())||'app';
-  currentTab='improve';
-  runPipeline({...base, improve_mode:true, userRequest:prompt, improve_prompt:prompt, existing_zip_base64:zj.zip_base64, existing_zip_filename:nm+'.zip'});
-}
+// ════════════════════════════════════════════════════════════════════════
+//  Lancement
+// ════════════════════════════════════════════════════════════════════════
 async function runPipeline(overridePayload){
   if(isRunning)return;
   let payload;
-  if(overridePayload){ payload=overridePayload; }
-  else { try{payload=buildPayload();}catch(e){renderError(e.message);return;} }
+  if(overridePayload)payload=overridePayload;
+  else{try{payload=buildPayload();}catch(e){toast(e.message);return;}}
   isRunning=true;
-  const btn=document.getElementById('btn-launch'),sp=document.getElementById('spinner'),bt=document.getElementById('btn-text');
-  btn.disabled=true;sp.classList.add('active');bt.textContent='Génération en cours...';
-  document.getElementById('progress-bar').classList.add('active');
-  document.getElementById('result-empty').style.display='flex';
-  document.getElementById('result-content').style.display='none';
-  document.getElementById('result-content').innerHTML='';
-  currentFiles=[];
-  startSteps(payload.improve_mode?'improve':currentTab);
-  const start=Date.now();
+  try{if(window.Notification&&Notification.permission==='default')Notification.requestPermission();}catch(e){}
+  const btn=$id('btn-launch');btn.disabled=true;$id('btn-text').textContent='Génération en cours…';
+  newRun(payload);
+  RUN.creditsStart=(window._credits&&window._credits.credits_remaining!=null)?window._credits.credits_remaining:null;
+  $id('deliv').innerHTML='';$id('idle-copy').classList.add('hidden');$id('run-meta').classList.remove('hidden');
+  $id('run-title').classList.remove('idle');$id('run-title').textContent=payload.improve_mode?'Amélioration de l’application':'Nouvelle génération';
+  $id('run-id').textContent=payload.task_id;$id('untracked').classList.add('hidden');$id('bar-ind').classList.remove('hidden');
+  try{const r=await fetch('/api/progress/__typical__');const d=await r.json();RUN.typical=d.typical||{};}catch(e){}
+  renderSheet();
+  clearInterval(_tick);_tick=setInterval(()=>{if(!RUN)return;$id('m-elapsed').textContent=clock(Date.now()-RUN.start);renderSheet();},1000);
   try{
-    // 1. Lancer le pipeline (réponse immédiate avec task_id)
     const r=await fetch(PIPELINE_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-    const init=await r.json();
-    if(init.error)throw new Error(init.error);
-    const taskId=init.task_id||payload.task_id;
-    // 2. Polling toutes les 5s jusqu'à résultat (max 20 minutes)
-    const MAX=240;
-    for(let i=0;i<MAX;i++){
-      await new Promise(ok=>setTimeout(ok,5000));
+    const init=await r.json();if(init.error)throw new Error(init.error);
+    const taskId=init.task_id||payload.task_id;RUN.task=taskId;
+    const DEADLINE=Date.now()+20*60*1000;
+    while(Date.now()<DEADLINE){
+      await new Promise(ok=>setTimeout(ok,2000));
       try{
-        const pr=await fetch('/api/result/'+taskId);
-        const pd=await pr.json();
-        if(pd.error){finishSteps(false);renderError(pd.error,{cause:pd.cause,fix:pd.fix,detail:pd.detail,status:pd.status,elapsed_ms:pd.elapsed_ms});return;}
+        const pg=await (await fetch('/api/progress/'+encodeURIComponent(taskId))).json();
+        if(pg.events&&pg.events.length){RUN.events=pg.events;RUN.tracked=true;$id('bar-ind').classList.add('hidden');}
+        RUN.llm=pg.llm||RUN.llm;RUN.typical=pg.typical||RUN.typical;
+        if(!RUN.tracked&&Date.now()-RUN.start>45000)$id('untracked').classList.remove('hidden');
+        updateCost();
+        const pd=await (await fetch('/api/result/'+encodeURIComponent(taskId))).json();
+        if(pd.error){finish(false,pd.error);renderError(pd.error,{cause:pd.cause,fix:pd.fix,detail:pd.detail,status:pd.status,elapsed_ms:pd.elapsed_ms});return;}
         if(!pd.pending&&pd.data){
-          const elapsed=((Date.now()-start)/1000).toFixed(1);
-          finishSteps(pd.data.success);
-          renderResult(pd.data,elapsed);
-          if(pd.data.results?.files?.length)addToHistory(pd.data);
+          const ok=pd.data.decision!=='STOP'&&pd.data.success!==false;
+          finish(ok,ok?null:('Décision '+(pd.data.decision||'STOP')));
+          renderResult(pd.data,((Date.now()-RUN.start)/1000).toFixed(1));
+          if(pd.data.results&&pd.data.results.files&&pd.data.results.files.length)addToHistory(pd.data);
           return;
         }
       }catch(pe){if(pe.message&&pe.message!=='Failed to fetch')throw pe;}
     }
-    throw new Error('Delai depasse (20 min sans reponse du pipeline). Le traitement se poursuit peut-etre cote serveur — verifie l historique dans quelques instants, ou relance si le probleme persiste.');
-  }catch(e){finishSteps(false);renderError('Erreur pipeline : '+e.message);}
-  finally{refreshCredits();isRunning=false;btn.disabled=false;sp.classList.remove('active');bt.textContent='🚀 Générer';var _pb=document.getElementById('progress-bar');if(_pb)_pb.classList.remove('active');}
+    throw new Error('Délai dépassé : 20 minutes sans réponse du pipeline. Le traitement continue peut-être côté serveur — regarde l’historique dans quelques instants.');
+  }catch(e){finish(false,e.message);renderError('Erreur pipeline : '+e.message);}
+  finally{
+    isRunning=false;btn.disabled=false;$id('btn-text').textContent='Lancer la génération';$id('bar-ind').classList.add('hidden');
+    refreshCredits();loadApps(true);
+  }
 }
-// ── Crédits Tchavi : badge + détail (alimenté par la télémétrie des agents) ──
-let _credits=null;
-function _fmtN(n){return n==null?'—':Number(n).toLocaleString('fr-FR');}
-function _ago(ts){if(!ts)return '—';const m=Math.round((Date.now()-ts)/60000);return m<1?'à l’instant':m<60?('il y a '+m+' min'):('il y a '+Math.round(m/60)+' h');}
+function finish(ok,reason){
+  if(!RUN)return;
+  RUN.done=true;if(!ok)RUN.failed=reason||'Échec';
+  clearInterval(_tick);renderSheet();
+  try{if(document.hidden&&window.Notification&&Notification.permission==='granted')new Notification('Forge — '+(ok?'génération terminée':'génération arrêtée'),{body:RUN.title||RUN.task});}catch(e){}
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  Livrable
+// ════════════════════════════════════════════════════════════════════════
+function extractProjectNameFromFiles(files){const rd=(files||[]).find(f=>f.path==='README.md');if(rd){const m=(rd.content||'').match(/^#\s+(.+)/m);if(m)return m[1].trim().replace(/[^a-zA-Z0-9-_ ]/g,'').trim().substring(0,40);}return null;}
+const VERDICT_KEYS=[['qa','QA'],['sast','SAST'],['sca','SCA'],['secrets','Secrets'],['dast','DAST']];
+function statusTag(s){
+  const u=String(s||'').toUpperCase();
+  if(['PASS','OK','CONTINUE','APPROVED'].includes(u))return '<span class="tag t-ok">'+esc(u)+'</span>';
+  if(['WARN','REWORK','NEEDSIMPROVEMENT','REVIEW'].includes(u))return '<span class="tag t-warn">'+esc(u==='NEEDSIMPROVEMENT'?'À AMÉLIORER':u)+'</span>';
+  if(['FAIL','STOP','ERROR','BLOCKED'].includes(u))return '<span class="tag t-err">'+esc(u)+'</span>';
+  return '<span class="tag t-wait">'+esc(u||'NON MESURÉ')+'</span>';
+}
+function renderResult(data,elapsed){
+  const files=(data.results&&data.results.files)||[];
+  if(data.zip_name&&data.zip_name.length>2){
+    currentZipName=data.zip_name.startsWith('ForgeIA-')?data.zip_name:'ForgeIA-'+data.zip_name.replace(/^MVP-/,'');
+    const pn=currentZipName.replace(/^ForgeIA-/,'').replace(/-v[0-9_]+$/,'');if(pn.length>1)currentProjectName=pn;
+  }else{const ex=extractProjectNameFromFiles(files);if(ex)currentProjectName=ex;currentZipName='ForgeIA-'+(currentProjectName||'app').replace(/[^a-zA-Z0-9]/g,'-')+'-v1.0';}
+  currentFiles=files;currentTaskId=data.task_id||'forge-'+Date.now();
+  const R=data.results||data;
+  const dec=String(data.decision||'').toUpperCase();
+  const ok=data.success!==false&&dec!=='STOP'&&dec!=='REWORK';
+  const word=dec==='STOP'?['Bloqué','err']:dec==='REWORK'?['À retravailler','warn']:ok?['Validé','ok']:['Échec','err'];
+  const pname=data.project_name||currentProjectName||(RUN&&RUN.title)||'Application';
+  if(RUN&&!RUN.title){RUN.title=pname;$id('run-title').textContent=pname;}
+  if(!RUN){$id('run-title').classList.remove('idle');$id('run-title').textContent=pname;$id('idle-copy').classList.add('hidden');}
+  const explain=dec==='STOP'?'Le Go/No-Go a bloqué le déploiement : corrige les points ci-dessous avant de relancer.':dec==='REWORK'?'Application générée, mais des points doivent être retravaillés avant un déploiement sûr.':'Application générée, vérifiée par les agents de sécurité et prête à être lancée.';
+  let h='<div class="sec deliv"><div class="sec-h"><span class="n">04</span><h2>Livrable</h2><span class="aside-r">'+esc(currentZipName||'')+'</span></div>';
+  h+='<div class="verdict"><div><div class="word '+word[1]+'">'+word[0]+'</div><p>'+esc(explain)+'</p></div><div class="facts">'+
+     '<div>Fichiers<b>'+files.length+'</b></div>'+(data.risk_score!=null?'<div>Risque<b>'+esc(data.risk_score)+'/100</b></div>':'')+(elapsed&&+elapsed>0?'<div>Durée<b>'+esc(fmtDur(elapsed*1000))+'</b></div>':'')+'</div></div>';
+  if(data.verdicts){
+    h+='<div class="matrix">'+VERDICT_KEYS.map(k=>{const v=data.verdicts[k[0]]||{};return '<div><div class="k">'+k[1]+'</div>'+statusTag(v.status)+'<div class="sc">'+(v.score!=null?('score '+esc(v.score)+'/100'):'score non mesuré')+'</div></div>';}).join('')+'</div>';
+  }
+  const reasons=(data.blocking_reasons||[]);
+  if(reasons.length)h+='<div class="block"><div class="block-h"><h3>Raisons du blocage</h3><span>'+reasons.length+'</span></div><ul class="list">'+reasons.map(r=>'<li><span class="mark-s" style="color:var(--err)">!</span><span>'+esc(r)+'</span></li>').join('')+'</ul></div>';
+  const warns=(data.gonogo_warnings||[]).filter(w=>!reasons.includes(w));
+  if(warns.length)h+='<div class="block"><div class="block-h"><h3>Points d’attention</h3><span>'+warns.length+'</span></div><ul class="list">'+warns.map(r=>'<li><span class="mark-s" style="color:var(--warn)">~</span><span>'+esc(r)+'</span></li>').join('')+'</ul></div>';
+  if(R.improvements){const im=R.improvements;
+    h+='<div class="block"><div class="block-h"><h3>Ce qui a changé</h3><span>mode différentiel</span></div><div class="card" style="margin-top:0"><div class="kv"><span>Ajouté</span><b>'+esc((im.added&&im.added.length)?im.added.join(', '):'aucune nouvelle ressource')+'</b></div><div class="kv"><span>Préservé</span><b>'+esc((im.unchanged&&im.unchanged.length)?im.unchanged.join(', '):'—')+'</b></div>'+((im.files_added&&im.files_added.length)?'<div class="kv"><span>Fichiers</span><b>'+esc(im.files_added.join(', '))+'</b></div>':'')+'</div></div>';}
+  if(files.length){
+    h+='<div class="block"><div class="block-h"><h3>Fichiers</h3><span>'+files.length+' fichiers</span></div><div class="files"><nav class="ftree" id="ftree" aria-label="Fichiers générés">'+fileTree(files)+'</nav><div class="fview"><div class="fview-h"><span id="current-fname"></span><button class="btn sm" id="btn-dl-current">'+ICON.dl+'Ce fichier</button></div><pre id="file-viewer"></pre></div></div>'+
+       '<div class="actions"><button class="btn dark" onclick="dlZip()">'+ICON.dl+'Télécharger le ZIP</button><button class="btn" onclick="dlSpecificLauncher()" title="Script Windows qui installe et lance l’application">Lanceur Windows</button><button class="btn" id="btn-deploy" onclick="deployApp()">Déployer sur le serveur</button><button class="btn'+(deployedAppName?'':' hidden')+'" id="btn-improve" onclick="improveApp()">Mettre à jour l’app déployée</button></div><div id="deploy-result"></div></div>';
+  }
+  window._suggestions=R.suggestions||[];window._planned=R.planned_not_implemented||[];
+  if(files.length){
+    const typ={champs:'Champs',relation:'Relation',statut:'Statut'};
+    h+='<div class="block"><div class="block-h"><h3>'+(R.improvements?'Ce qui peut encore évoluer':'Propositions d’amélioration')+'</h3><span>déduites du modèle généré</span></div>';
+    if(window._suggestions.length)h+='<ul class="opts card" style="margin-top:0">'+window._suggestions.map((s,i)=>'<li><span><span class="typ">'+esc(typ[s.type]||'Idée')+'</span>'+esc(s.label)+'</span><button class="btn sm" onclick="askApply(window._suggestions['+i+'].prompt,\'Amélioration proposée\',window._suggestions['+i+'].label)">Appliquer</button></li>').join('')+'</ul>';
+    else h+='<p class="mute" style="font-size:14px">Aucune proposition automatique pour ce modèle.</p>';
+    h+='</div><div class="block"><div class="block-h"><h3>Prévu dans la spécification</h3><span>'+(window._planned.length?window._planned.length+' à implémenter':'tout est implémenté')+'</span></div>';
+    if(window._planned.length)h+='<ul class="opts card" style="margin-top:0">'+window._planned.map((r,i)=>{const fc=Object.keys(r.fields||{}).length;return '<li><span>'+esc(r.store_name||r.name||'')+(fc?' <span class="mute mono" style="font-size:12.5px">'+fc+' champ'+(fc>1?'s':'')+'</span>':'')+'</span><button class="btn sm" onclick="applyPlanned('+i+')">Ajouter</button></li>';}).join('')+'</ul>';
+    h+='<div class="row" style="margin-top:12px"><input class="field" id="custom-add" placeholder="Ajouter une fonctionnalité non prévue (ex. ressource avis avec note)"><button class="btn" onclick="applyCustom()">Ajouter</button></div></div>';
+    _recordVersion(data);h+=_histHtml();
+  }
+  h+='<div class="raw" id="raw"><button class="link" onclick="$id(\'raw\').classList.toggle(\'open\')">Réponse brute du pipeline (JSON)</button><pre>'+esc(JSON.stringify(data,null,2))+'</pre></div></div>';
+  $id('deliv').innerHTML=h;
+  if(files.length)showFile(0);
+  $id('hist-count').textContent=getHistory().length||'';
+}
+function fileTree(files){
+  const groups={};files.forEach((f,i)=>{const p=f.path.split('/');const dir=p.length>1?p.slice(0,-1).join('/'):'';(groups[dir]=groups[dir]||[]).push([i,p[p.length-1]]);});
+  return Object.keys(groups).sort((a,b)=>a===''?-1:b===''?1:a.localeCompare(b)).map(d=>(d?'<div class="dir">'+esc(d)+'/</div>':'')+groups[d].map(x=>'<button data-i="'+x[0]+'" onclick="showFile('+x[0]+')">'+esc(x[1])+'</button>').join('')).join('');
+}
+function cleanContent(c){return String(c||'').replace(/^\/\/ FILE:.*\n/,'').replace(/^<!-- FILE:.*-->\n/,'').replace(/^\/\* FILE:.*\*\/\n/,'');}
+function showFile(idx){
+  const f=currentFiles[idx];if(!f)return;
+  document.querySelectorAll('#ftree button').forEach(b=>b.setAttribute('aria-current',String(+b.dataset.i===idx)));
+  $id('file-viewer').textContent=cleanContent(f.content);$id('current-fname').textContent=f.path;$id('btn-dl-current').onclick=()=>dlFile(f);
+}
+function dlFile(f){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([cleanContent(f.content)],{type:'text/plain'}));a.download=f.path.split('/').pop();a.click();}
+function renderError(msg,extra){
+  const d=extra||diagnoseClient(msg)||{};
+  if(!RUN){$id('run-title').classList.remove('idle');$id('run-title').textContent='Échec';$id('idle-copy').classList.add('hidden');}
+  $id('deliv').innerHTML=errCard('Échec',msg,d.cause,d.fix,d.detail)+((d.status||d.elapsed_ms)?'<p class="small-out">'+(d.status?'HTTP '+esc(d.status)+' · ':'')+(d.elapsed_ms?fmtDur(d.elapsed_ms):'')+'</p>':'');
+}
+function diagnoseClient(msg){
+  const s=String(msg||'').toLowerCase();
+  const R=[
+    {m:/(décris|decris|sélectionne|selectionne|fournis)/,cause:'Entrée incomplète dans le formulaire.',fix:'Complète le champ signalé puis relance.'},
+    {m:/(failed to fetch|networkerror|load failed|err_connection)/,cause:'Le panel n’a pas pu joindre son propre serveur.',fix:'Vérifie que le service Forge tourne, puis recharge la page.'},
+    {m:/(délai|delai|timeout)/,cause:'Aucune réponse du pipeline dans le temps imparti (20 min).',fix:'Le traitement continue peut-être côté n8n : regarde l’historique dans 1 à 2 minutes, ou la dernière exécution dans n8n.'}
+  ];
+  const h=R.find(x=>x.m.test(s));return h?{cause:h.cause,fix:h.fix}:null;
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  Nom, version, téléchargements
+// ════════════════════════════════════════════════════════════════════════
+function getProjectName(){
+  if(currentProjectName)return currentProjectName.replace(/[^a-zA-Z0-9-_]/g,'-');
+  if(improveZipData&&improveZipData.filename){const n=improveZipData.filename.replace(/\.zip$/i,'').replace(/-v\d+[_.]\d+.*$/i,'').replace(/[^a-zA-Z0-9-_]/g,'-').substring(0,30);if(n.length>3)return n;}
+  const ex=extractProjectNameFromFiles(currentFiles);if(ex)return ex.replace(/[^a-zA-Z0-9-_]/g,'-').substring(0,30);
+  return currentTaskId||'forge';
+}
+function getProjectVersion(){
+  const rd=currentFiles.find(f=>f.path==='README.md');if(rd){const v=(rd.content||'').match(/[Vv]ersion\s*:?\s*(\d+\.\d+)/);if(v)return 'v'+v[1];}
+  if(improveZipData&&improveZipData.filename){const v=improveZipData.filename.match(/[vV](\d+\.\d+)/);if(v){const [a,b]=v[1].split('.').map(Number);return 'v'+a+'.'+(b+1);}}
+  const name=getProjectName();const same=getHistory().filter(it=>it.id!==currentTaskId&&(it.project_name||it.summary||'').toLowerCase().includes(name.toLowerCase().substring(0,8)));
+  return 'v'+(same.length+1)+'.0';
+}
+async function postBlob(url,body){const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error('Erreur serveur '+r.status);return r.blob();}
+function saveBlob(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),4000);}
+async function dlZip(){
+  if(!currentFiles.length){toast('Aucun fichier à télécharger.');return;}
+  try{const raw=currentZipName||(getProjectName()+'-'+getProjectVersion());const fn=raw.startsWith('ForgeIA-')?raw:'ForgeIA-'+raw;saveBlob(await postBlob('/api/create-zip',{files:currentFiles,filename:fn}),fn+'.zip');}
+  catch(e){toast('ZIP impossible : '+e.message);}
+}
+async function dlSpecificLauncher(){
+  const raw=currentZipName||('ForgeIA-'+getProjectName()+'-'+getProjectVersion());const zn=(raw.startsWith('ForgeIA-')?raw:'ForgeIA-'+raw).replace(/\.zip$/,'');
+  try{const r=await fetch('/api/specific-launcher?zipname='+encodeURIComponent(zn));if(!r.ok)throw new Error('Erreur '+r.status);saveBlob(await r.blob(),zn+'-launcher.bat');}
+  catch(e){toast('Lanceur impossible : '+e.message);}
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  Déploiement
+// ════════════════════════════════════════════════════════════════════════
+function scanHtml(s){
+  if(!s)return '';
+  let h='<div class="kv"><span>Analyse dynamique (DAST)</span><b>'+esc(s.dast_status||'?')+' · '+esc(s.dast_score)+'/100 · '+esc(s.findings)+' constat(s)</b></div>';
+  h+='<div class="kv"><span>Supervision</span><b>'+esc(s.monitoring||'?')+' · '+esc(s.latency_ms)+' ms · '+esc(s.uptime_s)+' s</b></div>';
+  if(s.supply_chain){const sc=s.supply_chain,v=sc.vulnerabilities||{};h+='<div class="kv"><span>npm audit (registre officiel)</span><b>'+esc(sc.status)+(sc.vulnerabilities?(' · '+(v.critical||0)+' crit. · '+(v.high||0)+' hautes'):'')+'</b></div>';}
+  if(s.verdict)h+='<div class="kv"><span>Verdict de validation</span><b>'+esc(s.verdict)+'</b></div>';
+  if(s.top_findings&&s.top_findings.length)h+='<ul class="list">'+s.top_findings.map(f=>'<li><span class="mark-s">'+esc(f.severity)+'</span><span>'+esc(f.message)+'</span></li>').join('')+'</ul>';
+  return h;
+}
+async function deployApp(){
+  const btn=$id('btn-deploy');if(!btn||!currentFiles.length)return;
+  btn.disabled=true;btn.textContent='Déploiement…';$id('deploy-result').innerHTML='<div class="card mute">Déploiement en cours…</div>';
+  try{
+    const slug=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'-').replace(/-+/g,'-').replace(/^-+|-+$/g,'').substring(0,30);
+    let appName=slug(getProjectName());
+    if(!appName||['app','forge','forge-ia','api-api','app-api'].includes(appName)||/^task/.test(appName)||/^proj-\d/.test(appName))appName=slug(prompt('Nom de l’application déployée :',appName||'mon-app')||appName||'app')||'app';
+    const d=(await apiFetchJson(DEPLOY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task_id:currentTaskId,app_name:appName,files:currentFiles})})).data;
+    if(d.success){
+      btn.textContent='Déployé';deployedAppName=d.app_name||d.name;$id('btn-improve').classList.remove('hidden');loadApps(true);
+      $id('deploy-result').innerHTML='<div class="card"><h4>Application déployée — '+esc(deployedAppName||'')+'</h4><div class="kv"><span>Adresse</span><b><a href="'+esc(d.url)+'" target="_blank" rel="noopener">'+esc(d.url)+'</a></b></div><div class="kv"><span>Santé</span><b><a href="'+esc(d.health_url)+'" target="_blank" rel="noopener">'+esc(d.health_url)+'</a></b></div><div class="kv"><span>Détails</span><b>'+esc(d.files_deployed)+' fichiers · port '+esc(d.port)+' · itération '+esc(d.iteration||1)+'</b></div>'+scanHtml(d.scan)+'</div>';
+    }else{btn.textContent='Réessayer le déploiement';btn.disabled=false;$id('deploy-result').innerHTML=errCard('Déploiement refusé',d.error||'Erreur',d.cause,d.fix,d.detail);}
+  }catch(e){btn.textContent='Réessayer le déploiement';btn.disabled=false;$id('deploy-result').innerHTML=errCard('Déploiement impossible',e.message,null,e.fix,e.snippet);}
+}
+async function improveApp(){
+  if(!deployedAppName){toast('Sélectionne d’abord une application déployée.');return;}
+  if(!currentFiles.length){toast('Génère d’abord une application.');return;}
+  const btn=$id('btn-improve');btn.disabled=true;btn.textContent='Mise à jour…';
+  try{
+    const d=(await apiFetchJson(IMPROVE_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({app_name:deployedAppName,task_id:currentTaskId,files:currentFiles})})).data;
+    btn.disabled=false;
+    if(d.success){btn.textContent='Mettre à jour à nouveau';$id('deploy-result').innerHTML='<div class="card"><h4>Mise à jour déployée — itération '+esc(d.iteration)+'</h4><div class="kv"><span>Adresse</span><b><a href="'+esc(d.url)+'" target="_blank" rel="noopener">'+esc(d.url)+'</a></b></div></div>';loadApps(true);}
+    else{btn.textContent='Réessayer';$id('deploy-result').innerHTML=errCard('Mise à jour refusée',d.error||'Erreur',d.cause,d.fix,d.detail);}
+  }catch(e){btn.disabled=false;btn.textContent='Réessayer';$id('deploy-result').innerHTML=errCard('Mise à jour impossible',e.message,null,e.fix,e.snippet);}
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  Applications
+// ════════════════════════════════════════════════════════════════════════
+async function loadApps(silent){
+  const list=$id('apps-list');
+  try{
+    const d=await (await fetch('/api/apps')).json();const apps=d.apps||[];
+    $id('apps-count').textContent=apps.length||'';
+    if(!apps.length){list.innerHTML='<p class="empty">Aucune application déployée pour l’instant. Déploie un livrable depuis la section 04.</p>';return;}
+    list.innerHTML='<table class="t"><thead><tr><th>Application</th><th>Itération</th><th>État</th><th class="hide-s">Adresse</th><th></th></tr></thead><tbody>'+apps.map(a=>{
+      const on=a.status==='online';const nm=esc(a.name);
+      return '<tr'+(a.name===deployedAppName?' class="cur"':'')+'><td><b>'+nm+'</b></td><td class="m">v'+esc(a.iteration||1)+'</td><td><span class="tag '+(on?'t-ok':'t-wait')+'">'+(on?'En ligne':'Arrêtée')+'</span></td><td class="m hide-s">'+(a.url?'<a href="'+esc(a.url)+'" target="_blank" rel="noopener">'+esc(a.url.replace(/^https?:\/\//,''))+'</a>':'—')+'</td><td><div class="act"><button class="btn sm" data-a="sel" data-n="'+nm+'">'+(a.name===deployedAppName?'Sélectionnée':'Sélectionner')+'</button><button class="btn sm danger" data-a="del" data-n="'+nm+'">Supprimer</button></div></td></tr>';
+    }).join('')+'</tbody></table>';
+    list.onclick=e=>{const b=e.target.closest('[data-a]');if(!b)return;const n=b.dataset.n;if(b.dataset.a==='sel')selectApp(n);else deleteApp(n);};
+  }catch(e){if(!silent)list.innerHTML='<p class="empty">Service de déploiement injoignable.</p>';}
+}
+function selectApp(n){deployedAppName=n;const b=$id('btn-improve');if(b)b.classList.remove('hidden');toast('« '+n+' » sélectionnée pour les mises à jour.');loadApps(true);}
+async function deleteApp(n){
+  if(!confirm('Supprimer l’application « '+n+' » du serveur ?'))return;
+  try{const d=await (await fetch('/api/apps/'+encodeURIComponent(n),{method:'DELETE'})).json();if(d.success){if(deployedAppName===n)deployedAppName=null;loadApps();toast('« '+n+' » supprimée.');}else toast('Erreur : '+(d.error||'inconnue'));}
+  catch(e){toast('Erreur : '+e.message);}
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  Historique (navigateur)
+// ════════════════════════════════════════════════════════════════════════
+function getHistory(){try{return JSON.parse(lsGet(HISTORY_KEY,'[]'))||[];}catch(e){return [];}}
+function saveHistory(h){lsSet(HISTORY_KEY,JSON.stringify(h));}
+function addToHistory(data){
+  const h=getHistory();let pn=data.project_name||'';
+  if(!pn){const rd=(data.results&&data.results.files||currentFiles||[]).find(f=>f.path==='README.md');if(rd){const m=(rd.content||'').match(/^#\s+(.+)/m);if(m)pn=m[1].trim().substring(0,40);}}
+  const R=data.results||data;
+  h.unshift({id:data.task_id||('PROJ-'+Date.now()),date:new Date().toISOString(),summary:data.summary||'Projet généré',project_name:pn,zip_name:currentZipName||('ForgeIA-'+pn.replace(/[^a-zA-Z0-9]/g,'-')+'-'+getProjectVersion()),version:getProjectVersion(),improve_mode:currentTab==='improve',decision:data.decision||'',files_count:currentFiles.length,input_type:currentTab,language:$id('cfg-lang').value,framework:$id('cfg-fw').value,files:currentFiles,suggestions:R.suggestions||[],planned:R.planned_not_implemented||[],improvements:R.improvements||null,blocking_reasons:data.blocking_reasons||[],verdicts:data.verdicts||null,risk_score:data.risk_score==null?null:data.risk_score});
+  while(h.length>50)h.pop();
+  try{saveHistory(h);}catch(e){h.splice(10);saveHistory(h);}
+  $id('hist-count').textContent=h.length||'';
+}
+function renderHistory(){
+  const h=getHistory(),list=$id('history-list');
+  $id('hist-count').textContent=h.length||'';
+  if(!h.length){list.innerHTML='<p class="empty">Aucun projet pour l’instant. Les générations réussies apparaîtront ici.</p>';return;}
+  const tree={};h.forEach((it,i)=>{const p=it.project_name||it.id||'Sans nom';(tree[p]=tree[p]||[]).push([it,i]);});
+  list.innerHTML=Object.keys(tree).map(p=>{
+    const vs=tree[p];const last=vs[0][0];
+    return '<div class="proj'+(vs.some(v=>v[0].id===currentTaskId)?' open':'')+'"><button class="proj-h" data-a="toggle"><b>'+esc(p)+'</b><span>'+vs.length+' version'+(vs.length>1?'s':'')+' · '+new Date(last.date).toLocaleDateString('fr-FR')+'</span><span class="chev" aria-hidden="true">›</span></button><div class="vers"><table class="t"><thead><tr><th>Version</th><th>Date</th><th class="hide-s">Type</th><th class="hide-s">Fichiers</th><th>Décision</th><th></th></tr></thead><tbody>'+
+      vs.map(([it,i])=>'<tr'+(it.id===currentTaskId?' class="cur"':'')+'><td class="m">'+esc(it.version||'—')+'</td><td class="m">'+new Date(it.date).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'})+'</td><td class="hide-s">'+((it.input_type==='improve'||it.improve_mode)?'Amélioration':'Génération')+'</td><td class="m hide-s">'+(it.files_count||0)+'</td><td>'+statusTag(it.decision||'—')+'</td><td><div class="act"><button class="btn sm" data-a="open" data-i="'+i+'">Ouvrir</button>'+((it.files&&it.files.length)?'<button class="btn sm" data-a="zip" data-i="'+i+'">ZIP</button>':'')+'<button class="btn sm danger" data-a="del" data-i="'+i+'">Supprimer</button></div></td></tr>').join('')+
+      '</tbody></table></div></div>';
+  }).join('');
+  list.onclick=e=>{
+    const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a,i=parseInt(b.dataset.i,10);
+    if(a==='toggle')b.parentElement.classList.toggle('open');
+    else if(a==='open')restoreHistory(i);else if(a==='zip')dlHistoryZip(i);else if(a==='del')delHistory(i);
+  };
+}
+function restoreHistory(i){
+  const it=getHistory()[i];if(!it)return;
+  RUN=null;clearInterval(_tick);currentFiles=it.files||[];currentTaskId=it.id;currentZipName=it.zip_name||null;currentProjectName=it.project_name||null;
+  go('gen');$id('run-meta').classList.add('hidden');$id('run-status').textContent='Version restaurée depuis l’historique — '+new Date(it.date).toLocaleString('fr-FR');$id('run-id').textContent=it.id;
+  renderSheet();$id('sheet').innerHTML='';
+  renderResult({success:it.decision!=='STOP',task_id:it.id,project_name:it.project_name,zip_name:it.zip_name,summary:it.summary,decision:it.decision,blocking_reasons:it.blocking_reasons||[],verdicts:it.verdicts||null,risk_score:it.risk_score,results:{files:it.files||[],suggestions:it.suggestions||[],planned_not_implemented:it.planned||[],improvements:it.improvements||undefined}},0);
+}
+async function dlHistoryZip(i){
+  const it=getHistory()[i];if(!it||!it.files||!it.files.length)return;
+  try{const rn=it.zip_name||((it.project_name||it.id||'projet')+'-'+(it.version||'v1.0'));const nm=rn.startsWith('ForgeIA-')?rn:'ForgeIA-'+rn;saveBlob(await postBlob('/api/create-zip',{files:it.files,filename:nm}),nm+'.zip');}
+  catch(e){toast('ZIP impossible : '+e.message);}
+}
+function delHistory(i){if(!confirm('Supprimer cette version de l’historique ?'))return;const h=getHistory();h.splice(i,1);saveHistory(h);renderHistory();}
+
+// ════════════════════════════════════════════════════════════════════════
+//  Amélioration guidée (aperçu avant lancement)
+// ════════════════════════════════════════════════════════════════════════
+let _impPending=null;
+function askApply(prompt,title,detail){
+  prompt=String(prompt||'').trim();if(!prompt){toast('Décris la fonctionnalité à ajouter.');return;}
+  _impPending=prompt;$id('imp-title').textContent=title||'Amélioration';$id('imp-detail').textContent=detail||'';$id('imp-prompt').textContent=prompt;
+  $id('imp-modal').classList.add('open');
+}
+function _impCancel(){$id('imp-modal').classList.remove('open');_impPending=null;}
+function _impConfirm(){const p=_impPending;_impCancel();if(p)addResource(null,p);}
+$id('imp-modal').addEventListener('click',e=>{if(e.target.id==='imp-modal')_impCancel();});
+function applyPlanned(i){const r=(window._planned||[])[i];if(!r)return;const fl=Object.keys(r.fields||{});askApply('Ajoute la ressource '+(r.store_name||r.name)+(fl.length?(' avec les champs '+fl.map(f=>f+' ('+r.fields[f]+')').join(', ')):'')+'.','Ressource prévue par la spécification',(r.store_name||r.name)+(fl.length?(' — '+fl.length+' champ(s)'):''));}
+function applyCustom(){const v=($id('custom-add')||{}).value||'';askApply(v,'Ajout libre',v.trim());}
+function _recordVersion(data){
+  try{const R=data.results||data;
+    if(!R.improvements){const st=((R.architecture||{}).stores)||{};window._impHist=[{n:1,added:Object.keys(st),summary:'Génération initiale'}];}
+    else{window._impHist=window._impHist||[{n:1,added:[],summary:'Génération initiale'}];window._impHist.push({n:window._impHist.length+1,added:R.improvements.added||[],summary:'Amélioration différentielle'});}
+  }catch(e){}
+}
+function _histHtml(){
+  const h=window._impHist||[];if(!h.length)return '';
+  return '<div class="block"><div class="block-h"><h3>Versions de cette session</h3><span>'+h.length+'</span></div><ul class="list">'+h.map(v=>'<li><span class="mark-s">V'+v.n+'</span><span><b>'+esc(v.summary)+'</b> — <span class="mute">ajouté : '+esc((v.added&&v.added.length)?v.added.join(', '):'—')+'</span></span></li>').join('')+'</ul></div>';
+}
+async function addResource(resObj,freeText){
+  if(isRunning)return;
+  if(!currentFiles||!currentFiles.length){toast('Génère (ou rouvre) d’abord une application.');return;}
+  let prompt=resObj?('Ajoute la ressource '+(resObj.store_name||resObj.name)+'.'):String(freeText||'').trim();
+  if(!prompt){toast('Décris la fonctionnalité à ajouter.');return;}
+  let zj;
+  try{zj=await (await fetch('/api/zip-base64',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({files:currentFiles})})).json();}
+  catch(e){toast('Préparation du ZIP impossible : '+e.message);return;}
+  if(!zj||!zj.zip_base64){toast('Préparation du ZIP impossible.');return;}
+  currentTab='improve';
+  runPipeline({...baseParams(),improve_mode:true,userRequest:prompt,improve_prompt:prompt,existing_zip_base64:zj.zip_base64,existing_zip_filename:getProjectName()+'.zip'});
+}
+
+// ════════════════════════════════════════════════════════════════════════
+//  Crédits Tchavi
+// ════════════════════════════════════════════════════════════════════════
+window._credits=null;
 async function refreshCredits(){
-  try{const r=await fetch('/api/credits');if(!r.ok)return;_credits=await r.json();}catch(e){return;}
-  const c=_credits,b=document.getElementById('credits-badge'),t=document.getElementById('credits-txt');
-  b.className='credits-badge '+(c.level||'unknown');
-  t.innerHTML=c.credits_remaining==null?'Crédits ?':('Crédits '+_fmtN(c.credits_remaining)+(c.est_generations_left!=null?('<span class="est"> · ≈'+Number(c.est_generations_left)+' gén.</span>'):''));
-  b.title='Crédits Tchavi restants — mis à jour '+_ago(c.credits_updated_at);
-  if(document.getElementById('credits-pop').classList.contains('open'))renderCreditsPop();
+  try{const r=await fetch('/api/credits');if(!r.ok)return;window._credits=await r.json();}catch(e){return;}
+  const c=window._credits;
+  $id('credits-led').className='led '+(c.level||'');
+  $id('credits-txt').innerHTML=c.credits_remaining==null?'Crédits ?':(fmtN(c.credits_remaining)+'<span class="long mute"> cr'+(c.est_generations_left!=null?(' · ≈ '+Number(c.est_generations_left)+' gén.'):'')+'</span>');
+  const ref=Math.max(c.thresholds?c.thresholds.warning*4:2000,c.credits_remaining||0);
+  $id('credits-meter').style.width=(c.credits_remaining==null?0:Math.min(100,(c.credits_remaining/ref)*100))+'%';
+  $id('credits-chip').title='Crédits Tchavi — mis à jour '+ago(c.credits_updated_at);
+  if($id('credits-pop').classList.contains('open'))renderCreditsPop();
 }
 function renderCreditsPop(){
-  const c=_credits||{},p=document.getElementById('credits-pop');
-  const lg=c.last_generation;
-  let hint='';
-  if(c.level==='critical')hint='⚠️ Solde critique. Le failover gratuit (Groq) prendra le relais si Tchavi refuse, avec une qualité moindre. Recharge tes crédits ou passe en profil rapide : <code>switch-llm.sh fast</code>.';
-  else if(c.level==='warning')hint='Solde bas : privilégie les générations nécessaires, ou le profil rapide (<code>switch-llm.sh fast</code>, ~2× moins cher).';
-  else if(c.level==='unknown')hint='Solde inconnu : il s’affichera après le prochain appel LLM, ou saisis-le ci-dessous depuis ton tableau de bord Tchavi.';
-  if(c.failover_used_24h)hint+=(hint?'<br>':'')+'ℹ️ Le failover gratuit a été utilisé dans les dernières 24 h (crédits Tchavi épuisés ou indisponibilité).';
-  const gens=(c.generations||[]).map(g=>'<div>'+new Date(g.started_at).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'})+' · '+(g.ok?'✓':'✗')+' · '+(g.consumed!=null?('−'+_fmtN(g.consumed)+' cr'):'? cr')+' · '+_fmtN(g.tokens)+' tok · '+(g.providers||[]).join('/')+'</div>').join('')||'<div style="color:var(--muted)">Aucune génération suivie pour l’instant.</div>';
-  p.innerHTML='<h4>💳 Crédits Tchavi</h4>'+
-    '<div class="row"><span>Solde</span><strong>'+_fmtN(c.credits_remaining)+'</strong></div>'+
-    '<div class="row"><span>Source</span><span>'+(c.credits_source==='manual'?'saisie manuelle':c.credits_source==='llm'?'réponse LLM':'—')+' · '+_ago(c.credits_updated_at)+'</span></div>'+
-    '<div class="row"><span>Moyenne / génération</span><span>'+(c.avg_credits_per_generation!=null?(_fmtN(c.avg_credits_per_generation)+' cr'):'—')+'</span></div>'+
-    '<div class="row"><span>Générations restantes (est.)</span><span>'+(c.est_generations_left!=null?('≈ '+c.est_generations_left):'—')+'</span></div>'+
-    '<div class="row"><span>Dernière génération</span><span>'+(lg?((lg.consumed!=null?('−'+_fmtN(lg.consumed)+' cr · '):'')+_fmtN(lg.tokens)+' tokens'):'—')+'</span></div>'+
-    (hint?'<div class="hint">'+hint+'</div>':'')+
-    '<div class="gens">'+gens+'</div>'+
-    '<div class="set"><input id="credits-input" type="number" min="0" placeholder="Corriger le solde (ex. 3040)"><button onclick="setCreditsManual()">Enregistrer</button></div>';
+  const c=window._credits||{},lg=c.last_generation;let note='';
+  if(c.level==='critical')note='Solde critique. Si Tchavi refuse un appel, le secours gratuit (Groq) prend le relais avec une qualité moindre. Recharge, ou passe en profil rapide : <code>switch-llm.sh fast</code>.';
+  else if(c.level==='warning')note='Solde bas : réserve-le aux générations utiles, ou utilise le profil rapide (<code>switch-llm.sh fast</code>), environ deux fois moins cher.';
+  else if(c.level==='unknown')note='Solde inconnu : il s’affichera après le prochain appel LLM, ou saisis-le ci-dessous depuis ton tableau de bord Tchavi.';
+  if(c.failover_used_24h)note+=(note?'<br>':'')+'Le secours gratuit a servi dans les dernières 24 h.';
+  const gens=(c.generations||[]).map(g=>'<div>'+new Date(g.started_at).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'})+' · '+(g.ok?'ok':'échec')+' · '+crTxt(g.consumed)+' · '+fmtN(g.tokens)+' tok · '+esc((g.providers||[]).join('/'))+'</div>').join('')||'<div class="mute">Aucune génération suivie pour l’instant.</div>';
+  $id('credits-pop').innerHTML='<h4>Crédits Tchavi</h4>'+
+    '<div class="kv"><span>Solde</span><b>'+fmtN(c.credits_remaining)+'</b></div>'+
+    '<div class="kv"><span>Source</span><b>'+(c.credits_source==='manual'?'saisie manuelle':c.credits_source==='llm'?'réponse LLM':'—')+' · '+ago(c.credits_updated_at)+'</b></div>'+
+    '<div class="kv"><span>Moyenne par génération</span><b>'+(c.avg_credits_per_generation!=null?fmtN(c.avg_credits_per_generation)+' cr':'—')+'</b></div>'+
+    '<div class="kv"><span>Générations restantes</span><b>'+(c.est_generations_left!=null?'≈ '+c.est_generations_left:'—')+'</b></div>'+
+    '<div class="kv"><span>Dernière génération</span><b>'+(lg?(crTxt(lg.consumed)+' · '+fmtN(lg.tokens)+' tok'):'—')+'</b></div>'+
+    (note?'<div class="note">'+note+'</div>':'')+'<div class="gens">'+gens+'</div>'+
+    '<div class="inline"><input class="field" id="credits-input" type="number" min="0" placeholder="Corriger le solde (ex. 3040)" aria-label="Solde Tchavi"><button class="btn" onclick="setCreditsManual()">Enregistrer</button></div>';
 }
-function toggleCredits(ev){ev.stopPropagation();const p=document.getElementById('credits-pop');p.classList.toggle('open');if(p.classList.contains('open'))renderCreditsPop();}
-document.addEventListener('click',function(){document.getElementById('credits-pop').classList.remove('open');});
+function toggleCredits(ev){ev.stopPropagation();const p=$id('credits-pop');p.classList.toggle('open');$id('credits-chip').setAttribute('aria-expanded',String(p.classList.contains('open')));if(p.classList.contains('open'))renderCreditsPop();}
+document.addEventListener('click',()=>{$id('credits-pop').classList.remove('open');$id('credits-chip').setAttribute('aria-expanded','false');});
 async function setCreditsManual(){
-  const v=document.getElementById('credits-input').value;
-  if(v===''||isNaN(+v)||+v<0)return;
-  try{const r=await fetch('/api/credits/manual',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({credits:+v})});if(r.ok){_credits=await r.json();refreshCredits();}}catch(e){}
+  const v=$id('credits-input').value;if(v===''||isNaN(+v)||+v<0){toast('Saisis un nombre positif.');return;}
+  try{const r=await fetch('/api/credits/manual',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({credits:+v})});if(r.ok){window._credits=await r.json();refreshCredits();toast('Solde enregistré.');}}catch(e){toast('Enregistrement impossible.');}
 }
+
+// ════════════════════════════════════════════════════════════════════════
+//  Démarrage
+// ════════════════════════════════════════════════════════════════════════
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){_impCancel();$id('credits-pop').classList.remove('open');}
+  if((e.ctrlKey||e.metaKey)&&e.key==='Enter'&&$id('view-gen').classList.contains('on')){e.preventDefault();runPipeline();}
+});
+if(/Mac|iPhone|iPad/.test(navigator.platform||''))$id('kbd-hint').textContent='⌘ ↵';
+switchTab('text');applyThemeLabel();
+(async()=>{try{const d=await (await fetch('/api/progress/__typical__')).json();window._typical=d.typical||{};}catch(e){}renderSheet();})();
+fetch('/api/version').then(r=>r.json()).then(v=>{$id('ui-ver').textContent='v'+v.ui_build;}).catch(()=>{});
+$id('hist-count').textContent=getHistory().length||'';
 refreshCredits();setInterval(refreshCredits,30000);
-loadApps();setInterval(loadApps,30000);
+loadApps(true);setInterval(()=>loadApps(true),30000);
 </script>
 </body>
 </html>
