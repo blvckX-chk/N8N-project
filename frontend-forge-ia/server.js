@@ -8,7 +8,7 @@ const telemetry = require('./telemetry');
 const app  = express();
 const PORT = process.env.PORT || 3000;
 const APP_VERSION = '6.0.0';
-const UI_BUILD    = '7.1';    // v7 + verdict honnête (analyses en erreur), crédits fractionnaires
+const UI_BUILD    = '7.2';    // v7 + verdict honnête, crédits fractionnaires, ZIP valide (CRC)
 // Authentification du panel : identifiants via env (FORGE_USER / FORGE_PASS).
 const AUTH_USER = process.env.FORGE_USER || '';
 const AUTH_PASS = process.env.FORGE_PASS || '';
@@ -220,8 +220,19 @@ app.get('/api/apps/:name/files', async (req, res) => {
 // ── Construction ZIP (STORED, méthode 0) — compatible ZIP Analyzer V2.3 ────
 // Extrait en helper pour être réutilisé par /api/create-zip ET par le flux
 // « Améliorer une app déployée » (récupère les fichiers du service de déploiement).
+// CRC-32 (IEEE) : obligatoire dans les en-têtes ZIP. Un CRC à 0 fait refuser l'archive
+// par l'Explorateur Windows, 7-Zip (« erreur CRC ») et `unzip -t`.
+const _CRC_TABLE = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1); t[n] = c >>> 0; } return t; })();
+function crc32(buf) { let c = 0xFFFFFFFF; for (let i = 0; i < buf.length; i++) c = _CRC_TABLE[(c ^ buf[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function dosDateTime(d) {
+  const time = (d.getHours() << 11) | (d.getMinutes() << 5) | Math.floor(d.getSeconds() / 2);
+  const date = ((Math.max(1980, d.getFullYear()) - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+  return { time, date };
+}
 function buildZipBuffer(files) {
   const enc = (s) => Buffer.from(s, 'utf8');
+  const _dt = dosDateTime(new Date());
+  const _seen = new Set();
   let offset = 0;
   const chunks = [];
   const entries = [];
@@ -232,21 +243,25 @@ function buildZipBuffer(files) {
     if (!f || typeof f.path !== 'string' || !f.path) return;
     let content = (typeof f.content === 'string') ? f.content : String(f.content == null ? '' : f.content);
     content = content.replace(/^\/\/ FILE:.*\n/, '').replace(/^<!-- FILE:.*-->\n/, '').replace(/^\/\* FILE:.*\*\/\n/, '');
+    const _p = f.path.replace(/\\/g, '/').replace(/^\/+/, '');
+    if (!_p || _p.split('/').includes('..') || _seen.has(_p)) return;   // anti zip-slip + doublons
+    _seen.add(_p);
     const fileData = enc(content);
-    const fileName = enc(f.path);
+    const fileName = enc(_p);
+    const _crc = crc32(fileData);
     const header = Buffer.alloc(30 + fileName.length);
     header.writeUInt32LE(0x04034b50, 0);
     header.writeUInt16LE(20, 4);
-    header.writeUInt16LE(0, 6);
-    header.writeUInt16LE(0, 8);
-    header.writeUInt16LE(0, 10); header.writeUInt16LE(0, 12);
-    header.writeUInt32LE(0, 14);
+    header.writeUInt16LE(0x0800, 6);                 // bit 11 : noms de fichiers en UTF-8
+    header.writeUInt16LE(0, 8);                      // méthode 0 (STORED)
+    header.writeUInt16LE(_dt.time, 10); header.writeUInt16LE(_dt.date, 12);
+    header.writeUInt32LE(_crc, 14);
     header.writeUInt32LE(fileData.length, 18);
     header.writeUInt32LE(fileData.length, 22);
     header.writeUInt16LE(fileName.length, 26);
     header.writeUInt16LE(0, 28);
     fileName.copy(header, 30);
-    entries.push({ header, data: fileData, name: fileName, offset });
+    entries.push({ header, data: fileData, name: fileName, offset, crc: _crc });
     offset += header.length + fileData.length;
     chunks.push(header, fileData);
   });
@@ -255,15 +270,16 @@ function buildZipBuffer(files) {
   entries.forEach(e => {
     const cd = Buffer.alloc(46 + e.name.length);
     cd.writeUInt32LE(0x02014b50, 0);
-    cd.writeUInt16LE(20, 4); cd.writeUInt16LE(20, 6);
-    cd.writeUInt16LE(0, 8); cd.writeUInt16LE(0, 10);
-    cd.writeUInt16LE(0, 12); cd.writeUInt16LE(0, 14);
-    cd.writeUInt32LE(0, 16);
+    cd.writeUInt16LE((3 << 8) | 20, 4); cd.writeUInt16LE(20, 6);   // « version made by » Unix -> droits lus
+    cd.writeUInt16LE(0x0800, 8); cd.writeUInt16LE(0, 10);
+    cd.writeUInt16LE(_dt.time, 12); cd.writeUInt16LE(_dt.date, 14);
+    cd.writeUInt32LE(e.crc, 16);
     cd.writeUInt32LE(e.data.length, 20);
     cd.writeUInt32LE(e.data.length, 24);
     cd.writeUInt16LE(e.name.length, 28);
     cd.writeUInt16LE(0, 30); cd.writeUInt16LE(0, 32); cd.writeUInt16LE(0, 34);
-    cd.writeUInt16LE(0, 36); cd.writeUInt32LE(0, 38);
+    cd.writeUInt16LE(0, 36);
+    cd.writeUInt32LE(/^(start\.sh|.*\.sh)$/.test(e.name.toString()) ? ((0o100755 << 16) >>> 0) : ((0o100644 << 16) >>> 0), 38); // droits Unix (start.sh exécutable)
     cd.writeUInt32LE(e.offset, 42);
     e.name.copy(cd, 46);
     cdChunks.push(cd);

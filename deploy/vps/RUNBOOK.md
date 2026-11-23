@@ -254,6 +254,9 @@ changement fonctionnel** de l'agent, pour retracer quelle build a produit une so
 | Documentation | 5.7 | 2026-11-15 | Body `{{ $json }}` (reste sur llama-3.3-70b) |
 | SCA | 5.3 | 2026-11-15 | Sévérité réelle par CVE via `/v1/vulns/{id}` (GHSA) ; critical/high bloquent (FAIL) |
 | Cost / Runtime | 1.1 | 2026-11-15 | Adaptateurs d'entrée (service{}/incident{}/thresholds imbriqués) — seuils et matrice d'incident opérationnels |
+| Go/No-Go | 1.5 | 2026-11-23 | QA < 50/100 ⇒ REWORK ; QA 50–69, SAST/SCA en WARN ⇒ réserves visibles (`advisories`), le panel affiche « Validé avec réserves » |
+| Knowledge Memory | 2.1 | 2026-11-23 | Embeddings : Mistral si la clé fonctionne, sinon vecteur lexical local 512 dims (fin du « 401 » non bloquant) |
+| Panel | 7.2 | 2026-11-23 | ZIP conforme : CRC-32, date, noms UTF-8, `start.sh` exécutable, anti zip-slip (avant : CRC 0 ⇒ archive refusée par Windows/7-Zip) |
 | Orchestrateur | 6.23 | 2026-11-16 | 13 nœuds Code « Body — X » construisent le corps de chaque appel d'agent (`$('…')` ne se résout pas dans un body HTTP) ; corps HTTP `={{ JSON.stringify($json) }}` ; réponse REWORK/STOP avec matrice, risque et code partiel |
 | Go/No-Go | 1.4 | 2026-11-16 | Analyse en ERROR ⇒ REWORK (score ignoré) ; SAST/SCA/Secrets FAIL ⇒ REWORK ; risque ≥ 50 si analyse échouée, ≥ 90 si STOP ; champs `reliable`, `failed_analyses` |
 | SAST | 5.8 | 2026-11-16 | Nœud « Semgrep Payload » : le scan Semgrep reçoit enfin les fichiers (objet `{{ $json }}`) |
