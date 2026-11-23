@@ -40,8 +40,8 @@ octets au serveur témoin). Elles sont **non négociables** pour tout nœud futu
    puis seulement itérer en improve.
 
 Versions courantes : Orchestrateur **V6.23**, Normalizer **V1.21**, Architect **V5.12**,
-Backend **V6.31**, Frontend **V6.26**, QA **V5.13**, Documentation **V5.9**, SAST **V5.8**,
-Go/No-Go **V1.4**, panel **7.1**.
+Backend **V6.32**, Frontend **V6.27**, QA **V5.13**, Documentation **V5.9**, SAST **V5.8**,
+Go/No-Go **V1.5**, Knowledge Memory **V2.1**, panel **7.2**.
 
 ## 2. 🔴 P0 restants (bloquants pour des verdicts fiables)
 
@@ -103,3 +103,34 @@ affichage des verdicts sécurité, noms d'app parlants, téléchargement + lien 
 ## Gabarit de référence
 `Agent_Documentation` reste le modèle : bon modèle LLM, fallback honnête (`errors[]`).
 Toute correction = bump `name` + `_version` + entrée au changelog du RUNBOOK.
+
+
+## Phase B — qualité métier des applications générées
+
+Constat (DiaspoKoli v1.0, 23 nov.) : domaine correct (6 tables) mais **CRUD isolé par utilisateur** —
+une place de marché sans marché. Rejoué en exécution : un expéditeur ne voyait aucun trajet ;
+`voyageur_id`/`expediteur_id` falsifiables ; réservation de 50 kg sur un trajet de 10 kg acceptée ;
+le voyageur ne voyait pas les réservations sur son trajet ; KYC auto-validé (`statut: verifie`) ;
+escrow auto-libéré ; transaction créée sur la réservation d'un autre ; note d'avis 999.
+
+### B1 (fait, Backend V6.32) — règles déduites du modèle, jamais du LLM
+| Règle | Déclencheur | Effet |
+|---|---|---|
+| Catalogue partagé | ressource racine référencée par une autre (ou avis/annonces/produits…), sans email/téléphone/adresse | lecture par tous, écriture par l'auteur (`created_by`) |
+| Acteur | `<personne>_id` sans table dédiée (voyageur, expéditeur, auteur, utilisateur…) | valeur = utilisateur connecté, ignorée dans le corps, immuable |
+| Personne héritée | même rôle que l'acteur du parent (vendeur_id d'une commande) | recopiée depuis le propriétaire du parent |
+| Statut protégé | statut/état d'une ressource liée à un tiers (parent partagé en amont) ou sensible (KYC, transaction, paiement, litige) | valeur initiale imposée ; changement par le tiers (ou admin) via `PATCH /<r>/:id/<statut>` ; 403 sinon |
+| Visibilité | enfant d'un parent partagé | visible par son auteur et par le propriétaire du parent (chaîne ≤ 2) |
+| Accès au parent | création/modification d'un enfant | le parent doit être partagé ou appartenir à la chaîne de l'utilisateur |
+| Capacité | 1 champ quantité (poids, quantité, places…) ↔ 1 champ capacité du parent (disponible, stock, capacité…) | 409 si dépassement du restant (hors statuts refusés/annulés) |
+| Notes | `note/rating/etoiles` d'une ressource avis | bornée 1..5 (+ CHECK SQL) ; pas d'auto-évaluation |
+
+Vérifié en exécution : DiaspoKoli 12/12 tests (dont test métier généré) + 15 scénarios manuels ;
+non-régression bibliothèque 11/11 et app personnelle (statut libre pour le propriétaire) 11/11 ; SAST 100.
+
+### B2 (prochain lot)
+1. Frontend : bouton « changer le statut » pour le tiers (consomme `stores[*].controlled_status`), vue « reçues » vs « envoyées ».
+2. Rôles depuis la spécification (voyageur / expéditeur / admin) : bootstrap admin, validation KYC et escrow réellement utilisables.
+3. REWORK : livrer quand même README + scripts de démarrage (aujourd'hui le pipeline s'arrête avant Documentation).
+4. Montants en entiers (FCFA) ; dates d'événement futures ; route `GET /<r>/:id` systématique ; 404 JSON.
+5. Règles métier de la spec (« 3 emprunts max », « montant = poids × prix ») : extraction par le Normalizer en règles typées, appliquées par le générateur.

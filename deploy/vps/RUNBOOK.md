@@ -254,6 +254,8 @@ changement fonctionnel** de l'agent, pour retracer quelle build a produit une so
 | Documentation | 5.7 | 2026-11-15 | Body `{{ $json }}` (reste sur llama-3.3-70b) |
 | SCA | 5.3 | 2026-11-15 | Sévérité réelle par CVE via `/v1/vulns/{id}` (GHSA) ; critical/high bloquent (FAIL) |
 | Cost / Runtime | 1.1 | 2026-11-15 | Adaptateurs d'entrée (service{}/incident{}/thresholds imbriqués) — seuils et matrice d'incident opérationnels |
+| Backend | 6.32 | 2026-11-23 | **Phase B · B1 — sémantique métier déduite du modèle** : catalogue partagé (ressource racine référencée, sans données personnelles), acteurs `<personne>_id` imposés = utilisateur connecté, personne héritée du parent, statuts protégés (tiers / admin) + `PATCH /<ressource>/:id/<statut>`, visibilité pour le propriétaire du parent, capacité restante (409), notes d'avis 1..5, accès au parent vérifié ; règles listées en tête de `server.js` ; test métier généré ; `stores[*].server_fields` transmis au Frontend |
+| Frontend | 6.27 | 2026-11-23 | Les champs imposés par le serveur (`server_fields`) ne sont plus proposés dans les formulaires |
 | Go/No-Go | 1.5 | 2026-11-23 | QA < 50/100 ⇒ REWORK ; QA 50–69, SAST/SCA en WARN ⇒ réserves visibles (`advisories`), le panel affiche « Validé avec réserves » |
 | Knowledge Memory | 2.1 | 2026-11-23 | Embeddings : Mistral si la clé fonctionne, sinon vecteur lexical local 512 dims (fin du « 401 » non bloquant) |
 | Panel | 7.2 | 2026-11-23 | ZIP conforme : CRC-32, date, noms UTF-8, `start.sh` exécutable, anti zip-slip (avant : CRC 0 ⇒ archive refusée par Windows/7-Zip) |
