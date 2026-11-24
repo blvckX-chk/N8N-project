@@ -254,6 +254,14 @@ changement fonctionnel** de l'agent, pour retracer quelle build a produit une so
 | Documentation | 5.7 | 2026-11-15 | Body `{{ $json }}` (reste sur llama-3.3-70b) |
 | SCA | 5.3 | 2026-11-15 | Sévérité réelle par CVE via `/v1/vulns/{id}` (GHSA) ; critical/high bloquent (FAIL) |
 | Cost / Runtime | 1.1 | 2026-11-15 | Adaptateurs d'entrée (service{}/incident{}/thresholds imbriqués) — seuils et matrice d'incident opérationnels |
+| QA | 5.14 | 2026-11-24 | Code assemblé par fichier et par priorité (fin de la troncature à 40 000 caractères) ; chaque anomalie doit citer un extrait exact du code, sinon elle est écartée ; couverture **mesurée** sur les tests générés ; score calculé à partir des anomalies prouvées |
+| Code Review | 5.1 | 2026-11-24 | Analyse par fichier sans troncature, fichier attribué ; règle XSS limitée aux `innerHTML` alimentés par une donnée non échappée |
+| SAST / Secrets / SCA | — | 2026-11-24 | Frontend inclus dans SAST et Secrets ; plus de `package.json` fictif pour la SCA (erreur honnête) |
+| DAST / Go/No-Go | 1.5 / 1.6 | 2026-11-24 | Méthode « statique » transmise et affichée dans le panel |
+| Documentation | 5.10 | 2026-11-24 | README de projet professionnel (fonctionnalités, démarrage, configuration, règles métier, API, modèle, sécurité, tests, limites) ; plus aucune mention de pipeline ni de prompts |
+| Backend | 6.34 | 2026-11-24 | En-tête « Règles métier » rédigé ; test d'accès sur chaque ressource ; jeux de données réalistes ; SECURITY.md/DEPLOY.md accentués et exacts (uploads en BLOB, ressources partagées) |
+| Frontend | 6.29 | 2026-11-24 | Pied de page « © année Projet » |
+| Orchestrateur | 6.26 | 2026-11-24 | Nœuds « Finition livrable » : retire étiquettes internes, séparateurs, émojis, mentions de l'outil ; accents et typographie dans commentaires, messages et titres de tests |
 | Backend | 6.33 | 2026-11-24 | **Phase B · B2** : règles de la spec typées (bornes, plafond « au plus N par X » hors statuts clos, unicité « un seul X par Y », champ calculé = produit de 2 champs du parent, règles non reconnues listées « à traiter à la main ») ; admin automatique si statuts réservés (1er compte) avec vue complète ; `?vue=recues|envoyees` ; `_peut_<statut>` et `_mine` par ligne ; `GET /<r>/:id` systématique ; 404 JSON ; dates d'événement non passées ; montants FCFA entiers ; `GET /api/utilisateurs` ; rôles et règles transmis en sortie |
 | Frontend | 6.28 | 2026-11-24 | Badge + menu de changement de statut pour le tiers habilité, filtre « Reçues / Envoyées », actions Éditer/Supprimer masquées sur les lignes d'autrui, choix d'un utilisateur pour `cible_id`, libellés de listes lisibles |
 | Orchestrateur | 6.24 | 2026-11-24 | `business_rules` transmises au Backend ; rôles du Backend transmis au Frontend ; REWORK/STOP livrent README (règles, points à reprendre, API) + `start.sh`/`start.bat` |
