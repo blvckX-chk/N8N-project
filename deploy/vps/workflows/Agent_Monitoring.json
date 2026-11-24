@@ -1,5 +1,5 @@
 {
-  "name": "Agent Monitoring V1.1",
+  "name": "Agent Monitoring V1.2",
   "nodes": [
     {
       "parameters": {
@@ -20,7 +20,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const raw = $input.first().json;\n\n// Parser le body — supporte tous les formats\nlet data = raw;\nif (raw.body !== undefined) {\n  let rawBody = raw.body;\n  if (typeof rawBody === 'string') {\n    rawBody = rawBody.replace(/^=+/, '').trim();\n    try { data = JSON.parse(rawBody); } catch(e) { data = raw; }\n  } else if (typeof rawBody === 'object') {\n    data = rawBody;\n  }\n}\n\n// Fallback — chercher task_id dans raw si pas dans data\nconst task_id     = data.task_id     || raw.task_id     || 'TASK-MONITORING-' + Date.now();\nconst environment = data.environment || raw.environment || 'staging';\nconst service_url = data.service_url || raw.service_url || 'https://app-' + environment + '.monprojet.com';\n\nreturn [{\n  json: {\n    task_id:     String(task_id),\n    environment: String(environment),\n    service_url: String(service_url),\n    simulate:    String(data.simulate || 'healthy'),\n    thresholds: {\n      response_time_ms:   Number(data.thresholds?.response_time_ms   || 2000),\n      error_rate_percent: Number(data.thresholds?.error_rate_percent || 5),\n      uptime_percent:     Number(data.thresholds?.uptime_percent     || 99)\n    }\n  }\n}];"
+        "jsCode": "const raw = $input.first().json;\n\n// Parser le body — supporte tous les formats\nlet data = raw;\nif (raw.body !== undefined) {\n  let rawBody = raw.body;\n  if (typeof rawBody === 'string') {\n    rawBody = rawBody.replace(/^=+/, '').trim();\n    try { data = JSON.parse(rawBody); } catch(e) { data = raw; }\n  } else if (typeof rawBody === 'object') {\n    data = rawBody;\n  }\n}\n\n\n// Entrée inexploitable (corps illisible ou sans task_id) : erreur explicite, jamais un succès par défaut (R5)\nif (!data || typeof data !== 'object' || data === raw || !data.task_id) {\n  return [{ json: { error_code: 'VALIDATION_ERROR', error_message: 'Corps de requête illisible ou task_id manquant', timestamp: new Date().toISOString() } }];\n}\n// Fallback — chercher task_id dans raw si pas dans data\nconst task_id     = data.task_id     || raw.task_id     || 'TASK-MONITORING-' + Date.now();\nconst environment = data.environment || raw.environment || 'staging';\nconst service_url = data.service_url || raw.service_url || 'http://localhost:3000';\n\nreturn [{\n  json: {\n    task_id:     String(task_id),\n    environment: String(environment),\n    service_url: String(service_url),\n    simulate:    String(data.simulate || 'healthy'),\n    thresholds: {\n      response_time_ms:   Number(data.thresholds?.response_time_ms   || 2000),\n      error_rate_percent: Number(data.thresholds?.error_rate_percent || 5),\n      uptime_percent:     Number(data.thresholds?.uptime_percent     || 99)\n    }\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -112,7 +112,9 @@
           ]
         },
         "looseTypeValidation": true,
-        "options": {}
+        "options": {
+          "fallbackOutput": 1
+        }
       },
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
@@ -210,7 +212,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const input = $input.first().json;\n\nreturn [{\n  json: {\n    success: false,\n    agent: \"Agent Monitoring\",\n    task_id: \"unknown\",\n    status: \"ERROR\",\n    error_code: input.error_code,\n    error_message: input.error_message,\n    approved_for_pipeline: false,\n    timestamp: input.timestamp\n  }\n}];"
+        "jsCode": "const input = $input.first().json;\n\nreturn [{\n  json: {\n    success: false,\n    agent: \"Agent Monitoring\", _version: '1.2',\n    task_id: input.task_id || \"unknown\",\n    status: \"ERROR\",\n    error_code: input.error_code,\n    error_message: input.error_message,\n    approved_for_pipeline: false,\n    timestamp: input.timestamp\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -236,7 +238,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const input = $input.first().json;\n\nconst statusMap = {\n  HEALTHY: 'PASS',\n  DEGRADED: 'NEEDSIMPROVEMENT',\n  CRITICAL: 'FAIL'\n};\n\nconst status = statusMap[input.monitoring_status] || 'FAIL';\nconst scoreMap = { PASS: 100, NEEDSIMPROVEMENT: 65, FAIL: 0 };\n\nreturn [{\n  json: {\n    agent: \"Agent Monitoring\",\n    task_id: input.task_id,\n    status,\n    global_score: scoreMap[status],\n    approved_for_pipeline: status === 'PASS',\n    language: \"javascript\",\n    critical_issues: status === 'FAIL'\n      ? input.violations.map(v => ({ severity: \"high\", description: v }))\n      : [],\n    warnings: status === 'NEEDSIMPROVEMENT'\n      ? input.violations.map(v => ({ severity: \"medium\", description: v }))\n      : [],\n    recommendations: input.recommendations || [],\n    summary: `Service ${input.monitoring_status} — ${input.violations.length} violation(s)`,\n    dimensions: {\n      security: { score: 100 },\n      quality: { score: scoreMap[status] }\n    },\n    monitoring_status: input.monitoring_status,\n    metrics: input.metrics,\n    timestamp: new Date().toISOString()\n  }\n}];"
+        "jsCode": "const input = $input.first().json;\n\nconst statusMap = {\n  HEALTHY: 'PASS',\n  DEGRADED: 'NEEDSIMPROVEMENT',\n  CRITICAL: 'FAIL'\n};\n\nconst status = statusMap[input.monitoring_status] || 'FAIL';\nconst scoreMap = { PASS: 100, NEEDSIMPROVEMENT: 65, FAIL: 0 };\n\nreturn [{\n  json: {\n    agent: \"Agent Monitoring\", _version: '1.2',\n    task_id: input.task_id,\n    status,\n    global_score: scoreMap[status],\n    approved_for_pipeline: status === 'PASS',\n    language: \"javascript\",\n    critical_issues: status === 'FAIL'\n      ? input.violations.map(v => ({ severity: \"high\", description: v }))\n      : [],\n    warnings: status === 'NEEDSIMPROVEMENT'\n      ? input.violations.map(v => ({ severity: \"medium\", description: v }))\n      : [],\n    recommendations: input.recommendations || [],\n    summary: `Service ${input.monitoring_status} — ${input.violations.length} violation(s)`,\n    dimensions: {\n      security: { score: 100 },\n      quality: { score: scoreMap[status] }\n    },\n    monitoring_status: input.monitoring_status,\n    metrics: input.metrics,\n    timestamp: new Date().toISOString()\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -249,7 +251,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const input = $input.first().json;\nreturn [{\n  json: {\n    success: true,\n    agent: \"Agent Monitoring\",\n    task_id: input.task_id,\n    status: \"PASS\",\n    global_score: input.global_score,\n    approved_for_pipeline: true,\n    monitoring_status: input.monitoring_status,\n    metrics: input.metrics,\n    critical_issues: [],\n    warnings: [],\n    recommendations: input.recommendations || [],\n    summary: input.summary,\n    dimensions: input.dimensions,\n    timestamp: input.timestamp\n  }\n}];"
+        "jsCode": "const input = $input.first().json;\nreturn [{\n  json: {\n    success: true,\n    agent: \"Agent Monitoring\", _version: '1.2',\n    task_id: input.task_id,\n    status: \"PASS\",\n    global_score: input.global_score,\n    approved_for_pipeline: true,\n    monitoring_status: input.monitoring_status,\n    metrics: input.metrics,\n    critical_issues: [],\n    warnings: [],\n    recommendations: input.recommendations || [],\n    summary: input.summary,\n    dimensions: input.dimensions,\n    timestamp: input.timestamp\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -262,7 +264,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const input = $input.first().json;\nreturn [{\n  json: {\n    success: null,\n    agent: \"Agent Monitoring\",\n    task_id: input.task_id,\n    status: \"NEEDSIMPROVEMENT\",\n    global_score: input.global_score,\n    approved_for_pipeline: false,\n    monitoring_status: input.monitoring_status,\n    metrics: input.metrics,\n    critical_issues: [],\n    warnings: input.warnings || [],\n    recommendations: input.recommendations || [],\n    summary: input.summary,\n    dimensions: input.dimensions,\n    timestamp: input.timestamp\n  }\n}];"
+        "jsCode": "const input = $input.first().json;\nreturn [{\n  json: {\n    success: null,\n    agent: \"Agent Monitoring\", _version: '1.2',\n    task_id: input.task_id,\n    status: \"NEEDSIMPROVEMENT\",\n    global_score: input.global_score,\n    approved_for_pipeline: false,\n    monitoring_status: input.monitoring_status,\n    metrics: input.metrics,\n    critical_issues: [],\n    warnings: input.warnings || [],\n    recommendations: input.recommendations || [],\n    summary: input.summary,\n    dimensions: input.dimensions,\n    timestamp: input.timestamp\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -275,7 +277,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const input = $input.first().json;\nreturn [{\n  json: {\n    success: false,\n    agent: \"Agent Monitoring\",\n    task_id: input.task_id,\n    status: \"FAIL\",\n    global_score: 0,\n    approved_for_pipeline: false,\n    monitoring_status: input.monitoring_status,\n    metrics: input.metrics,\n    critical_issues: input.critical_issues || [],\n    warnings: [],\n    recommendations: input.recommendations || [],\n    summary: input.summary,\n    dimensions: input.dimensions,\n    timestamp: input.timestamp\n  }\n}];"
+        "jsCode": "const input = $input.first().json;\nreturn [{\n  json: {\n    success: false,\n    agent: \"Agent Monitoring\", _version: '1.2',\n    task_id: input.task_id,\n    status: \"FAIL\",\n    global_score: 0,\n    approved_for_pipeline: false,\n    monitoring_status: input.monitoring_status,\n    metrics: input.metrics,\n    critical_issues: input.critical_issues || [],\n    warnings: [],\n    recommendations: input.recommendations || [],\n    summary: input.summary,\n    dimensions: input.dimensions,\n    timestamp: input.timestamp\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,

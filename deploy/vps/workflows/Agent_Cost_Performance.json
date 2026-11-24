@@ -1,5 +1,5 @@
 {
-  "name": "Agent Cost & Performance V1.1",
+  "name": "Agent Cost & Performance V1.2",
   "nodes": [
     {
       "parameters": {
@@ -99,7 +99,9 @@
           ]
         },
         "looseTypeValidation": true,
-        "options": {}
+        "options": {
+          "fallbackOutput": 1
+        }
       },
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
@@ -129,7 +131,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const raw = $input.first().json;\n\nlet data = raw;\nif (raw.body !== undefined) {\n  let rawBody = raw.body;\n  if (typeof rawBody === 'string') {\n    rawBody = rawBody.replace(/^=+/, '').trim();\n    try { data = JSON.parse(rawBody); } catch(e) { data = raw; }\n  } else if (typeof rawBody === 'object') {\n    data = rawBody;\n  }\n}\n\nconst task_id     = data.task_id     || raw.task_id     || 'TASK-COST-' + Date.now();\nconst environment = data.environment || raw.environment || 'staging';\nconst service     = data.service     || raw.service     || {\n  url:       'https://app-' + environment + '.monprojet.com',\n  framework: 'express',\n  language:  'javascript',\n  status:    'HEALTHY'\n};\nconst thresholds  = data.thresholds  || raw.thresholds  || {\n  max_cost_per_hour_usd: 0.5,\n  max_response_time_ms:  1000,\n  max_cpu_percent:       80,\n  max_memory_percent:    85\n};\n\nreturn [{\n  json: {\n    task_id:     String(task_id),\n    environment: String(environment),\n    service:     service,\n    thresholds:  thresholds,\n    simulate:    String(data.simulate || '')\n  }\n}];"
+        "jsCode": "const raw = $input.first().json;\n\nlet data = raw;\nif (raw.body !== undefined) {\n  let rawBody = raw.body;\n  if (typeof rawBody === 'string') {\n    rawBody = rawBody.replace(/^=+/, '').trim();\n    try { data = JSON.parse(rawBody); } catch(e) { data = raw; }\n  } else if (typeof rawBody === 'object') {\n    data = rawBody;\n  }\n}\n\n\n// Entrée inexploitable (corps illisible ou sans task_id) : erreur explicite, jamais un succès par défaut (R5)\nif (!data || typeof data !== 'object' || data === raw || !data.task_id) {\n  return [{ json: { error_code: 'VALIDATION_ERROR', error_message: 'Corps de requête illisible ou task_id manquant', timestamp: new Date().toISOString() } }];\n}\nconst task_id     = data.task_id     || raw.task_id     || 'TASK-COST-' + Date.now();\nconst environment = data.environment || raw.environment || 'staging';\nconst service     = data.service     || raw.service     || {\n  url:       'http://localhost:3000',\n  framework: 'express',\n  language:  'javascript',\n  status:    'HEALTHY'\n};\nconst thresholds  = data.thresholds  || raw.thresholds  || {\n  max_cost_per_hour_usd: 0.5,\n  max_response_time_ms:  1000,\n  max_cpu_percent:       80,\n  max_memory_percent:    85\n};\n\nreturn [{\n  json: {\n    task_id:     String(task_id),\n    environment: String(environment),\n    service:     service,\n    thresholds:  thresholds,\n    simulate:    String(data.simulate || '')\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -176,7 +178,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const input = $input.first().json;\nreturn [{\n  json: {\n    success: false,\n    agent: \"Agent Cost & Performance\",\n    task_id: \"unknown\",\n    status: \"ERROR\",\n    error_code: input.error_code,\n    error_message: input.error_message,\n    approved_for_pipeline: false,\n    timestamp: input.timestamp\n  }\n}];"
+        "jsCode": "const input = $input.first().json;\nreturn [{\n  json: {\n    success: false,\n    agent: \"Agent Cost & Performance\", _version: '1.2',\n    task_id: input.task_id || \"unknown\",\n    status: \"ERROR\",\n    error_code: input.error_code,\n    error_message: input.error_message,\n    approved_for_pipeline: false,\n    timestamp: input.timestamp\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -217,7 +219,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const input = $input.first().json;\n\nconst statusMap = { OK: 'PASS', OPTIMIZE: 'NEEDSIMPROVEMENT', ALERT: 'FAIL' };\nconst status = statusMap[input.action] || 'FAIL';\nconst scoreMap = { PASS: 100, NEEDSIMPROVEMENT: 65, FAIL: 0 };\n\nreturn [{\n  json: {\n    agent: \"Agent Cost & Performance\",\n    task_id: input.task_id,\n    status,\n    global_score: input.performance_score || scoreMap[status],\n    approved_for_pipeline: status === 'PASS',\n    language: \"javascript\",\n    critical_issues: status === 'FAIL'\n      ? input.violations.map(v => ({ severity: \"high\", description: v }))\n      : [],\n    warnings: status === 'NEEDSIMPROVEMENT'\n      ? input.violations.map(v => ({ severity: \"medium\", description: v }))\n      : [],\n    recommendations: input.recommendations || [],\n    summary: `Action : ${input.action} — ${input.violations.length} violation(s)`,\n    dimensions: {\n      security: { score: 100 },\n      quality: { score: input.performance_score || scoreMap[status] }\n    },\n    action: input.action,\n    metrics: input.metrics,\n    timestamp: new Date().toISOString()\n  }\n}];"
+        "jsCode": "const input = $input.first().json;\n\nconst statusMap = { OK: 'PASS', OPTIMIZE: 'NEEDSIMPROVEMENT', ALERT: 'FAIL' };\nconst status = statusMap[input.action] || 'FAIL';\nconst scoreMap = { PASS: 100, NEEDSIMPROVEMENT: 65, FAIL: 0 };\n\nreturn [{\n  json: {\n    agent: \"Agent Cost & Performance\", _version: '1.2',\n    task_id: input.task_id,\n    status,\n    global_score: input.performance_score || scoreMap[status],\n    approved_for_pipeline: status === 'PASS',\n    language: \"javascript\",\n    critical_issues: status === 'FAIL'\n      ? input.violations.map(v => ({ severity: \"high\", description: v }))\n      : [],\n    warnings: status === 'NEEDSIMPROVEMENT'\n      ? input.violations.map(v => ({ severity: \"medium\", description: v }))\n      : [],\n    recommendations: input.recommendations || [],\n    summary: `Action : ${input.action} — ${input.violations.length} violation(s)`,\n    dimensions: {\n      security: { score: 100 },\n      quality: { score: input.performance_score || scoreMap[status] }\n    },\n    action: input.action,\n    metrics: input.metrics,\n    timestamp: new Date().toISOString()\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -230,7 +232,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const input = $input.first().json;\nconst status = input.status;\n\nreturn [{\n  json: {\n    success: status === 'PASS' ? true : status === 'NEEDSIMPROVEMENT' ? null : false,\n    agent: \"Agent Cost & Performance\",\n    task_id: input.task_id,\n    status,\n    global_score: input.global_score,\n    approved_for_pipeline: status === 'PASS',\n    action: input.action,\n    critical_issues: input.critical_issues || [],\n    warnings: input.warnings || [],\n    recommendations: input.recommendations || [],\n    summary: input.summary,\n    dimensions: input.dimensions,\n    metrics: input.metrics,\n    timestamp: input.timestamp\n  }\n}];"
+        "jsCode": "const input = $input.first().json;\nconst status = input.status;\n\nreturn [{\n  json: {\n    success: status === 'PASS' ? true : status === 'NEEDSIMPROVEMENT' ? null : false,\n    agent: \"Agent Cost & Performance\", _version: '1.2',\n    task_id: input.task_id,\n    status,\n    global_score: input.global_score,\n    approved_for_pipeline: status === 'PASS',\n    action: input.action,\n    critical_issues: input.critical_issues || [],\n    warnings: input.warnings || [],\n    recommendations: input.recommendations || [],\n    summary: input.summary,\n    dimensions: input.dimensions,\n    metrics: input.metrics,\n    timestamp: input.timestamp\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,

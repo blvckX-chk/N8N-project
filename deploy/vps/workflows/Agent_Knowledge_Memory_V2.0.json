@@ -1,5 +1,5 @@
 {
-  "name": "Agent Knowledge Memory V2.1",
+  "name": "Agent Knowledge Memory V2.2",
   "nodes": [
     {
       "parameters": {
@@ -20,7 +20,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const raw = $input.first().json;\nlet data = raw;\nif (raw.body !== undefined) {\n  let rawBody = raw.body;\n  if (typeof rawBody === 'string') { rawBody = rawBody.replace(/^=+/, '').trim(); try { data = JSON.parse(rawBody); } catch(e) { data = raw; } }\n  else if (typeof rawBody === 'object') { data = rawBody; }\n}\nconst task_id   = data.task_id || raw.task_id || 'TASK-KNOWLEDGE-' + Date.now();\nconst operation = String(data.operation || raw.operation || 'WRITE').toUpperCase();\nconst kind      = String(data.kind || data.category || raw.category || 'pattern');\nconst project   = String(data.project || (data.data && data.data.project) || '');\nconst meta      = (data.meta && typeof data.meta === 'object') ? data.meta : {};\nlet text = '';\nif (operation === 'READ') { text = data.query || data.text || ''; }\nelse { text = data.text || (typeof data.data === 'string' ? data.data : (data.data ? JSON.stringify(data.data) : '')) || data.content || ''; }\nconst k = Math.min(Math.max(parseInt(data.k, 10) || 5, 1), 20);\nreturn [{ json: { task_id: String(task_id), operation, kind, project, text: String(text), query: String(data.query || ''), k, meta } }];\n"
+        "jsCode": "const raw = $input.first().json;\nlet data = raw;\nif (raw.body !== undefined) {\n  let rawBody = raw.body;\n  if (typeof rawBody === 'string') { rawBody = rawBody.replace(/^=+/, '').trim(); try { data = JSON.parse(rawBody); } catch(e) { data = raw; } }\n  else if (typeof rawBody === 'object') { data = rawBody; }\n}\n\n// Entrée inexploitable (corps illisible ou sans task_id) : erreur explicite, jamais un succès par défaut (R5)\nif (!data || typeof data !== 'object' || data === raw || !data.task_id) {\n  return [{ json: { error_code: 'VALIDATION_ERROR', error_message: 'Corps de requête illisible ou task_id manquant', timestamp: new Date().toISOString() } }];\n}\nconst task_id   = data.task_id || raw.task_id || 'TASK-KNOWLEDGE-' + Date.now();\nconst operation = String(data.operation || raw.operation || '').toUpperCase();\nif (['READ', 'WRITE'].indexOf(operation) < 0) return [{ json: { error_code: 'VALIDATION_ERROR', error_message: 'operation doit valoir READ ou WRITE', timestamp: new Date().toISOString() } }];\nconst kind      = String(data.kind || data.category || raw.category || 'pattern');\nconst project   = String(data.project || (data.data && data.data.project) || '');\nconst meta      = (data.meta && typeof data.meta === 'object') ? data.meta : {};\nlet text = '';\nif (operation === 'READ') { text = data.query || data.text || ''; }\nelse { text = data.text || (typeof data.data === 'string' ? data.data : (data.data ? JSON.stringify(data.data) : '')) || data.content || ''; }\nconst k = Math.min(Math.max(parseInt(data.k, 10) || 5, 1), 20);\nreturn [{ json: { task_id: String(task_id), operation, kind, project, text: String(text), query: String(data.query || ''), k, meta } }];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -87,7 +87,9 @@
           ]
         },
         "looseTypeValidation": true,
-        "options": {}
+        "options": {
+          "fallbackOutput": 1
+        }
       },
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
@@ -151,7 +153,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const input = $input.first().json;\nreturn [{\n  json: {\n    success: false,\n    agent: \"Agent Knowledge/Memory\",\n    task_id: \"unknown\",\n    status: \"ERROR\",\n    error_code: input.error_code,\n    error_message: input.error_message,\n    approved_for_pipeline: false,\n    timestamp: input.timestamp\n  }\n}];"
+        "jsCode": "const input = $input.first().json;\nreturn [{\n  json: {\n    success: false,\n    agent: \"Agent Knowledge/Memory\", _version: '2.2',\n    task_id: input.task_id || \"unknown\",\n    status: \"ERROR\",\n    error_code: input.error_code,\n    error_message: input.error_message,\n    approved_for_pipeline: false,\n    timestamp: input.timestamp\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -190,7 +192,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const input = $input.first().json;\nconst isSuccess = input.status === 'STORED' || input.status === 'RETRIEVED';\n\nreturn [{\n  json: {\n    success: isSuccess,\n    agent: \"Agent Knowledge/Memory\",\n    task_id: input.task_id,\n    status: isSuccess ? \"PASS\" : \"FAIL\",\n    global_score: isSuccess ? 100 : 0,\n    approved_for_pipeline: isSuccess,\n    language: \"javascript\",\n    critical_issues: [],\n    warnings: [],\n    recommendations: isSuccess\n      ? [`Opération ${input.operation} réussie`]\n      : [`Échec de l'opération ${input.operation}`],\n    summary: input.message || `Opération ${input.operation}`,\n    dimensions: { security: { score: 100 }, quality: { score: 100 } },\n    operation: input.operation,\n    entry_id: input.entry_id || null,\n    timestamp: input.timestamp || new Date().toISOString()\n  }\n}];"
+        "jsCode": "const input = $input.first().json;\nconst isSuccess = input.status === 'STORED' || input.status === 'RETRIEVED';\n\nreturn [{\n  json: {\n    success: isSuccess,\n    agent: \"Agent Knowledge/Memory\", _version: '2.2',\n    task_id: input.task_id,\n    status: isSuccess ? \"PASS\" : \"FAIL\",\n    global_score: isSuccess ? 100 : 0,\n    approved_for_pipeline: isSuccess,\n    language: \"javascript\",\n    critical_issues: [],\n    warnings: [],\n    recommendations: isSuccess\n      ? [`Opération ${input.operation} réussie`]\n      : [`Échec de l'opération ${input.operation}`],\n    summary: input.message || `Opération ${input.operation}`,\n    dimensions: { security: { score: 100 }, quality: { score: 100 } },\n    operation: input.operation,\n    entry_id: input.entry_id || null,\n    timestamp: input.timestamp || new Date().toISOString()\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,

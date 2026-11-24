@@ -39,64 +39,14 @@ octets au serveur témoin). Elles sont **non négociables** pour tout nœud futu
    → Après un fix de pipeline, TOUJOURS régénérer en **frais** (nouveau nom de projet),
    puis seulement itérer en improve.
 
-Versions courantes : Orchestrateur **V6.26**, Normalizer **V1.21**, Architect **V5.12**,
+Versions courantes (voir aussi REVUE-AGENTS.md) : Orchestrateur **V6.27**, Normalizer **V1.21**, Architect **V5.12**,
 Backend **V6.35**, Frontend **V6.30**, QA **V5.14**, Documentation **V5.11**, SAST **V5.8**,
 Go/No-Go **V1.6**, Knowledge Memory **V2.1**, panel **7.2**.
 
-## 2. 🔴 P0 restants (bloquants pour des verdicts fiables)
+## 2. Listes P0 / P1 / P2 et roadmap « L99 »
 
-| # | Agent | Problème | Correction |
-|---|---|---|---|
-| 1 | **SCA** | Sévérité lue sur `/v1/querybatch` qui ne la renvoie jamais → tout devient « medium » → **ne bloque jamais**. | Résoudre la sévérité via `/v1/vulns/{id}` (ou table CVSS locale), seuil bloquant sur critical/high. |
-| 2 | **Cost / Runtime** | Champs `Validate`↔`Logic` décalés (`service_url` vs `service.url`, `incident_type` vs `incident.type`) → seuils jamais déclenchés / toujours ESCALATE. | Lire les champs imbriqués réels. |
-| 3 | **Backend** | Branche `llm_improve` morte (payload construit, jamais envoyé). | Brancher un httpRequest réel (règles R1/R2) ou supprimer la branche. |
-| 4 | **Normalizer** | `RESOURCE_KEYWORDS`/`ACTOR_WORDS` figés (covoiturage, pharmacie…) dans le fallback déterministe → aveugle aux nouveaux domaines quand le LLM échoue. | Détection générique (tables Markdown, « Entités : », heuristiques) sans mots-clés projet. |
-| 5 | **Mode improve** | Si l'app existante n'a pas de resources, l'improve les perd pour toujours (invariants sautés + Architect sans contexte). | En improve : si `existing_stores` vide **et** `structured_context` riche → ré-injecter les invariants du Normalizer. |
-| 6 | **ZIP** | CRC=0 (zip streaming) → `unzip` râle partout ; `package.json name: "api-api"`. | Générer le zip avec CRC corrects ; `name` = slug du `project_name`. |
-
-## 3. 🟠 P1 (fiabilité / honnêteté des sorties)
-
-- Fallbacks silencieux (Normalizer/Architect/Frontend) → aligner sur le modèle Documentation (`errors[]`, flag `degraded`).
-- Faux failover « 2 clés » (retry = même clé) → 2ᵉ clé `TCHAVI_API_KEY_2` ou simplifier.
-- Nœuds Retry : `$('Build …').item.json` encore non validé en conditions réelles → vérifier, sinon `retryOnFail` natif.
-- Secrets_Scanning : regex AWS = toute chaîne base64 de 40 car. → contextualiser.
-- Spec_Linter : `\b` simple backslash = backspace → `\\b`.
-- Orchestrateur OCR image : modèle/format incompatibles + `throw` → vision Tchavi + dégradation douce.
-- SAST : code vide → PASS → router en ERROR.
-- Go/No-Go : score absent ≠ 100 ; exiger la présence des rapports.
-- Métriques simulées (Cost/Monitoring/DAST/DevOps) → `simulated: true` explicite (important pour la soutenance).
-
-## 4. 🟡 P2 (hygiène)
-
-`_version` manquants (7 agents), nommage « Mistral/Groq » → « LLM/Tchavi »,
-placeholders d'anciens projets (monprojet.com, enums covoiturage, few-shots pharmacie),
-vocabulaire de statut unifié (PASS/WARN/FAIL/ERROR partout), timeouts/retry homogènes.
-
-## 5. Roadmap « L99 » — vers les meilleures générations possibles
-
-**Phase A — Fiabilité (en cours)** : P0 ci-dessus + une génération fraîche de
-référence (bibliothèque) qui sert de test de non-régression.
-
-**Phase B — Qualité de génération**
-- Normalizer : few-shots neutres multi-domaines, enums/`longtext`/dates typés, relations N-N.
-- Architect : exploiter `business_rules` → contraintes SQL (CHECK, UNIQUE) + middlewares générés (ex. « max 3 emprunts » → garde applicative réelle).
-- Backend : règles métier traduites en code (validations croisées, transitions d'état), pagination/tri/recherche systématiques, OpenAPI généré.
-- Frontend : vues par ressource riches (listes filtrables, formulaires typés par champ, relations en `<select>` alimentés), i18n fr/en.
-- QA : vrais tests exécutés (node --test dans le conteneur deploy) au lieu d'une revue statique seule.
-
-**Phase C — Multi-plateforme**
-- La PWA existante (manifest + sw.js) devient installable mobile de 1ʳᵉ classe : offline readcache, icônes adaptatives, écrans tactiles.
-- Option de sortie « API seule » (backend headless) pour brancher Flutter/React Native.
-- Cible additionnelle : export Capacitor (wrapper natif) comme artefact optionnel du DevOps.
-
-**Phase D — Efficience**
-- Profils de vitesse : `switch-llm.sh fast` (démo) vs qualité ; parallélisation des agents indépendants (SAST/SCA/Secrets déjà en parallèle — étendre à QA/Docs).
-- Cache de normalisation (même spec → réutiliser structured_context, économie de crédits).
-- Budget tokens par agent documenté + alerte crédits Tchavi dans le panneau.
-
-**Phase E — Panneau Forge** (design skills : landing-page-design, design-direction-advisor,
-graphic-design-fundamentals) : suivi réel par étape du pipeline (webhook de progression),
-affichage des verdicts sécurité, noms d'app parlants, téléchargement + lien preview.
+Toutes traitées ou reprises : voir **`FEUILLE-DE-ROUTE.md`** (statuts vérifiés, priorités, ordre conseillé)
+et **`REVUE-AGENTS.md`** (revue agent par agent du 24 novembre, banc d'essai).
 
 ---
 

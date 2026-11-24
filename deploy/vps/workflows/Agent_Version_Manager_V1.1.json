@@ -1,5 +1,5 @@
 {
-  "name": "Agent Version Manager V1.1",
+  "name": "Agent Version Manager V1.2",
   "nodes": [
     {
       "parameters": {
@@ -34,7 +34,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ $json }}",
+        "responseBody": "={{ Object.assign({ _version: '1.2', status: $json.extraction_ok === false || $json.error ? 'ERROR' : 'PASS' }, $json) }}",
         "options": {
           "responseCode": 200
         }

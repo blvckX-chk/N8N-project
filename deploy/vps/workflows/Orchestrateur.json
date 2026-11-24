@@ -1,5 +1,5 @@
 {
-  "name": "Orchestrateur V6.26",
+  "name": "Orchestrateur V6.27",
   "nodes": [
     {
       "parameters": {
@@ -26,7 +26,9 @@
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify($json) }}",
-        "options": {}
+        "options": {
+          "timeout": 900000
+        }
       },
       "id": "3be21094-483e-43ba-9849-44d5d651f8d1",
       "name": "Agent Architect",
@@ -45,7 +47,9 @@
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify($json) }}",
-        "options": {}
+        "options": {
+          "timeout": 900000
+        }
       },
       "id": "c08d7b85-1457-44fc-b5ba-49264412d689",
       "name": "Agent Backend",
@@ -64,7 +68,9 @@
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify($json) }}",
-        "options": {}
+        "options": {
+          "timeout": 900000
+        }
       },
       "id": "9ec2c5a2-de35-4c4b-b3c2-f2e0207d0d94",
       "name": "Agent Frontend",
@@ -161,7 +167,9 @@
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify($json) }}",
-        "options": {}
+        "options": {
+          "timeout": 900000
+        }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -180,7 +188,9 @@
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify($json) }}",
-        "options": {}
+        "options": {
+          "timeout": 900000
+        }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -225,7 +235,9 @@
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify($json) }}",
-        "options": {}
+        "options": {
+          "timeout": 900000
+        }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -257,7 +269,9 @@
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify($json) }}",
-        "options": {}
+        "options": {
+          "timeout": 900000
+        }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -289,7 +303,9 @@
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify($json) }}",
-        "options": {}
+        "options": {
+          "timeout": 900000
+        }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -321,7 +337,9 @@
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify($json) }}",
-        "options": {}
+        "options": {
+          "timeout": 900000
+        }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -353,7 +371,9 @@
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "=={{ JSON.stringify({ task_id: $json.task_id, results: $json.results }) }}",
-        "options": {}
+        "options": {
+          "timeout": 900000
+        }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -406,7 +426,9 @@
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify($json) }}",
-        "options": {}
+        "options": {
+          "timeout": 900000
+        }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -466,7 +488,9 @@
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify($json) }}",
-        "options": {}
+        "options": {
+          "timeout": 900000
+        }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -532,7 +556,9 @@
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify($json) }}",
-        "options": {}
+        "options": {
+          "timeout": 900000
+        }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -564,7 +590,9 @@
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify($json) }}",
-        "options": {}
+        "options": {
+          "timeout": 900000
+        }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -620,7 +648,9 @@
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "=={{ JSON.stringify({ task_id: $json.task_id, operation: $json.operation, kind: $json.kind, project: $json.project, text: $json.text, meta: $json.meta }) }}",
-        "options": {}
+        "options": {
+          "timeout": 900000
+        }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -667,7 +697,9 @@
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify($json) }}",
-        "options": {}
+        "options": {
+          "timeout": 900000
+        }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -827,7 +859,8 @@
             "response": {
               "responseFormat": "text"
             }
-          }
+          },
+          "timeout": 180000
         }
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -1188,7 +1221,9 @@
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "=={{ JSON.stringify({task_id: $json.task_id, improve_mode: $json.improve_mode, userRequest: $json.userRequest}) }}",
-        "options": {}
+        "options": {
+          "timeout": 900000
+        }
       },
       "id": "3daa8599-76cc-4aa3-94b6-9fa05f505184",
       "name": "Agent Spec Linter",
@@ -1282,7 +1317,9 @@
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "=={{ JSON.stringify({task_id: $json.task_id, language: $json.language, framework: $json.framework, files: $json.files}) }}",
-        "options": {}
+        "options": {
+          "timeout": 900000
+        }
       },
       "id": "de7dba2d-0bad-4b91-b85c-210240cc9219",
       "name": "Agent Tests L0",
@@ -1389,7 +1426,9 @@
         "contentType": "raw",
         "rawContentType": "application/json",
         "body": "={{ JSON.stringify({task_id: $json.task_id, userRequest: $json.userRequest, language: $json.language, framework: $json.framework}) }}",
-        "options": {}
+        "options": {
+          "timeout": 900000
+        }
       },
       "id": "eb481170-3930-42b3-93e6-fc96b9ffd400",
       "name": "Agent Spec Normalizer",
@@ -1566,7 +1605,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Corps de l'appel « Agent Monitoring » — construit dans un nœud Code car $('…').first()\n// ne se résout pas dans un champ body d'httpRequest (règle R2, prouvée par capture).\n// Le nœud HTTP envoie ={{ JSON.stringify($json) }} : format éprouvé (DAST, Go/No-Go).\nconst __j = $input.first().json;\nreturn [{ json: ({\n  task_id:     $('Validate Input').first().json.task_id,\n  environment: $('Validate Input').first().json.environment,\n  service_url: 'https://app-' + $('Validate Input').first().json.environment + '.monprojet.com',\n  deployed_at: $('Agent DevOps/Deploy').first().json.deployed_at || new Date().toISOString(),\n  simulate:    'healthy'\n}) }];"
+        "jsCode": "// Corps de l'appel « Agent Monitoring » — construit dans un nœud Code car $('…').first()\n// ne se résout pas dans un champ body d'httpRequest (règle R2, prouvée par capture).\n// Le nœud HTTP envoie ={{ JSON.stringify($json) }} : format éprouvé (DAST, Go/No-Go).\nconst __j = $input.first().json;\nreturn [{ json: ({\n  task_id:     $('Validate Input').first().json.task_id,\n  environment: $('Validate Input').first().json.environment,\n  service_url: ($env.PUBLIC_APP_URL || 'http://localhost:3000'),\n  deployed_at: $('Agent DevOps/Deploy').first().json.deployed_at || new Date().toISOString(),\n  simulate:    'healthy'\n}) }];"
       },
       "id": "4d2f47e1-bfa7-48f7-9323-caa8509a43d2",
       "name": "Body — Monitoring",
@@ -1579,7 +1618,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Corps de l'appel « Agent Cost & Performance » — construit dans un nœud Code car $('…').first()\n// ne se résout pas dans un champ body d'httpRequest (règle R2, prouvée par capture).\n// Le nœud HTTP envoie ={{ JSON.stringify($json) }} : format éprouvé (DAST, Go/No-Go).\nconst __j = $input.first().json;\nreturn [{ json: ({\n  task_id:     $('Validate Input').first().json.task_id,\n  environment: $('Validate Input').first().json.environment,\n  service: {\n    url:       'https://app-' + $('Validate Input').first().json.environment + '.monprojet.com',\n    framework: $('Validate Input').first().json.framework,\n    language:  $('Validate Input').first().json.language,\n    status:    $('Agent Monitoring').first().json.monitoring_status || 'HEALTHY'\n  },\n  thresholds: {\n    max_cost_per_hour_usd: 0.5,\n    max_response_time_ms:  1000,\n    max_cpu_percent:       80,\n    max_memory_percent:    85\n  },\n  simulate: \"\"\n}) }];"
+        "jsCode": "// Corps de l'appel « Agent Cost & Performance » — construit dans un nœud Code car $('…').first()\n// ne se résout pas dans un champ body d'httpRequest (règle R2, prouvée par capture).\n// Le nœud HTTP envoie ={{ JSON.stringify($json) }} : format éprouvé (DAST, Go/No-Go).\nconst __j = $input.first().json;\nreturn [{ json: ({\n  task_id:     $('Validate Input').first().json.task_id,\n  environment: $('Validate Input').first().json.environment,\n  service: {\n    url:       ($env.PUBLIC_APP_URL || 'http://localhost:3000'),\n    framework: $('Validate Input').first().json.framework,\n    language:  $('Validate Input').first().json.language,\n    status:    $('Agent Monitoring').first().json.monitoring_status || 'HEALTHY'\n  },\n  thresholds: {\n    max_cost_per_hour_usd: 0.5,\n    max_response_time_ms:  1000,\n    max_cpu_percent:       80,\n    max_memory_percent:    85\n  },\n  simulate: \"\"\n}) }];"
       },
       "id": "716b1e41-abd6-4676-b8e2-c7cf3b0b330b",
       "name": "Body — Cost & Performance",
@@ -1592,7 +1631,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Corps de l'appel « Agent Runtime Feedback » — construit dans un nœud Code car $('…').first()\n// ne se résout pas dans un champ body d'httpRequest (règle R2, prouvée par capture).\n// Le nœud HTTP envoie ={{ JSON.stringify($json) }} : format éprouvé (DAST, Go/No-Go).\nconst __j = $input.first().json;\nreturn [{ json: ({\n  task_id:     $('Validate Input').first().json.task_id,\n  environment: $('Validate Input').first().json.environment,\n  incident: {\n    type:             'none',\n    severity:         'low',\n    service_url:      'https://app-' + $('Validate Input').first().json.environment + '.monprojet.com',\n    error_message:    'Aucun incident',\n    duration_minutes: 0\n  },\n  monitoring_report: {\n    status:     $('Agent Monitoring').first().json.monitoring_status || 'HEALTHY',\n    violations: $('Agent Monitoring').first().json.critical_issues   || []\n  }\n}) }];"
+        "jsCode": "// Corps de l'appel « Agent Runtime Feedback » — construit dans un nœud Code car $('…').first()\n// ne se résout pas dans un champ body d'httpRequest (règle R2, prouvée par capture).\n// Le nœud HTTP envoie ={{ JSON.stringify($json) }} : format éprouvé (DAST, Go/No-Go).\nconst __j = $input.first().json;\nreturn [{ json: ({\n  task_id:     $('Validate Input').first().json.task_id,\n  environment: $('Validate Input').first().json.environment,\n  incident: {\n    type:             'none',\n    severity:         'low',\n    service_url:      ($env.PUBLIC_APP_URL || 'http://localhost:3000'),\n    error_message:    'Aucun incident',\n    duration_minutes: 0\n  },\n  monitoring_report: {\n    status:     $('Agent Monitoring').first().json.monitoring_status || 'HEALTHY',\n    violations: $('Agent Monitoring').first().json.critical_issues   || []\n  }\n}) }];"
       },
       "id": "6bd9951c-f3bd-464e-bddd-752c2f314895",
       "name": "Body — Runtime Feedback",
