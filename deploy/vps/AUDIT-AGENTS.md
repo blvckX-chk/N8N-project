@@ -39,8 +39,8 @@ octets au serveur témoin). Elles sont **non négociables** pour tout nœud futu
    → Après un fix de pipeline, TOUJOURS régénérer en **frais** (nouveau nom de projet),
    puis seulement itérer en improve.
 
-Versions courantes : Orchestrateur **V6.23**, Normalizer **V1.21**, Architect **V5.12**,
-Backend **V6.32**, Frontend **V6.27**, QA **V5.13**, Documentation **V5.9**, SAST **V5.8**,
+Versions courantes : Orchestrateur **V6.24**, Normalizer **V1.21**, Architect **V5.12**,
+Backend **V6.33**, Frontend **V6.28**, QA **V5.13**, Documentation **V5.9**, SAST **V5.8**,
 Go/No-Go **V1.5**, Knowledge Memory **V2.1**, panel **7.2**.
 
 ## 2. 🔴 P0 restants (bloquants pour des verdicts fiables)
@@ -128,9 +128,20 @@ escrow auto-libéré ; transaction créée sur la réservation d'un autre ; note
 Vérifié en exécution : DiaspoKoli 12/12 tests (dont test métier généré) + 15 scénarios manuels ;
 non-régression bibliothèque 11/11 et app personnelle (statut libre pour le propriétaire) 11/11 ; SAST 100.
 
-### B2 (prochain lot)
-1. Frontend : bouton « changer le statut » pour le tiers (consomme `stores[*].controlled_status`), vue « reçues » vs « envoyées ».
-2. Rôles depuis la spécification (voyageur / expéditeur / admin) : bootstrap admin, validation KYC et escrow réellement utilisables.
-3. REWORK : livrer quand même README + scripts de démarrage (aujourd'hui le pipeline s'arrête avant Documentation).
-4. Montants en entiers (FCFA) ; dates d'événement futures ; route `GET /<r>/:id` systématique ; 404 JSON.
-5. Règles métier de la spec (« 3 emprunts max », « montant = poids × prix ») : extraction par le Normalizer en règles typées, appliquées par le générateur.
+### B2 (fait, Backend 6.33 · Frontend 6.28 · Orchestrateur 6.24)
+| Point | Réalisation | Preuve |
+|---|---|---|
+| Statut par le tiers | `_peut_<statut>` par ligne ; badge + menu dans la liste ; filtre « Reçues / Envoyées » (`?vue=`) | navigateur : le voyageur passe une réservation « en attente » → « acceptee », 0 erreur console |
+| Rôle admin | activé seul si un statut est réservé à un admin (KYC, escrow) ; 1er compte = admin ; l'admin voit toutes les lignes concernées | admin valide un KYC (200), l'utilisatrice elle-même (403), test généré |
+| REWORK livrable | README déterministe (points à reprendre, règles, API) + scripts de démarrage | rejeu du nœud Respond STOP |
+| Socle | `GET /<r>/:id`, 404 JSON, date d'événement passée refusée, montants FCFA entiers | rejeu HTTP |
+| Règles de la spec | bornes, plafond par entité (hors statuts clos), unicité, champ calculé ; non reconnues listées | DiaspoKoli : montant = 6 × 5 000 = 30 000 imposé ; 6e trajet refusé ; 35 kg refusé (≤ 30) ; bibliothèque : 4e emprunt refusé, accepté après un retour |
+
+Non-régression : DiaspoKoli 14/14, bibliothèque 11/11, app personnelle 11/11, SAST 100, 149 nœuds compilés.
+
+### B3 (prochain lot)
+1. Paiement réel (sandbox Mobile Money / FedaPay / Kkiapay) derrière l'escrow ; libération conditionnée à la livraison confirmée.
+2. Délais (« libéré 48 h après livraison », « annulation gratuite 24 h avant ») : règles temporelles et tâche planifiée.
+3. Notifications (e-mail / WhatsApp) sur changement de statut ; historique des statuts.
+4. Rôles métier exclusifs déclarés dans la spec (voyageur vs expéditeur) quand la spec l'exige.
+5. Pièces jointes liées (photo du colis, document KYC) via `/api/uploads` au lieu d'URL libres.
