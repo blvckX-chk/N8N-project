@@ -366,6 +366,36 @@ table.t .act{display:flex;gap:6px;justify-content:flex-end}
 @media (prefers-reduced-motion: reduce){
   *{animation:none!important;transition:none!important}
 }
+
+/* ── Aperçu de compréhension ─────────────────────────────────────────── */
+.check-row{margin:0 0 12px}.check-row .btn{width:100%;height:42px}.check-row .small-out{margin-top:6px}
+.und{border-top:2px solid var(--rule);padding-top:18px;margin-top:8px}
+.stage.understanding #sheet,.stage.understanding #idle-copy,.stage.understanding .run-head,.stage.understanding #rail{display:none}
+.und-h{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.und-h h2{font-size:22px;font-weight:800;letter-spacing:-.02em}
+.und-h .meta{font:12px var(--mono);color:var(--mute)}
+.und-name{display:flex;align-items:center;gap:12px;margin:14px 0 6px}.und-name label{font-size:13px;color:var(--mute);white-space:nowrap}.und-name .field{max-width:360px;font-weight:700}
+.und-lint{font-size:13px;color:var(--mute);margin:6px 0 14px}.und-lint b{color:var(--ink)}
+.und-res{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);margin:12px 0;overflow:hidden}
+.und-res-h{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--raised)}
+.und-res-h input{font-weight:700;font-size:15px;border:0;background:transparent;padding:4px 0;min-width:0;flex:1}
+.und-res-h input:focus{outline:none;border-bottom:1px solid var(--signal)}
+.und-res-h .n{font:12px var(--mono);color:var(--mute)}
+.und-f{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:7px 14px;border-bottom:1px solid var(--line)}
+.und-f:last-of-type{border-bottom:0}
+.und-f input[type=text],.und-f select{height:32px;padding:4px 8px;font-size:13px}
+.und-f .req{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--mute);white-space:nowrap}
+.und-x{width:30px;height:30px;border:1px solid transparent;border-radius:var(--r);background:none;color:var(--mute);font-size:16px;line-height:1}
+.und-x:hover{border-color:var(--line);color:var(--signal-text)}
+.und-add{display:flex;gap:8px;padding:10px 14px;background:var(--surface)}
+.und-add .btn{height:32px;font-size:12.5px}
+.und-sec{margin-top:20px}.und-sec h3{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);margin-bottom:8px}
+.und-sec textarea.field{min-height:110px}
+.und-note{font-size:12.5px;color:var(--mute);margin-top:6px}
+.und-actions{display:flex;gap:10px;flex-wrap:wrap;margin:22px 0 6px;position:sticky;bottom:0;background:var(--bg);padding:12px 0;border-top:1px solid var(--line)}
+.und-actions .cta-s{height:44px;padding:0 18px;border:0;border-radius:var(--r);background:var(--ink);color:var(--bg);font-weight:700;font-size:14px}
+.und-warn{border-left:3px solid var(--signal);padding:8px 12px;background:var(--signal-soft);font-size:13px;margin:10px 0}
+@media (max-width:600px){.und-f{grid-template-columns:1fr 1fr;}.und-f .req{grid-column:1}.und-x{justify-self:end}}
 </style>
 </head>
 <body>
@@ -438,6 +468,10 @@ table.t .act{display:flex;gap:6px;justify-content:flex-end}
       </div>
     </section>
 
+    <div class="check-row" id="check-row">
+      <button class="btn btn-check" id="btn-check" onclick="checkUnderstanding()">Vérifier ce que Forge a compris</button>
+      <p class="small-out">Un seul appel au LLM, sans générer de code : tu corriges avant de lancer.</p>
+    </div>
     <button class="cta" id="btn-launch" onclick="runPipeline()"><span><span class="sig" aria-hidden="true"></span><span id="btn-text">Lancer la génération</span></span><kbd id="kbd-hint">Ctrl ↵</kbd></button>
   </aside>
 
@@ -459,6 +493,7 @@ table.t .act{display:flex;gap:6px;justify-content:flex-end}
       <div class="sheet" id="sheet"></div>
       <p class="untracked hidden" id="untracked">Suivi détaillé indisponible : l'orchestrateur n'envoie pas encore ses jalons (version antérieure à V6.22). Le résultat s'affichera dès qu'il sera prêt.</p>
     </div>
+    <div id="understand" class="hidden" aria-live="polite"></div>
     <div id="deliv"></div>
   </section>
 </div>
@@ -563,6 +598,7 @@ function switchTab(tab){
   ['text','pdf','docx','improve'].forEach(t=>$id('block-'+t).classList.toggle('hidden',t!==tab));
   $id('tab-hint').textContent=TAB_HINTS[tab]||'';
   if(tab==='improve')loadDeployedApps();
+  $id('check-row').classList.toggle('hidden',tab==='improve');
 }
 async function loadDeployedApps(){
   const sel=$id('deployed-app-select');
@@ -620,7 +656,7 @@ const STAGE_INFO={
   frontend:    {lbl:'Frontend', sub:'Interface web installable', short:'Frontend'},
   tests:       {lbl:'Tests L0', sub:'Contrôles de base', short:'Tests'},
   verification:{lbl:'Revue, QA, SAST', sub:'Qualité et analyse statique', short:'Revue'},
-  security:    {lbl:'SCA, Secrets, DAST', sub:'Dépendances, secrets, analyse dynamique', short:'Sécurité'},
+  security:    {lbl:'SCA, Secrets, DAST', sub:'Dépendances, secrets, motifs OWASP', short:'Sécurité'},
   gonogo:      {lbl:'Décision Go / No-Go', sub:'Arbitrage puis déploiement', short:'Go/No-Go'},
   monitoring:  {lbl:'Supervision et coûts', sub:'Monitoring, coûts, incidents', short:'Supervision'},
   docs:        {lbl:'Documentation et mémoire', sub:'README, base de connaissances', short:'Docs'}
@@ -738,6 +774,84 @@ function updateCost(){
 // ════════════════════════════════════════════════════════════════════════
 //  Lancement
 // ════════════════════════════════════════════════════════════════════════
+
+// ════════════════════════════════════════════════════════════════════════
+//  Aperçu de compréhension : ce que Forge a compris, corrigeable avant génération
+// ════════════════════════════════════════════════════════════════════════
+let UND=null;   // { text, source, understood, cost }
+const UND_TYPES=[['string','Texte'],['longtext','Texte long'],['number','Nombre'],['date','Date'],['boolean','Oui / non'],['email','E-mail'],['tel','Téléphone']];
+function undKind(name,t){
+  if(t&&typeof t==='object'&&t.type){const k=String(t.type).toLowerCase();if(k==='enum')return 'enum';if(k==='integer'||k==='real'||k==='float')return 'number';return UND_TYPES.some(x=>x[0]===k)?k:'string';}
+  if(t==='number')return 'number';const n=String(name).toLowerCase();
+  if(/(^|_)(date|jour)|naissance|echeance/.test(n))return 'date';if(/email|courriel/.test(n))return 'email';if(/tel|phone|mobile/.test(n))return 'tel';
+  if(/description|commentaire|message|motif|contenu|adresse|remarque/.test(n))return 'longtext';return 'string';
+}
+function undType(kind,orig){if(kind==='enum')return orig;if(kind==='number')return 'number';if(kind==='string')return 'string';return {type:kind};}
+function slugField(v){return String(v||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,40);}
+async function checkUnderstanding(){
+  if(isRunning)return;
+  let payload;try{payload=buildPayload();}catch(e){toast(e.message);return;}
+  const btn=$id('btn-check');btn.disabled=true;btn.textContent='Analyse de la spécification…';
+  const box=$id('understand');box.classList.remove('hidden');$id('deliv').innerHTML='';document.querySelector('.stage').classList.add('understanding');
+  box.innerHTML='<div class="und"><div class="und-h"><h2>Ce que Forge a compris</h2><span class="meta">analyse en cours…</span></div><p class="und-lint">Validation, puis lecture de la spécification par le Normalizer. Aucun code n’est généré à cette étape.</p></div>';
+  box.scrollIntoView({behavior:'smooth',block:'start'});
+  try{
+    const r=await fetch('/api/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const d=await r.json();
+    if(!r.ok||d.error){box.innerHTML='<div class="und"><div class="und-warn"><b>'+esc(d.error||('Erreur '+r.status))+'</b>'+(d.fix?'<br>'+esc(d.fix):'')+'</div></div>';return;}
+    if(!d.understood){const L=d.lint||{};box.innerHTML='<div class="und"><div class="und-h"><h2>Spécification à compléter</h2></div><div class="und-warn">'+esc(L.summary||'Spécification insuffisante')+'</div><ul class="list">'+(L.errors||[]).map(e=>'<li><span class="mark-s" style="color:var(--err)">!</span><span>'+esc(e.message||e.rule)+'</span></li>').join('')+'</ul></div>';return;}
+    UND={text:d.text,source:d.source,understood:JSON.parse(JSON.stringify(d.understood)),cost:d.cost,lint:d.lint,payload};
+    renderUnderstanding();refreshCredits&&refreshCredits();
+  }catch(e){box.innerHTML='<div class="und"><div class="und-warn">Aperçu impossible : '+esc(e.message)+'</div></div>';}
+  finally{btn.disabled=false;btn.textContent='Vérifier ce que Forge a compris';}
+}
+function renderUnderstanding(){
+  const u=UND.understood,box=$id('understand');const L=Object.assign({},UND.lint||{});L.warnings=(L.warnings||[]).filter(w=>!/^P2-/.test(w.rule||''));
+  const warn=(L.warnings||[]).length?(L.warnings.length+' remarque'+(L.warnings.length>1?'s':'')+' du validateur : '+L.warnings.map(w=>w.message||w.rule).slice(0,3).join(' · ')):'Spécification valide.';
+  let h='<div class="und"><div class="und-h"><h2>Ce que Forge a compris</h2><span class="meta">source : '+esc(UND.source)+(UND.cost>0?' · aperçu : '+esc(crTxt(UND.cost).replace('−','')):'')+'</span></div>';
+  if(u.degraded)h+='<div class="und-warn">Le LLM n’a pas répondu : cette lecture vient de l’extraction automatique. Vérifie-la attentivement.</div>';
+  h+='<div class="und-name"><label for="und-pn">Nom du projet</label><input class="field" id="und-pn" value="'+esc(u.project_name)+'"></div>';
+  h+='<p class="und-lint">Vérifie les ressources, les champs, les rôles et les règles : la génération utilisera exactement cette structure.</p>';
+  h+='<div id="und-list">'+u.resources.map((r,ri)=>resHtml(r,ri)).join('')+'</div>';
+  h+='<button class="btn" onclick="undAddRes()">Ajouter une ressource</button>';
+  if((u.deferred||[]).length)h+='<p class="und-note">Mises de côté pour une version suivante : '+esc(u.deferred.join(', '))+'. Ajoute-les ci-dessus si elles font partie de cette version.</p>';
+  h+='<div class="und-sec"><h3>Rôles</h3><input class="field" id="und-roles" value="'+esc((u.actors||[]).join(', '))+'" placeholder="ex. voyageur, expéditeur, administrateur"><p class="und-note">Séparés par des virgules.</p></div>';
+  h+='<div class="und-sec"><h3>Règles métier</h3><textarea class="field" id="und-rules" placeholder="Une règle par ligne, ex. : Le poids estimé ne peut pas dépasser 30 kg">'+esc((u.business_rules||[]).join('\n'))+'</textarea><p class="und-note">Chaque règle est appliquée par le serveur si elle est reconnue (bornes, plafonds, unicité, calculs, délais) ; sinon elle est listée « à implémenter » dans le livrable.</p></div>';
+  h+='<div class="und-actions"><button class="cta-s" onclick="generateConfirmed()">Générer avec cette compréhension</button><button class="btn" onclick="closeUnderstanding()">Corriger la spécification</button></div></div>';
+  box.innerHTML=h;
+}
+function resHtml(r,ri){
+  const fields=Object.keys(r.fields||{});
+  return '<div class="und-res" data-ri="'+ri+'"><div class="und-res-h"><input aria-label="Nom de la ressource" value="'+esc(r.name_plural)+'" onchange="UND.understood.resources['+ri+'].name_plural=slugField(this.value);UND.understood.resources['+ri+'].name=UND.understood.resources['+ri+'].name_plural.replace(/s$/,\'\')"><span class="n">'+fields.length+' champ'+(fields.length>1?'s':'')+'</span><button class="und-x" title="Retirer cette ressource" aria-label="Retirer la ressource '+esc(r.name_plural)+'" onclick="undDelRes('+ri+')">×</button></div>'+
+    fields.map(f=>{const k=undKind(f,r.fields[f]);const req=(r.required_fields||[]).indexOf(f)>=0;
+      return '<div class="und-f"><input type="text" class="field" aria-label="Nom du champ" value="'+esc(f)+'" onchange="undRenField('+ri+',\''+esc(f)+'\',this.value)">'+
+        '<select class="field" aria-label="Type de '+esc(f)+'" onchange="undSetType('+ri+',\''+esc(f)+'\',this.value)">'+(k==='enum'?'<option value="enum" selected>Liste ('+esc(((r.fields[f]||{}).values||[]).slice(0,4).join(', '))+')</option>':'')+UND_TYPES.map(t=>'<option value="'+t[0]+'"'+(t[0]===k?' selected':'')+'>'+t[1]+'</option>').join('')+'</select>'+
+        '<label class="req"><input type="checkbox"'+(req?' checked':'')+' onchange="undSetReq('+ri+',\''+esc(f)+'\',this.checked)">obligatoire</label>'+
+        '<button class="und-x" title="Retirer ce champ" aria-label="Retirer le champ '+esc(f)+'" onclick="undDelField('+ri+',\''+esc(f)+'\')">×</button></div>';}).join('')+
+    '<div class="und-add"><input class="field" style="height:32px;font-size:13px" placeholder="Nouveau champ, ex. telephone" id="und-new-'+ri+'" onkeydown="if(event.key===\'Enter\'){undAddField('+ri+');}"><button class="btn" onclick="undAddField('+ri+')">Ajouter</button></div></div>';
+}
+function undSync(){const u=UND.understood;const pn=$id('und-pn');if(pn)u.project_name=pn.value.trim();const ro=$id('und-roles');if(ro)u.actors=ro.value.split(',').map(x=>x.trim()).filter(Boolean);const ru=$id('und-rules');if(ru)u.business_rules=ru.value.split('\n').map(x=>x.trim()).filter(Boolean);}
+function undRedraw(){undSync();renderUnderstanding();}
+function undDelRes(ri){UND.understood.resources.splice(ri,1);undRedraw();}
+function undAddRes(){undSync();const n=prompt('Nom de la ressource (au pluriel), ex. paiements');const s=slugField(n);if(!s)return;UND.understood.resources.push({name:s.replace(/s$/,''),name_plural:s,fields:{},required_fields:[]});renderUnderstanding();}
+function undAddField(ri){const inp=$id('und-new-'+ri);const f=slugField(inp&&inp.value);if(!f)return;const r=UND.understood.resources[ri];if(r.fields[f]){toast('Ce champ existe déjà.');return;}r.fields[f]=undType(undKind(f,null),null);undRedraw();}
+function undDelField(ri,f){const r=UND.understood.resources[ri];delete r.fields[f];r.required_fields=(r.required_fields||[]).filter(x=>x!==f);undRedraw();}
+function undRenField(ri,f,v){const r=UND.understood.resources[ri];const n=slugField(v);if(!n||n===f)return;const o={};Object.keys(r.fields).forEach(k=>{o[k===f?n:k]=r.fields[k];});r.fields=o;r.required_fields=(r.required_fields||[]).map(x=>x===f?n:x);undRedraw();}
+function undSetType(ri,f,k){const r=UND.understood.resources[ri];r.fields[f]=undType(k,r.fields[f]);}
+function undSetReq(ri,f,on){const r=UND.understood.resources[ri];r.required_fields=(r.required_fields||[]).filter(x=>x!==f);if(on)r.required_fields.push(f);}
+function closeUnderstanding(){$id('understand').classList.add('hidden');document.querySelector('.stage').classList.remove('understanding');$id('input-text').focus();}
+function generateConfirmed(){
+  undSync();const u=UND.understood;
+  if(!u.resources.length){toast('Garde au moins une ressource.');return;}
+  if(u.resources.some(r=>!Object.keys(r.fields).length)){toast('Chaque ressource doit avoir au moins un champ.');return;}
+  const conf={project_name:u.project_name||'Application',resources:u.resources.map(r=>({name:r.name,name_plural:r.name_plural,fields:r.fields,required_fields:(r.required_fields||[]).filter(f=>r.fields[f]!==undefined)})),business_rules:u.business_rules||[],actors:u.actors||[]};
+  // Le texte d'origine reste la référence ; la structure confirmée le précède dans la lecture du Normalizer.
+  const spec=UND.text+'\n\nSTRUCTURE CONFIRMÉE PAR L’UTILISATEUR (prioritaire sur le reste du texte)\n```json\n'+JSON.stringify(conf,null,1)+'\n```\n';
+  const base=baseParams();
+  $id('understand').classList.add('hidden');document.querySelector('.stage').classList.remove('understanding');
+  runPipeline({...base,userRequest:spec,confirmed_structure:true});
+}
+
 async function runPipeline(overridePayload){
   if(isRunning)return;
   let payload;

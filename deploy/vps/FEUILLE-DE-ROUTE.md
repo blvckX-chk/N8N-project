@@ -79,9 +79,18 @@ lots B1 à B4, et reste de la revue des agents (`REVUE-AGENTS.md`). Chaque ligne
 
 Effort : S ≈ une demi-journée, M ≈ un à deux jours, L ≈ plus de deux jours.
 
+### Priorité 0 — Design thinking (voir `DESIGN-THINKING.md`)
+| # | Tâche | Statut | Effort |
+|---|---|---|---|
+| 0.1 | **« Ce que Forge a compris »** : aperçu corrigeable avant génération ; génération confirmée sans nouvel appel LLM | **Prototype fait** (panel 7.3, Normalizer 1.23) — à valider en réel | — |
+| 0.2 | Tests utilisateurs (5 personnes, 5 tâches, SUS) | À faire après déploiement | M |
+| 0.3 | Parcours par rôle dans l'app générée (« Mes trajets », « Réservations reçues ») | À prototyper | M |
+| 0.4 | Page « Preuves » dans le livrable (tests exécutés, DAST, règles appliquées ou non) | Après 1.1–1.2 | S |
+| 0.5 | Gabarits de spécification par domaine ; estimation coût/durée avant lancement | Plus tard | S |
+
 ## 3. Ordre conseillé
 
-1. **1.5** (vérifier l'état réel après import), puis **1.1 → 1.3** : le pipeline passe de « contrôlé
+1. **1.5 + 0.1** (vérifier l'état réel après import, en passant par l'écran « Ce que Forge a compris »), puis **0.2** (tests utilisateurs), puis **1.1 → 1.3** : le pipeline passe de « contrôlé
    par analyse » à « prouvé par exécution » — c'est l'argument le plus fort pour la soutenance.
 2. **3.4 + 3.5** : filet de sécurité automatique avant d'élargir le périmètre.
 3. **2.3, 2.1, 2.2** : qualité perçue des applications générées.

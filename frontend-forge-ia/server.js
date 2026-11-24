@@ -8,7 +8,7 @@ const telemetry = require('./telemetry');
 const app  = express();
 const PORT = process.env.PORT || 3000;
 const APP_VERSION = '6.0.0';
-const UI_BUILD    = '7.2';    // v7 + verdict honnête, crédits fractionnaires, ZIP valide (CRC)
+const UI_BUILD    = '7.3';    // v7 + verdict honnête, crédits fractionnaires, ZIP valide (CRC)
 // Authentification du panel : identifiants via env (FORGE_USER / FORGE_PASS).
 const AUTH_USER = process.env.FORGE_USER || '';
 const AUTH_PASS = process.env.FORGE_PASS || '';
@@ -113,6 +113,58 @@ function diagnose(sig) {
 }
 
 // ── Pipeline asynchrone : lance + stocke le résultat ──────────────────────
+// ── Aperçu de compréhension (avant génération) ─────────────────────────────
+// Extrait le texte (PDF/DOCX), le passe au Linter (gratuit) puis au Normalizer (un appel LLM),
+// et renvoie ce que Forge a compris. Aucun code n'est généré, aucun autre agent n'est appelé.
+const N8N_BASE      = N8N_URL.replace(/\/webhook\/[^/]+$/, '/webhook/');
+const NORMALIZER_URL = process.env.NORMALIZER_URL || (N8N_BASE + 'spec-normalizer');
+const LINTER_URL     = process.env.LINTER_URL     || (N8N_BASE + 'spec-linter');
+const EXTRACTOR_URL  = process.env.EXTRACTOR_URL  || 'http://forge-extractor:3002';
+async function postJson(url, body, ms) {
+  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), ms || 60000);
+  try {
+    const r = await nodeFetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ctl.signal });
+    const txt = await r.text(); let j = null; try { j = JSON.parse(txt); } catch (e) {}
+    if (!r.ok || !j) throw new Error((url.split('/').pop()) + ' a répondu HTTP ' + r.status);
+    return j;
+  } finally { clearTimeout(t); }
+}
+app.post('/api/preview', async (req, res) => {
+  const b = req.body || {};
+  const taskId = 'PREVIEW-' + Date.now();
+  try {
+    let text = String(b.userRequest || '').trim(); let source = 'texte';
+    if (!text && (b.pdf_base64 || b.docx_base64)) {
+      const isPdf = !!b.pdf_base64; source = isPdf ? 'PDF' : 'Word';
+      const ex = await postJson(EXTRACTOR_URL + (isPdf ? '/extract' : '/extract-docx'), isPdf ? { pdf_base64: b.pdf_base64, filename: b.pdf_filename } : { docx_base64: b.docx_base64, filename: b.docx_filename }, 60000);
+      text = String(ex.text || '').trim();
+      if (!text) return res.status(422).json({ error: 'Le document ne contient pas de texte exploitable.', detail: ex.error || null });
+    }
+    if (!text) return res.status(400).json({ error: 'Spécification vide.' });
+    const lint = await postJson(LINTER_URL, { task_id: taskId, userRequest: text }, 30000).catch(e => ({ linter_status: 'INCONNU', errors: [], warnings: [], summary: e.message }));
+    if (lint.linter_status === 'FAIL') return res.json({ text, source, lint, understood: null });
+    const before = telemetry.summary().credits_remaining;
+    const norm = await postJson(NORMALIZER_URL, { task_id: taskId, userRequest: text, language: b.language || 'javascript', framework: b.framework || 'express' }, 180000);
+    const after = telemetry.summary().credits_remaining;
+    const strip = o => { const f = Object.assign({}, o || {}); delete f.id; delete f.created_at; return f; };
+    res.json({
+      text, source, lint,
+      understood: {
+        project_name: norm.display_name || norm.project_name || '',
+        resources: (norm.resources || []).map(r => ({ name: r.name, name_plural: r.name_plural || (r.name + 's'), fields: strip(r.fields), required_fields: (r.required_fields || []).filter(x => x !== 'id' && x !== 'created_at') })),
+        deferred: (norm.deferred_resources || []).map(r => r.name_plural || r.name),
+        business_rules: norm.business_rules || [],
+        actors: norm.actors || [],
+        degraded: !!norm.degraded, status: norm.status || null
+      },
+      cost: (before != null && after != null && before >= after) ? Math.round((before - after) * 10) / 10 : null
+    });
+  } catch (e) {
+    const d = diagnose(e.message);
+    res.status(502).json({ error: 'Aperçu impossible : ' + e.message, cause: d.cause, fix: d.fix });
+  }
+});
+
 app.post('/api/pipeline', async (req, res) => {
   const taskId = req.body.task_id || ('TASK-' + Date.now());
   // Répondre immédiatement avec le task_id
