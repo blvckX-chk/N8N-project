@@ -39,9 +39,9 @@ octets au serveur témoin). Elles sont **non négociables** pour tout nœud futu
    → Après un fix de pipeline, TOUJOURS régénérer en **frais** (nouveau nom de projet),
    puis seulement itérer en improve.
 
-Versions courantes : Orchestrateur **V6.24**, Normalizer **V1.21**, Architect **V5.12**,
-Backend **V6.33**, Frontend **V6.28**, QA **V5.13**, Documentation **V5.9**, SAST **V5.8**,
-Go/No-Go **V1.5**, Knowledge Memory **V2.1**, panel **7.2**.
+Versions courantes : Orchestrateur **V6.26**, Normalizer **V1.21**, Architect **V5.12**,
+Backend **V6.35**, Frontend **V6.30**, QA **V5.14**, Documentation **V5.11**, SAST **V5.8**,
+Go/No-Go **V1.6**, Knowledge Memory **V2.1**, panel **7.2**.
 
 ## 2. 🔴 P0 restants (bloquants pour des verdicts fiables)
 
@@ -139,9 +139,33 @@ non-régression bibliothèque 11/11 et app personnelle (statut libre pour le pro
 
 Non-régression : DiaspoKoli 14/14, bibliothèque 11/11, app personnelle 11/11, SAST 100, 149 nœuds compilés.
 
-### B3 (prochain lot)
-1. Paiement réel (sandbox Mobile Money / FedaPay / Kkiapay) derrière l'escrow ; libération conditionnée à la livraison confirmée.
-2. Délais (« libéré 48 h après livraison », « annulation gratuite 24 h avant ») : règles temporelles et tâche planifiée.
-3. Notifications (e-mail / WhatsApp) sur changement de statut ; historique des statuts.
-4. Rôles métier exclusifs déclarés dans la spec (voyageur vs expéditeur) quand la spec l'exige.
-5. Pièces jointes liées (photo du colis, document KYC) via `/api/uploads` au lieu d'URL libres.
+### Contrôles (24 nov.) — agents d'audit remis d'aplomb
+| Agent | Défaut constaté | Correction |
+|---|---|---|
+| QA | code tronqué à 40 000 caractères (moitié de server.js) ; couverture inventée par le LLM | assemblage par fichier ; preuve exacte exigée par anomalie (sinon écartée) ; couverture mesurée sur les tests |
+| Code Review | tronqué à 50 000 caractères ; fichier « ? » ; règle innerHTML qui aurait tout classé XSS | analyse par fichier sans troncature ; règle XSS sur données non échappées |
+| SAST / Secrets | frontend non analysé | backend + frontend |
+| SCA | package.json fictif en cas d'échec | erreur honnête (R5) |
+| DAST | présenté comme dynamique | étiqueté « statique » jusqu'au panel |
+
+### Livrables sans traces de fabrication
+Nœuds « Finition livrable » de l'Orchestrateur + générateurs corrigés à la source : plus d'étiquettes de lots
+(P5, B1, Tier 2…), de séparateurs décoratifs, d'émojis, de mention de l'outil ni de messages sans accents ;
+en-tête « Règles métier » rédigé ; README de projet ; SECURITY.md exact ; jeux de test réalistes.
+
+### B3 (fait, Backend 6.35 · Frontend 6.30)
+| Point | Preuve (navigateur + HTTP, DiaspoKoli) |
+|---|---|
+| Notifications + historique | « Nouvelle réservation sur votre trajet n°1 » dans la cloche ; historique de statut 200 pour les parties, 404 pour un tiers |
+| Pièces jointes | photo du colis téléversée et jointe ; visible du voyageur (200), invisible d'un intrus (404) ; fichier d'autrui ou `javascript:` refusés (400) |
+| Échéances | « libérés 48 h après livraison » reconnu ; escrow passé à « libéré » après 49 h simulées, uniquement si payé |
+| Paiement | « Payer » → 30 000 FCFA payé (simulation) ; double paiement 409 ; FedaPay : création + jeton de paiement + webhook revérifié (à valider avec une clé sandbox) |
+
+Non-régression : DiaspoKoli 16/16, bibliothèque 12/12, tâches 12/12 ; SAST, Code Review, Secrets 100 ; 0 erreur console.
+
+### B4 (prochain lot)
+1. Exécuter les tests générés (`npm test`) et un vrai DAST sur l'instance déployée par le service de déploiement ; remonter les résultats au Go/No-Go.
+2. Valider FedaPay avec une clé sandbox réelle ; ajouter Kkiapay / Mobile Money si besoin.
+3. Rôles exclusifs déclarés dans la spec (voyageur / expéditeur) et écrans dédiés.
+4. Règles « avant » (annulation gratuite 24 h avant le départ) et remboursements.
+5. Pile TypeScript (NestJS) et Python (FastAPI) annoncées dans le panel.
