@@ -39,16 +39,16 @@ Note : A = fiable en production · B = fiable, réserves mineures · C = simulé
 
 | Agent | Rôle | Constat | Correction | Reste | Note |
 |---|---|---|---|---|---|
-| **Backend** 6.36 | Génère serveur, base, tests (déterministe) | Entrée vide → application générique PASS 100 | Spécification invalide → `ERROR` ; version de l'app générée préservée | — | A |
+| **Backend** 6.37 | Génère serveur, base, tests (déterministe) | Entrée vide → application générique PASS 100 | Spécification invalide → `ERROR` ; version de l'app générée préservée | — | A |
 | **Frontend** 6.31 | Génère l'interface (déterministe) | Exception non rattrapée sans `userRequest` (webhook en 500) ; entrée vide → PASS | Repli sur le nom du projet ; sans spécification → `ERROR` | Chemin « amélioration par LLM » non rejoué au banc | B |
-| **Tests L0** 1.2 | Contrôle statique de déployabilité | Plantage sur corps illisible ; pas de champ `status` | Corps illisible → `FAIL` ; `status` standard | — | A |
+| **Tests L0** 1.3 | Contrôle statique de déployabilité | Plantage sur corps illisible ; pas de champ `status` | Corps illisible → `FAIL` ; `status` standard | — | A |
 
 ### Contrôle et sécurité
 
 | Agent | Rôle | Constat | Correction | Reste | Note |
 |---|---|---|---|---|---|
 | **Code Review** 5.2 | Règles OWASP par fichier | (déjà corrigé le 24 : troncature, fichier « ? », XSS) ; repli Switch absent | Repli sur la sortie `error` | — | A |
-| **QA** 5.15 | Revue qualité par LLM, preuves exigées | **LLM en panne → 100/100 ; LLM illisible → PASS 100** ; versions 5.6 dans les sorties | Analyse non exécutée → `ERROR`, score nul, message explicite ; versions alignées | Délai LLM 3 min (borne de coût) | A |
+| **QA** 5.16 | Revue qualité par LLM, preuves exigées | **LLM en panne → 100/100 ; LLM illisible → PASS 100** ; versions 5.6 dans les sorties | Analyse non exécutée → `ERROR`, score nul, message explicite ; versions alignées | Délai LLM 3 min (borne de coût). 25/11 : réponse coupée → anomalies récupérées, plus d'ERROR | A |
 | **SAST** 5.9 | Règles + Semgrep | Code absent → `FAIL` (« vulnérabilités ») au lieu d'analyse impossible | → `ERROR` | — | A |
 | **SCA** 5.5 | CVE des dépendances (OSV) | Appel OSV sans délai | Délai 20 s | — | A |
 | **Secrets** 5.3 | Secrets dans le code (backend + frontend) | Fuite détectée → FAIL 52, Go/No-Go STOP : conforme | Repli Switch | — | A |

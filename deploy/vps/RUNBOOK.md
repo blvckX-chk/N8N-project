@@ -246,6 +246,9 @@ changement fonctionnel** de l'agent, pour retracer quelle build a produit une so
 
 | Agent | Version | Date | Changement |
 |---|---|---|---|
+| Backend | 6.37 | 2026-11-25 | Noms réservés : une ressource `users`/`utilisateurs`/`notifications`/`uploads`… est renommée (`profils`, `alertes`, `documents`) au lieu d'écraser la table interne ; règles de la spec : les cellules de tableau PDF, indicateurs et fragments ne sont plus repris en « À implémenter » ; express ^4.21.2, dotenv ^16.4.5 (CVE modérées d'express 4.18) |
+| QA | 5.16 | 2026-11-25 | Réponse coupée (max_tokens) ou JSON entouré de texte : anomalies complètes récupérées au lieu d'un ERROR ; sortie 8000 jetons, 15 anomalies max ; modèle de secours sur extrait réduit (`FALLBACK_LLM_MAX_INPUT_CHARS`, 24 000 par défaut) ; analyse incomplète → jamais PASS |
+| Tests L0 | 1.3 | 2026-11-25 | Corps illisible : `status` FAIL renvoyé (clé en double supprimée) |
 | Spec_Normalizer | 1.19 | 2026-11-15 | Body LLM = objet `{{ $json }}` (fin du body vide/double-encodé) ; extraction générique d'entités « Nom : champ, champ » (fallback plus jamais aveugle au domaine) |
 | Architect | 5.10 | 2026-11-15 | Body `{{ $json }}` ; le validateur d'entrée préserve `structured_context`/`specs_context` (le domaine atteint enfin l'Architect) |
 | Backend | 6.30 | 2026-11-15 | Validate Specs préserve stores/data_model/rôles ; branche `llm_improve` morte neutralisée honnêtement ; `package.json name` = slug(project_name) |

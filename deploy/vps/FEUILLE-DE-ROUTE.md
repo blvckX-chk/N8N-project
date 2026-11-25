@@ -25,7 +25,7 @@ lots B1 à B4, et reste de la revue des agents (`REVUE-AGENTS.md`). Chaque ligne
 | 1.2 | **DAST dynamique** sur l'instance déployée (en-têtes, authentification, IDOR, injection sur les vraies routes) au lieu des motifs statiques | B4, revue (DAST note C) | M |
 | 1.3 | Brancher **Monitoring / Cost / Runtime** sur l'instance déployée (`/health`, temps de réponse, mémoire) : fin des données simulées | revue (notes C) | M |
 | 1.4 | **Valider FedaPay en sandbox** avec ta clé ; ajouter Kkiapay ou Mobile Money si nécessaire | B4 | S |
-| 1.5 | Rejouer une génération DiaspoKoli **réelle** après import et la comparer au banc | revue | S |
+| 1.5 | ~~Rejouer une génération DiaspoKoli réelle~~ **Fait le 25/11** : 4 défauts trouvés et corrigés (table `users` en double, lignes de tableau PDF dans les règles, QA en ERROR sur réponse coupée, express 4.18 vulnérable) ; à rejouer après import | revue | S |
 
 ### Priorité 2 — Qualité des applications générées
 | # | Tâche | Origine | Effort |
